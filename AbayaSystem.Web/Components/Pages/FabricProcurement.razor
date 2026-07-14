@@ -1,0 +1,169 @@
+﻿@page "/procurement"
+@attribute [Authorize]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@inject IOrderService OrderService
+
+<div class="container-fluid py-4 mb-5">
+
+    <div class="card p-4 border-0 shadow-sm bg-primary text-white rounded-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="m-0 fw-bold text-uppercase tracking-wide">🧵 TEXTILE PROCUREMENT MATRIX</h3>
+                <small class="text-white-50">Live Sourcing & Custom Fabric Checklist</small>
+            </div>
+            <span class="badge bg-white text-primary fs-6 fw-bold px-3 py-2">
+                Total Pending: @(PendingAbayaFabrics.Count + PendingSheilaFabrics.Count) items
+            </span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 🛒 COLUMN 1: ABAYA FABRICS NEEDING BAZAAR PURCHASE -->
+        <div class="col-12 col-xl-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                <div class="card-header bg-dark text-white p-3 fw-bold text-uppercase d-flex justify-content-between align-items-center rounded-top-3">
+                    <span>👗 Abaya Body Fabrics (Shop Sourced)</span>
+                    <span class="badge bg-primary">@PendingAbayaFabrics.Count Required</span>
+                </div>
+                <div class="card-body p-3">
+                    @if (PendingAbayaFabrics.Count == 0)
+                    {
+                        <div class="text-center p-5 text-muted">
+                            <h4 class="fw-normal">🎉 Perfect Slate</h4>
+                            <p class="small m-0">All required dress fabrics are fully secured and cut-ready.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle border-top">
+                                <thead class="table-light text-secondary text-uppercase small">
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Material / Color Details</th>
+                                        <th>Style Summary</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in PendingAbayaFabrics)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary font-monospace p-2 fs-6 text-uppercase">@item.OrderId</span>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-primary fs-6">@item.FabricName</div>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted d-block text-truncate" style="max-width: 200px;">@item.ModelDescription</small>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-success fw-bold px-3 py-2 btn-sm" @onclick="() => ConfirmAbayaPurchaseAsync(item.OrderItemId)">
+                                                    ✓ Secure Fabric
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- 📐 COLUMN 2: CUSTOM OVERSIZED SHEILA SPECIFICATIONS -->
+        <div class="col-12 col-xl-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+                <div class="card-header bg-dark text-white p-3 fw-bold text-uppercase d-flex justify-content-between align-items-center rounded-top-3">
+                    <span>📐 Custom Sheila Cuts (28" x 90" XL)</span>
+                    <span class="badge bg-warning text-dark">@PendingSheilaFabrics.Count Required</span>
+                </div>
+                <div class="card-body p-3">
+                    @if (PendingSheilaFabrics.Count == 0)
+                    {
+                        <div class="text-center p-5 text-muted">
+                            <h4 class="fw-normal">✓ Sheets Balanced</h4>
+                            <p class="small m-0">No custom oversized sheila cuts pending in the system right now.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle border-top">
+                                <thead class="table-light text-secondary text-uppercase small">
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Dimension Requirement</th>
+                                        <th>Style Summary</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in PendingSheilaFabrics)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <span class="badge bg-secondary font-monospace p-2 fs-6 text-uppercase">@item.OrderId</span>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-warning-emphasis"><i class="bi bi-rulers"></i> @item.SheilaSizeText</div>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted d-block text-truncate" style="max-width: 200px;">@item.ModelDescription</small>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-warning fw-bold text-dark px-3 py-2 btn-sm" @onclick="() => ConfirmSheilaPurchaseAsync(item.OrderItemId)">
+                                                    ✓ Secure Cut
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<FabricProcurementItem> PendingAbayaFabrics { get; set; } = new();
+    private List<SheilaProcurementItem> PendingSheilaFabrics { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProcurementDataAsync();
+    }
+
+    private async Task LoadProcurementDataAsync()
+    {
+        PendingAbayaFabrics = await OrderService.GetPendingAbayaFabricsAsync();
+        PendingSheilaFabrics = await OrderService.GetPendingSheilaFabricsAsync();
+    }
+
+    private async Task ConfirmAbayaPurchaseAsync(int orderItemId)
+    {
+        var success = await OrderService.MarkFabricAsBoughtAsync(orderItemId, isSheila: false);
+        if (success)
+        {
+            await LoadProcurementDataAsync(); // Refresh dashboard states immediately
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmSheilaPurchaseAsync(int orderItemId)
+    {
+        var success = await OrderService.MarkFabricAsBoughtAsync(orderItemId, isSheila: true);
+        if (success)
+        {
+            await LoadProcurementDataAsync(); // Refresh dashboard states immediately
+            StateHasChanged();
+        }
+    }
+}

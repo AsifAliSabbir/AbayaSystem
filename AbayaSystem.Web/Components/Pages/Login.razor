@@ -1,0 +1,397 @@
+﻿@page "/login"
+@attribute [AllowAnonymous]
+@using Microsoft.EntityFrameworkCore
+@using AbayaSystem.Infrastructure
+@using AbayaSystem.Web
+@using AbayaSystem.Core
+@inject BoutiqueDbContext DbContext
+@inject BoutiqueAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="login-wrapper d-flex align-items-center justify-content-center">
+    <div class="login-card shadow-lg border-0 rounded-4 overflow-hidden">
+
+        <!-- Luxury Branding Header Area -->
+        <div class="brand-header p-4 text-center text-white bg-dark">
+            <h2 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
+                ✨ ABAYA SYSTEM
+            </h2>
+            <p class="text-muted text-uppercase fw-bold mb-0 mt-2" style="font-size: 0.72rem; letter-spacing: 2px;">
+                Showroom Terminal Authentication
+            </p>
+        </div>
+
+        <!-- Mode Switcher Tabs -->
+        <div class="d-flex border-bottom text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 1px;">
+            <button class="flex-grow-1 py-3 border-0 @(IsWorkshopMode ? "bg-light text-muted" : "bg-white text-dark border-bottom border-3 border-warning")"
+                    @onclick="() => SetMode(false)">
+                💼 Sales & Admin
+            </button>
+            <button class="flex-grow-1 py-3 border-0 @(IsWorkshopMode ? "bg-white text-dark border-bottom border-3 border-warning" : "bg-light text-muted")"
+                    @onclick="() => SetMode(true)">
+                🪡 Workshop Express
+            </button>
+        </div>
+
+        <!-- Interactive Form Body -->
+        <div class="card-body p-4 bg-white">
+
+            <!-- Dynamic Alert for Validation or Database Errors -->
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <div class="alert alert-danger d-flex align-items-center gap-2 border-0 rounded-3 small py-3 px-4 mb-4" role="alert">
+                    <span class="bi bi-exclamation-triangle-fill"></span>
+                    <div>@ErrorMessage</div>
+                </div>
+            }
+
+            @if (!IsWorkshopMode)
+            {
+                <!-- ================= MODE 1: STANDARD SALES & ADMIN LOGIN ================= -->
+                <div>
+                    <div class="mb-3">
+                        <label for="username" class="form-label text-uppercase fw-bold text-muted small" style="letter-spacing: 0.5px;">
+                            Username / Worker ID
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-person"></i></span>
+                            <input type="text"
+                                   id="username"
+                                   class="form-control bg-light border-start-0 py-2.5 ps-0 shadow-none focus-ring"
+                                   placeholder="e.g., ahmed.mansoori"
+                                   @bind="Username"
+                                   @bind:event="oninput"
+                                   @onkeyup="HandleStandardKeyUp" />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label text-uppercase fw-bold text-muted small" style="letter-spacing: 0.5px;">
+                            Security Password
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-lock"></i></span>
+                            <input type="password"
+                                   id="password"
+                                   class="form-control bg-light border-start-0 py-2.5 ps-0 shadow-none focus-ring"
+                                   placeholder="••••••••"
+                                   @bind="Password"
+                                   @bind:event="oninput"
+                                   @onkeyup="HandleStandardKeyUp" />
+                        </div>
+                    </div>
+
+                    <!-- Execution Action Trigger -->
+                    <button type="button"
+                            class="btn w-100 py-3 rounded-3 fw-bold login-btn text-uppercase tracking-wider shadow-sm d-flex align-items-center justify-content-center gap-2"
+                            @onclick="ExecuteStandardLoginAsync"
+                            disabled="@IsProcessing">
+                        @if (IsProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Verifying...</span>
+                        }
+                        else
+                        {
+                            <span class="bi bi-shield-lock-fill"></span>
+                            <span>Enter Showroom Workspace</span>
+                        }
+                    </button>
+                </div>
+            }
+            else
+            {
+                <!-- ================= MODE 2: WORKSHOP 4-DIGIT EXPRESS PIN PAD ================= -->
+                <div class="text-center">
+                    <p class="text-muted text-uppercase fw-bold small mb-3" style="letter-spacing: 0.5px;">
+                        Enter your 4-Digit Workshop PIN
+                    </p>
+
+                    <!-- PIN Indicator Dots -->
+                    <div class="d-flex justify-content-center gap-3 mb-4">
+                        @for (int i = 0; i < 4; i++)
+                        {
+                            <div class="pin-dot @(PinCode.Length > i ? "filled" : "")"></div>
+                        }
+                    </div>
+
+                    <!-- On-Screen Keyboard Grid -->
+                    <div class="pin-grid d-flex flex-column gap-2 mx-auto" style="max-width: 280px;">
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("1")'>1</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("2")'>2</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("3")'>3</button>
+                        </div>
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("4")'>4</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("5")'>5</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("6")'>6</button>
+                        </div>
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("7")'>7</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("8")'>8</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("9")'>9</button>
+                        </div>
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button type="button" class="btn pin-btn text-danger fw-bold" style="font-size: 0.9rem;" @onclick="ClearPin">CLEAR</button>
+                            <button type="button" class="btn pin-btn" @onclick='() => AppendPin("0")'>0</button>
+                            <button type="button" class="btn pin-btn text-secondary" @onclick="BackspacePin">
+                                <i class="bi bi-backspace"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (IsProcessing)
+                    {
+                        <div class="mt-3 text-muted small d-flex align-items-center justify-content-center gap-2">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            <span>Verifying Credentials...</span>
+                        </div>
+                    }
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool IsWorkshopMode { get; set; } = false;
+
+    // Standard Form States
+    private string Username { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+
+    // Express PIN Code States
+    private string PinCode { get; set; } = string.Empty;
+
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsProcessing { get; set; } = false;
+
+    private void SetMode(bool workshopMode)
+    {
+        IsWorkshopMode = workshopMode;
+        ErrorMessage = string.Empty;
+        ClearPin();
+        Username = string.Empty;
+        Password = string.Empty;
+    }
+
+    // ================= STANDARD AUTHENTICATION (Sales & Admin) =================
+    private async Task ExecuteStandardLoginAsync()
+    {
+        if (IsProcessing) return;
+
+        ErrorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Showroom security policy requires both Username and Password fields.";
+            return;
+        }
+
+        try
+        {
+            IsProcessing = true;
+
+            var worker = await DbContext.Workers
+                .FirstOrDefaultAsync(w => w.Username.ToLower() == Username.ToLower().Trim());
+
+            if (worker == null || worker.PasswordHash != Password)
+            {
+                ErrorMessage = "Invalid worker profile or showroom credentials. Please try again.";
+                return;
+            }
+
+            // Type-Safe Validation via Flags Enum Enum.HasFlag()
+            bool isSalesOrAdmin = worker.AssignedRoles.HasFlag(WorkerRole.Admin) ||
+                                 worker.AssignedRoles.HasFlag(WorkerRole.Salesman);
+
+            if (!isSalesOrAdmin)
+            {
+                ErrorMessage = "Workshop profiles must sign in using the Workshop Express portal.";
+                return;
+            }
+
+            var session = new UserSession
+            {
+                Username = worker.Username,
+                Name = worker.Name,
+                Role = worker.AssignedRoles.ToString()
+            };
+
+            AuthStateProvider.MarkUserAsAuthenticated(session);
+            Navigation.NavigateTo("/orders/new");
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "A system connectivity fault occurred while contacting the database infrastructure.";
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task HandleStandardKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ExecuteStandardLoginAsync();
+        }
+    }
+
+    // ================= WORKSHOP EXPRESS AUTHENTICATION (4-Digit Auto PIN) =================
+    private async Task AppendPin(string digit)
+    {
+        if (IsProcessing || PinCode.Length >= 4) return;
+
+        PinCode += digit;
+
+        if (PinCode.Length == 4)
+        {
+            await ExecutePinLoginAsync();
+        }
+    }
+
+    private void ClearPin()
+    {
+        PinCode = string.Empty;
+    }
+
+    private void BackspacePin()
+    {
+        if (PinCode.Length > 0)
+        {
+            PinCode = PinCode.Substring(0, PinCode.Length - 1);
+        }
+    }
+
+    private async Task ExecutePinLoginAsync()
+    {
+        try
+        {
+            IsProcessing = true;
+            ErrorMessage = string.Empty;
+
+            var worker = await DbContext.Workers
+                .FirstOrDefaultAsync(w => w.PasswordHash == PinCode);
+
+            if (worker == null)
+            {
+                ErrorMessage = "Invalid Security PIN. Please try again.";
+                ClearPin();
+                return;
+            }
+
+            // Type-Safe Validation: Ensure only Workshop personnel can use the PIN Pad terminal
+            bool isWorkshopWorker = worker.AssignedRoles.HasFlag(WorkerRole.CuttingMaster) ||
+                                    worker.AssignedRoles.HasFlag(WorkerRole.Tailor) ||
+                                    worker.AssignedRoles.HasFlag(WorkerRole.HandEmbroiderer);
+
+            if (!isWorkshopWorker)
+            {
+                ErrorMessage = "Access Denied. Office personnel must use standard login credentials.";
+                ClearPin();
+                return;
+            }
+
+            var session = new UserSession
+            {
+                Username = worker.Username,
+                Name = worker.Name,
+                Role = worker.AssignedRoles.ToString()
+            };
+
+            AuthStateProvider.MarkUserAsAuthenticated(session);
+            Navigation.NavigateTo("/orders/new");
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Database connection error. Try again.";
+            ClearPin();
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+}
+
+<style>
+    .login-wrapper {
+        min-height: 85vh;
+        width: 100%;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .brand-header {
+        background-color: #1a1a1a !important;
+    }
+
+    .focus-ring:focus {
+        background-color: #ffffff !important;
+        border-color: #d4af37 !important;
+    }
+
+    .login-btn {
+        background-color: #d4af37 !important;
+        color: #000000 !important;
+        border: none;
+        transition: all 0.2s ease-in-out;
+    }
+
+        .login-btn:hover:not([disabled]) {
+            background-color: #bfa030 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(212, 175, 55, 0.3) !important;
+        }
+
+    /* PIN Code Custom Styles */
+    .pin-dot {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ccc;
+        border-radius: 50%;
+        transition: all 0.15s ease-in-out;
+    }
+
+        .pin-dot.filled {
+            background-color: #d4af37;
+            border-color: #d4af37;
+            transform: scale(1.15);
+        }
+
+    .pin-btn {
+        width: 65px;
+        height: 65px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        border-radius: 50% !important;
+        border: 1px solid #e0e0e0;
+        background-color: #fcfcfc;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease-in-out;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+        .pin-btn:active {
+            background-color: #d4af37 !important;
+            color: white !important;
+            transform: scale(0.92);
+        }
+
+        .pin-btn:hover {
+            background-color: #f1f1f1;
+            border-color: #ccc;
+        }
+</style>

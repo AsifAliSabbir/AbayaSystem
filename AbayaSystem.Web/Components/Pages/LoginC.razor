@@ -1,0 +1,211 @@
+﻿@* @page "/login"
+@attribute [AllowAnonymous]
+@using Microsoft.EntityFrameworkCore
+@using AbayaSystem.Infrastructure
+@using AbayaSystem.Web
+@inject BoutiqueDbContext DbContext
+@inject BoutiqueAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="login-wrapper d-flex align-items-center justify-content-center">
+    <div class="login-card shadow-lg border-0 rounded-4 overflow-hidden">
+
+        <!-- Luxury Branding Header Area -->
+        <div class="brand-header p-5 text-center text-white bg-dark">
+            <h2 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
+                ✨ ABAYA SYSTEM
+            </h2>
+            <p class="text-muted text-uppercase fw-bold mb-0 mt-2" style="font-size: 0.75rem; letter-spacing: 2px;">
+                Showroom Terminal Authentication
+            </p>
+        </div>
+
+        <!-- Interactive Form Body -->
+        <div class="card-body p-5 bg-white">
+
+            <!-- Dynamic Alert for Validation or Database Errors -->
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <div class="alert alert-danger d-flex align-items-center gap-2 border-0 rounded-3 small py-3 px-4 mb-4 animate-fade-in" role="alert">
+                    <span class="bi bi-exclamatriangle-fill"></span>
+                    <div>@ErrorMessage</div>
+                </div>
+            }
+
+            <!-- Credentials Input Fields -->
+            <div class="mb-3">
+                <label for="username" class="form-label text-uppercase fw-bold text-muted small" style="letter-spacing: 0.5px;">
+                    Username / Worker ID
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-person"></i></span>
+                    <input type="text"
+                           id="username"
+                           class="form-control bg-light border-start-0 py-2.5 ps-0 shadow-none focus-ring"
+                           placeholder="e.g., ahmed.mansoori"
+                           @bind="Username"
+                           @bind:event="oninput"
+                           @onkeyup="HandleKeyUp" />
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="password" class="form-label text-uppercase fw-bold text-muted small" style="letter-spacing: 0.5px;">
+                    Security Password
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-lock"></i></span>
+                    <input type="password"
+                           id="password"
+                           class="form-control bg-light border-start-0 py-2.5 ps-0 shadow-none focus-ring"
+                           placeholder="••••••••"
+                           @bind="Password"
+                           @bind:event="oninput"
+                           @onkeyup="HandleKeyUp" />
+                </div>
+            </div>
+
+            <!-- Execution Action Trigger -->
+            <button type="button"
+                    class="btn w-100 py-3 rounded-3 fw-bold login-btn text-uppercase tracking-wider shadow-sm d-flex align-items-center justify-content-center gap-2"
+                    @onclick="ExecuteLoginAsync"
+                    disabled="@IsProcessing">
+                @if (IsProcessing)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span>Verifying...</span>
+                }
+                else
+                {
+                    <span class="bi bi-shield-lock-fill"></span>
+                    <span>Enter Showroom Workspace</span>
+                }
+            </button>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Username { get; set; } = string.Empty;
+    private string Password { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsProcessing { get; set; } = false;
+
+    private async Task ExecuteLoginAsync()
+    {
+        // Guard checking against race conditions or double clicks
+        if (IsProcessing) return;
+
+        ErrorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "Showroom security policy requires both Username and Password fields.";
+            return;
+        }
+
+        try
+        {
+            IsProcessing = true;
+
+            // Search for matching credentials directly within your database configuration
+            var worker = await DbContext.Workers
+                .FirstOrDefaultAsync(w => w.Username.ToLower() == Username.ToLower().Trim());
+
+            if (worker == null || worker.PasswordHash != Password)
+            {
+                ErrorMessage = "Invalid worker profile or showroom credentials. Please try again.";
+                return;
+            }
+
+            // Map the verified DB profile over to our active identity model instance
+            var session = new UserSession
+            {
+                Username = worker.Username,
+                Name = worker.Name,
+                Role = worker.AssignedRoles.ToString() // Translates backend enum definitions to security claim strings
+            };
+
+            // Commit the structural authentication properties synchronously to the live active circuit
+            AuthStateProvider.MarkUserAsAuthenticated(session);
+
+            // Pass the user directly into the main operational interface workspace
+            Navigation.NavigateTo("/orders/new");
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "A system connectivity fault occurred while contacting the database infrastructure.";
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    // Allows users to submit the layout instantly by pressing 'Enter' on their keyboard
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ExecuteLoginAsync();
+        }
+    }
+}
+
+<!-- Premium embedded presentation styling sheets for structural layouts -->
+<style>
+    .login-wrapper {
+        min-height: 85vh;
+        width: 100%;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .brand-header {
+        background-color: #1a1a1a !important;
+    }
+
+    .focus-ring:focus {
+        background-color: #ffffff !important;
+        border-color: #d4af37 !important;
+    }
+
+    .login-btn {
+        background-color: #d4af37 !important; /* Premium boutique gold */
+        color: #000000 !important;
+        border: none;
+        transition: all 0.2s ease-in-out;
+    }
+
+        .login-btn:hover:not([disabled]) {
+            background-color: #bfa030 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(212, 175, 55, 0.3) !important;
+        }
+
+        .login-btn:active:not([disabled]) {
+            transform: translateY(1px);
+        }
+
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style> *@

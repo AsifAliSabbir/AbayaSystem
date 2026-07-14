@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AbayaSystem.Core/AbayaSystem.Core.csproj" />
+  <Project Path="AbayaSystem.Infrastructure/AbayaSystem.Infrastructure.csproj" />
+  <Project Path="AbayaSystem.Web/AbayaSystem.Web.csproj" />
+</Solution>

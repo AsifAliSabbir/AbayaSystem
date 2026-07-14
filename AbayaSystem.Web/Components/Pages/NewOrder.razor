@@ -1,0 +1,182 @@
+﻿@page "/orders/new"
+
+@* @attribute [Authorize]
+ *@
+
+@attribute [Authorize(Roles = "Admin,Salesman")]
+
+@using Microsoft.AspNetCore.Authorization
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
+
+<div class="container py-4" style="max-width: 700px; margin-bottom: 100px;">
+
+    <div class="card p-3 mb-4 border-0 shadow-sm bg-dark text-white rounded-3">
+        <h3 class="m-0 fw-bold text-uppercase tracking-wide">✨ ABAYA ORDER INTAKE</h3>
+        <small class="text-white-50">Manual Entry & Shop Stock Operations</small>
+    </div>
+
+    <!-- 🚨 Step 1: Track Selector (Custom, ReadyMade, or Stock Replenishment) -->
+    <div class="mb-4 btn-group w-100" role="group">
+        <button type="button" class="btn p-3 fw-bold @(Form.TypeOfOrder == OrderType.CustomOrder ? "btn-primary shadow" : "btn-outline-secondary")"
+                @onclick="() => UpdateOrderType(OrderType.CustomOrder)">
+            🪡 Custom Build
+        </button>
+        <button type="button" class="btn p-3 fw-bold @(Form.TypeOfOrder == OrderType.ReadyMadeRetail ? "btn-primary shadow" : "btn-outline-secondary")"
+                @onclick="() => UpdateOrderType(OrderType.ReadyMadeRetail)">
+            👗 Ready-Made Retail
+        </button>
+        <button type="button" class="btn p-3 fw-bold @(Form.TypeOfOrder == OrderType.InternalStockReplenishment ? "btn-primary shadow" : "btn-outline-secondary")"
+                @onclick="() => UpdateOrderType(OrderType.InternalStockReplenishment)">
+            🔄 Sample Re-Make
+        </button>
+    </div>
+
+    <!-- 🧾 Step 2: Manual Key String Inputs -->
+    <div class="card p-4 border-0 shadow-sm mb-3 bg-white">
+        <div class="mb-3">
+            <label class="form-label fw-bold text-secondary text-uppercase small">Invoice / Receipt String ID</label>
+            <input type="text" class="form-control form-control-lg text-uppercase fw-bold border-2 text-center"
+                   @bind="Form.ManualOrderId" placeholder="Type custom string (e.g., 45098, RM-45098, WM-502)" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold text-secondary text-uppercase small">Customer Target or Rack Reference</label>
+            <input type="text" class="form-control form-control-lg" @bind="Form.CustomerName" placeholder="Customer Name or 'Main Showroom Line'" />
+        </div>
+    </div>
+
+    <!-- 💰 Step 3: Cash Financial Data Inputs (Hidden out of screen if its a stock remake) -->
+    @if (Form.TypeOfOrder != OrderType.InternalStockReplenishment)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-6">
+                <div class="card p-3 border-0 shadow-sm bg-white">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Total Price (AED)</label>
+                    <input type="number" class="form-control form-control-lg text-primary fw-bold" @bind="Form.TotalAmount" />
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card p-3 border-0 shadow-sm bg-white">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Deposit Advanced (AED)</label>
+                    <input type="number" class="form-control form-control-lg text-success fw-bold" @bind="Form.DepositPaid" />
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- 🧵 Step 4: Core Textiles & Design Matrix Specs -->
+    <div class="card p-4 border-0 shadow-sm mb-3 bg-white">
+        <h5 class="fw-bold mb-3 text-dark text-uppercase border-bottom pb-2">👗 Tailoring Specifications</h5>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold text-secondary small">Fabric Material Name</label>
+            <input type="text" class="form-control" @bind="Form.FabricName" placeholder="e.g., Premium Internet Fabric, Zoom Black..." />
+        </div>
+
+        <div class="mb-3 form-check form-switch bg-light p-3 rounded-3 border mx-0">
+            <input class="form-check-input ms-0 me-3 shadow-none" type="checkbox" id="fabricSwitch" @bind="Form.IsShopProvidingFabric">
+            <label class="form-check-label fw-bold text-dark" for="fabricSwitch">🧵 Shop provides this fabric material</label>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold text-secondary small">Matching Sheila Sizing</label>
+            <select class="form-select form-select-lg" @bind="Form.SelectedSheilaSize">
+                <option value="@SheilaSize.Size_22x81">22 × 81 inches (Standard Option)</option>
+                <option value="@SheilaSize.Size_28x81">28 × 81 inches (Standard Option)</option>
+                <option value="@SheilaSize.Size_28x90">28 × 90 inches (Extra Large Dimension)</option>
+            </select>
+        </div>
+
+        <div class="mb-2">
+            <label class="form-label fw-bold text-secondary small">Design Details & Custom Descriptions</label>
+            <textarea class="form-control" rows="3" @bind="Form.ModelTextDescription" placeholder="Write detailing description specs manually here..."></textarea>
+        </div>
+    </div>
+
+    <!-- 🪡 Step 5: Ready-Made Alterations Handling Extension Box -->
+    @if (Form.TypeOfOrder == OrderType.ReadyMadeRetail)
+    {
+        <div class="card p-3 border-0 shadow-sm mb-4 bg-warning-subtle border-start border-warning border-4">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input ms-0 me-2" type="checkbox" id="alterationSwitch" @bind="Form.IsReadyMadeAlteration" />
+                <label class="form-check-label fw-bold text-warning-emphasis" for="alterationSwitch">🪡 This floor sample requires minor alterations</label>
+            </div>
+            @if (Form.IsReadyMadeAlteration)
+            {
+                <textarea class="form-control bg-white shadow-none mt-2" rows="2"
+                          @bind="Form.AlterationNotes" placeholder="Describe modification instructions (e.g., shorten length by 1.5 inches)..."></textarea>
+            }
+        </div>
+    }
+
+    <!-- Error Validation Display Alert Output Banner -->
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger border-0 shadow-sm p-3 text-center fw-bold rounded-3" role="alert">
+            ⚠️ @ErrorMessage
+        </div>
+    }
+
+    <!-- 💾 Floating Submission Command Bar -->
+    <div class="fixed-bottom bg-white p-3 border-top shadow-lg text-center">
+        <button type="button" class="btn btn-primary btn-lg fw-bold w-100 py-3 rounded-3"
+                style="max-width: 660px;" @onclick="ProcessSubmissionAsync">
+            💾 COMMIT TRANSACTION DATA TO WORKSHOP
+        </button>
+    </div>
+</div>
+
+@code {
+    private OrderFormModel Form { get; set; } = new();
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        // Setup initial default choices on page load
+        Form.IsShopProvidingFabric = true;
+        Form.SelectedSheilaSize = SheilaSize.Size_28x81;
+    }
+
+    private void UpdateOrderType(OrderType selectedTrackType)
+    {
+        Form.TypeOfOrder = selectedTrackType;
+
+        // Wipe values out to avoid cross-pollution if switching tabs
+        if (selectedTrackType == OrderType.InternalStockReplenishment)
+        {
+            Form.TotalAmount = 0;
+            Form.DepositPaid = 0;
+            Form.CustomerName = "Shop Floor Stock Model";
+        }
+        else
+        {
+            Form.CustomerName = string.Empty;
+        }
+
+        ErrorMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task ProcessSubmissionAsync()
+    {
+        ErrorMessage = string.Empty;
+
+        // Visual field checks
+        if (string.IsNullOrWhiteSpace(Form.ManualOrderId))
+        {
+            ErrorMessage = "Invoice / Ticket identity string field cannot be left blank!";
+            return;
+        }
+
+        // Push data down to our engine service layer logic handler
+        var result = await OrderService.CreateManualOrderAsync(Form);
+
+        if (result.IsSuccess)
+            Navigation.NavigateTo("/orders/new", true); // Reload clear fresh page state on data save success
+        else
+            ErrorMessage = result.ErrorMessage; // Output context exception errors cleanly
+    }
+}
