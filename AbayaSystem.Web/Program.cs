@@ -19,8 +19,20 @@ builder.Services.AddRazorComponents()
 // Wire up your Application Order Engine service dependency
 builder.Services.AddScoped<IOrderService, OrderService>();
 
+string conl = @"Server=localhost;Database=AbayaBoutiqueDb;Integrated Security=True;TrustServerCertificate=True;";
+
+string cons = @"workstation id=AbayaBoutiqueDb.mssql.somee.com;packet size=4096;user id=asifalisabbir_SQLLogin_1;pwd=o61shj57nu;data source=AbayaBoutiqueDb.mssql.somee.com;persist security info=False;initial catalog=AbayaBoutiqueDb;TrustServerCertificate=True;";
+
+string conm = @"Server=db59869.databaseasp.net; Database=db59869; User Id=db59869; Password=Cy8+?Ga3h%2T; Encrypt=False; MultipleActiveResultSets=True;";
+//string con3 = @"Server=	AbayaBoutiqueDb.mssql.somee.com;Database=AbayaBoutiqueDb;User Id=asifalisabbir_SQLLogin_1;Password=o61shj57nu; Encrypt=False; MultipleActiveResultSets=True;";
+
+
+
+
+//builder.Services.AddDbContext<BoutiqueDbContext>(options =>
+//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDbContext<BoutiqueDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(conl));
 
 builder.Services.AddHttpContextAccessor();
 
@@ -63,6 +75,12 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<BoutiqueDbContext>();
+
+        //// This runs "dotnet ef database update" programmatically
+        //if (context.Database.IsRelational())
+        //{
+        //    context.Database.Migrate();
+        //}
         // Run the seeding logic directly into your SQL Server instance
         await BoutiqueDbContext.SeedDatabaseAsync(context);
     }
