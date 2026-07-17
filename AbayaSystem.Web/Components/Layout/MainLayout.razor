@@ -6,33 +6,43 @@
 
 <div class="page-container">
 
+    <!-- 🌫️ Mobile Drawer Backdrop Overlay (Closes menu when clicking outside) -->
+    @if (isMobileMenuOpen)
+    {
+        <div class="sidebar-backdrop" @onclick="CloseMobileMenu"></div>
+    }
+
     <!-- Left Sidebar: Main Navigation & Showroom Info -->
-    <aside class="sidebar bg-dark text-white d-flex flex-column shadow">
+    <aside class="sidebar bg-dark text-white d-flex flex-column shadow @(isMobileMenuOpen ? "show-sidebar" : "")">
 
         <!-- Showroom Branding -->
-        <div class="p-4 border-bottom border-secondary text-center">
+        <div class="p-4 border-bottom border-secondary text-center position-relative">
             <h4 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
                 ✨ ABAYA SYSTEM
             </h4>
             <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1.5px;">
                 Showroom Workspace
             </small>
+            
+            <!-- Close Button on Mobile Drawer -->
+            <button class="btn btn-link text-white p-0 position-absolute end-0 top-50 translate-middle-y me-3 d-lg-none" 
+                    @onclick="CloseMobileMenu" aria-label="Close menu">
+                <span class="bi bi-x-lg fs-4"></span>
+            </button>
         </div>
 
         <!-- Dynamic Context-Driven Navigation -->
         <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
-@*             <AuthorizeView>
- *@                
             <AuthorizeView Roles="Admin,Salesman">
                 <Authorized>
                     <!-- Order Entry Desk -->
-                    <a href="/orders/new" class="@GetActiveStyle("/orders/new")">
+                    <a href="/orders/new" class="@GetActiveStyle("/orders/new")" @onclick="CloseMobileMenu">
                         <span class="bi bi-file-earmark-plus-fill me-2"></span>
                         Order Intake
                     </a>
 
                     <!-- Fabric & Material Inventory -->
-                    <a href="/procurement" class="@GetActiveStyle("/procurement")">
+                    <a href="/procurement" class="@GetActiveStyle("/procurement")" @onclick="CloseMobileMenu">
                         <span class="bi bi-scissors me-2"></span>
                         Fabric Procurement
                     </a>
@@ -70,7 +80,7 @@
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="/login" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm">
+                    <a href="/login" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" @onclick="CloseMobileMenu">
                         🔑 Sign In
                     </a>
                 </NotAuthorized>
@@ -82,10 +92,17 @@
     <main class="workspace-panel bg-light d-flex flex-column">
 
         <!-- Header -->
-        <header class="navbar navbar-expand navbar-light bg-white border-bottom px-4 py-3 shadow-sm d-flex justify-content-between">
-            <span class="navbar-brand m-0 h5 fw-bold text-dark">
-                Boutique Terminal
-            </span>
+        <header class="navbar navbar-expand navbar-light bg-white border-bottom px-4 py-3 shadow-sm d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <!-- Hamburger Icon Button: only visible on mobile -->
+                <button class="btn btn-link text-dark p-0 d-lg-none border-0 shadow-none" 
+                        @onclick="ToggleMobileMenu" aria-label="Toggle navigation">
+                    <span class="bi bi-list fs-2" style="color: #111;"></span>
+                </button>
+                <span class="navbar-brand m-0 h5 fw-bold text-dark">
+                    Boutique Terminal
+                </span>
+            </div>
             <span class="text-muted small d-none d-sm-inline font-monospace">
                 Dubai Terminal
             </span>
@@ -99,6 +116,18 @@
 </div>
 
 @code {
+    private bool isMobileMenuOpen = false;
+
+    private void ToggleMobileMenu()
+    {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+
+    private void CloseMobileMenu()
+    {
+        isMobileMenuOpen = false;
+    }
+
     // Generates visual highlight on the matching navigation item automatically
     private string GetActiveStyle(string relativePath)
     {
@@ -113,6 +142,7 @@
     // Handles safe, in-memory synchronous session destruction
     private void TriggerLogout()
     {
+        CloseMobileMenu();
         AuthStateProvider.MarkUserAsLoggedOut();
         Navigation.NavigateTo("/login");
     }
@@ -126,6 +156,7 @@
         min-height: 100vh;
         width: 100vw;
         overflow: hidden;
+        position: relative;
     }
 
     .sidebar {
@@ -134,12 +165,15 @@
         max-width: 260px;
         height: 100vh;
         z-index: 1100;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .workspace-panel {
         flex-grow: 1;
         height: 100vh;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
     }
 
     .bg-black-50 {
@@ -156,15 +190,62 @@
         color: #adb5bd !important;
     }
 
-        .nav-item-inactive:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: #ffffff !important;
-        }
+    .nav-item-inactive:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #ffffff !important;
+    }
 
     .nav-item-active {
         background-color: #d4af37 !important; /* Elegant gold selection highlight */
         color: #000000 !important;
         font-weight: 700;
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
+    }
+
+    /* ======================================================== */
+    /* 📱 RESPONSIVE MOBILE OVERRIDES ( 992px)                  */
+    /* ======================================================== */
+    @@media (max-width: 991.98px) {
+        .sidebar {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            transform: translateX(-100%); /* Slides entirely off screen to the left */
+            z-index: 1200 !important;
+            box-shadow: none !important;
+            max-width: 85vw !important;
+        }
+
+        .sidebar.show-sidebar {
+            transform: translateX(0); /* Slides smoothly back into view */
+            box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Blurred Backdrop Overlay behind the side menu */
+        .sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 1150;
+            animation: fadeIn 0.2s ease-out;
+        }
+    }
+
+    /* ======================================================== */
+    /* 🖥️ DESKTOP-ONLY ADJUSTMENTS (>= 992px)                    */
+    /* ======================================================== */
+    @@media (min-width: 992px) {
+        .sidebar {
+            transform: translateX(0) !important; /* Always show layout sidebar */
+        }
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 </style>

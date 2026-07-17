@@ -32,7 +32,7 @@ string conm = @"Server=db59869.databaseasp.net; Database=db59869; User Id=db5986
 //builder.Services.AddDbContext<BoutiqueDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDbContext<BoutiqueDbContext>(options =>
-    options.UseSqlServer(conl));
+    options.UseSqlServer(conm));
 
 builder.Services.AddHttpContextAccessor();
 
