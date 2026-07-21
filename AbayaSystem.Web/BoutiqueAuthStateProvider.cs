@@ -6,6 +6,7 @@ namespace AbayaSystem.Web
     public class UserSession
     {
         public string Username { get; set; } = string.Empty;
+        public string UserID { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
     }
@@ -34,7 +35,9 @@ namespace AbayaSystem.Web
             {
                 new Claim(ClaimTypes.Name, userSession.Name),
                 new Claim("Username", userSession.Username),
-                new Claim(ClaimTypes.Role, userSession.Role) // 🔑 Binds directly to @attribute [Authorize(Roles = "...")]
+                new Claim("UserID", userSession.UserID),
+                new Claim(ClaimTypes.Role, userSession.Role) 
+                // 🔑 Binds directly to @attribute [Authorize(Roles = "...")]
             };
 
             var identity = new ClaimsIdentity(claims, "BoutiqueCircuitAuth");

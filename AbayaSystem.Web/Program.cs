@@ -2,13 +2,18 @@ using AbayaSystem.Core;
 using AbayaSystem.Infrastructure;
 using AbayaSystem.Web;
 using AbayaSystem.Web.Components;
+using CurrieTechnologies.Razor.SweetAlert2;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization; // 👈 Required namespace added
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization; // 👈 Required namespace added
+
+
+
+string currentConnectionString = GlobalFunctions.conl; // Change this to the desired connection string
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,11 +24,7 @@ builder.Services.AddRazorComponents()
 // Wire up your Application Order Engine service dependency
 builder.Services.AddScoped<IOrderService, OrderService>();
 
-string conl = @"Server=localhost;Database=AbayaBoutiqueDb;Integrated Security=True;TrustServerCertificate=True;";
 
-string cons = @"workstation id=AbayaBoutiqueDb.mssql.somee.com;packet size=4096;user id=asifalisabbir_SQLLogin_1;pwd=o61shj57nu;data source=AbayaBoutiqueDb.mssql.somee.com;persist security info=False;initial catalog=AbayaBoutiqueDb;TrustServerCertificate=True;";
-
-string conm = @"Server=db59869.databaseasp.net; Database=db59869; User Id=db59869; Password=Cy8+?Ga3h%2T; Encrypt=False; MultipleActiveResultSets=True;";
 //string con3 = @"Server=	AbayaBoutiqueDb.mssql.somee.com;Database=AbayaBoutiqueDb;User Id=asifalisabbir_SQLLogin_1;Password=o61shj57nu; Encrypt=False; MultipleActiveResultSets=True;";
 
 
@@ -32,7 +33,7 @@ string conm = @"Server=db59869.databaseasp.net; Database=db59869; User Id=db5986
 //builder.Services.AddDbContext<BoutiqueDbContext>(options =>
 //    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDbContext<BoutiqueDbContext>(options =>
-    options.UseSqlServer(conm));
+    options.UseSqlServer(currentConnectionString));
 
 builder.Services.AddHttpContextAccessor();
 
@@ -49,6 +50,11 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredServ
 
 // Activate the framework's cascading state tracking infrastructure
 builder.Services.AddCascadingAuthenticationState();
+
+//builder.Services.AddSweetAlert2();
+builder.Services.AddSweetAlert2(options => {
+    options.Theme = SweetAlertTheme.Dark;
+});
 
 var app = builder.Build();
 

@@ -1,0 +1,14 @@
+@inject NavigationManager NavigationManager
+
+@code {
+    protected override void OnInitialized()
+    {
+
+
+        // Encodes the current URL so the login page knows where to return after authentication
+        var returnUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
+        // Redirect to the Identity login page
+        NavigationManager.NavigateTo($"Login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+    }
+}

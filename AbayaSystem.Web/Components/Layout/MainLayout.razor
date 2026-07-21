@@ -3,111 +3,120 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject BoutiqueAuthStateProvider AuthStateProvider
 @inject NavigationManager Navigation
+@using CurrieTechnologies.Razor.SweetAlert2;
+
+@inject SweetAlertService Swal;
 
 <div class="page-container">
 
-    <!-- 🌫️ Mobile Drawer Backdrop Overlay (Closes menu when clicking outside) -->
+    <!-- 🌫️ Native Bootstrap Styled Backdrop (Closes menu when clicking outside on mobile) -->
     @if (isMobileMenuOpen)
     {
-        <div class="sidebar-backdrop" @onclick="CloseMobileMenu"></div>
+        <div class="offcanvas-backdrop fade show d-lg-none" @onclick="CloseMobileMenu"></div>
     }
 
-    <!-- Left Sidebar: Main Navigation & Showroom Info -->
-    <aside class="sidebar bg-dark text-white d-flex flex-column shadow @(isMobileMenuOpen ? "show-sidebar" : "")">
+    <!-- 🧭 Left Sidebar: Native Bootstrap 5.3.3 Responsive Offcanvas -->
+    <aside class="offcanvas-lg offcanvas-start bg-dark text-white shadow border-end border-secondary @(isMobileMenuOpen ? "show" : "")"
+           tabindex="-1"
+           style="visibility: visible;">
 
-        <!-- Showroom Branding -->
-        <div class="p-4 border-bottom border-secondary text-center position-relative">
-            <h4 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
-                ✨ ABAYA SYSTEM
-            </h4>
-            <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1.5px;">
-                Showroom Workspace
-            </small>
-            
-            <!-- Close Button on Mobile Drawer -->
-            <button class="btn btn-link text-white p-0 position-absolute end-0 top-50 translate-middle-y me-3 d-lg-none" 
-                    @onclick="CloseMobileMenu" aria-label="Close menu">
-                <span class="bi bi-x-lg fs-4"></span>
-            </button>
+        <!-- Offcanvas Header / Showroom Branding -->
+        <div class="offcanvas-header p-4 border-bottom border-secondary justify-content-center position-relative w-100">
+            <div class="text-center w-100">
+                <h4 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
+                    ✨ ABAYA SYSTEM
+                </h4>
+                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1.5px;">
+                    Showroom Workspace
+                </small>
+            </div>
+
+            <!-- Native Close Button (Visible only on mobile) -->
+            <button type="button" class="btn-close btn-close-white position-absolute end-0 top-50 translate-middle-y me-3 d-lg-none"
+                    @onclick="CloseMobileMenu" aria-label="Close"></button>
         </div>
 
-        <!-- Dynamic Context-Driven Navigation -->
-        <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
-            <AuthorizeView Roles="Admin,Salesman">
-                <Authorized>
-                    <!-- Order Entry Desk -->
-                    <a href="/orders/new" class="@GetActiveStyle("/orders/new")" @onclick="CloseMobileMenu">
-                        <span class="bi bi-file-earmark-plus-fill me-2"></span>
-                        Order Intake
-                    </a>
+        <!-- Offcanvas Body / Dynamic Context-Driven Navigation -->
+        <div class="offcanvas-body d-flex flex-column flex-grow-1 p-0 overflow-y-auto">
+            <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
+                <AuthorizeView Roles="Admin,Salesman">
+                    <Authorized>
+                        <!-- Order Entry Desk -->
+                        <a href="/orders/new" class="@GetActiveStyle("/orders/new")" @onclick="CloseMobileMenu">
+                            <span class="bi bi-file-earmark-plus-fill me-2"></span>
+                            Order Intake
+                        </a>
 
-                    <!-- Fabric & Material Inventory -->
-                    <a href="/procurement" class="@GetActiveStyle("/procurement")" @onclick="CloseMobileMenu">
-                        <span class="bi bi-scissors me-2"></span>
-                        Fabric Procurement
-                    </a>
-                </Authorized>
-                <NotAuthorized>
-                    <div class="text-center py-4 text-muted small">
-                        🔒 Sign in to access workspace tools
-                    </div>
-                </NotAuthorized>
-            </AuthorizeView>
-        </nav>
-
-        <!-- Bottom User Panel (Only renders if actively signed in) -->
-        <div class="p-3 border-top border-secondary bg-black-50">
-            <AuthorizeView>
-                <Authorized>
-                    <div class="d-flex flex-column gap-2">
-                        <div class="d-flex align-items-center gap-2 px-2 text-truncate">
-                            <!-- Circular Avatar with First Letter -->
-                            <div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold"
-                                 style="width: 34px; height: 34px; background-color: #d4af37; min-width: 34px;">
-                                @(context.User.Identity?.Name?[0].ToString().ToUpper() ?? "W")
-                            </div>
-                            <div class="text-truncate">
-                                <p class="m-0 fw-bold text-white small text-truncate">@context.User.Identity?.Name</p>
-                                <p class="m-0 text-muted" style="font-size: 0.72rem;">@context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</p>
-                            </div>
+                        <!-- Fabric & Material Inventory -->
+                        <a href="/procurement" class="@GetActiveStyle("/procurement")" @onclick="CloseMobileMenu">
+                            <span class="bi bi-scissors me-2"></span>
+                            Fabric Procurement
+                        </a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <div class="text-center py-4 text-muted small">
+                            Sign in to access workspace tools
                         </div>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </nav>
 
-                        <!-- Safe Logout Action Trigger -->
-                        <button class="btn btn-outline-danger btn-sm w-100 py-2 mt-2 d-flex align-items-center justify-content-center gap-2 rounded-3"
-                                @onclick="TriggerLogout">
-                            <span class="bi bi-box-arrow-right"></span> Exit Portal
-                        </button>
-                    </div>
-                </Authorized>
-                <NotAuthorized>
-                    <a href="/login" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" @onclick="CloseMobileMenu">
-                        🔑 Sign In
-                    </a>
-                </NotAuthorized>
-            </AuthorizeView>
+            <!-- Bottom User Panel (Only renders if actively signed in) -->
+            <div class="p-3 border-top border-secondary bg-black-50 mt-auto">
+                <AuthorizeView>
+                    <Authorized>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center gap-2 px-2 text-truncate">
+                                <!-- Circular Avatar with First Letter -->
+                                <div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold"
+                                     style="width: 34px; height: 34px; background-color: #d4af37; min-width: 34px;">
+                                    @(context.User.Identity?.Name?[0].ToString().ToUpper() ?? "W")
+                                </div>
+                                <div class="text-truncate">
+                                    <p class="m-0 fw-bold text-white small text-truncate">@context.User.Identity?.Name</p>
+                                    <p class="m-0 text-muted" style="font-size: 0.72rem;">@context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</p>
+                                </div>
+                            </div>
+
+                            <!-- Safe Logout Action Trigger -->
+                            <button class="btn btn-outline-danger btn-sm w-100 py-2 mt-2 d-flex align-items-center justify-content-center gap-2 rounded-3"
+                                    @onclick="TriggerLogout">
+                                <span class="bi bi-box-arrow-right"></span> Exit Portal
+                            </button>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" @onclick="CloseMobileMenu">
+                            🔑 Sign In
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
         </div>
     </aside>
 
     <!-- Right Workspace Area -->
     <main class="workspace-panel bg-light d-flex flex-column">
 
-        <!-- Header -->
-        <header class="navbar navbar-expand navbar-light bg-white border-bottom px-4 py-3 shadow-sm d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <!-- Hamburger Icon Button: only visible on mobile -->
-                <button class="btn btn-link text-dark p-0 d-lg-none border-0 shadow-none" 
-                        @onclick="ToggleMobileMenu" aria-label="Toggle navigation">
-                    <span class="bi bi-list fs-2" style="color: #111;"></span>
+        <!-- Showroom Top Terminal Header -->
+        <header class="navbar navbar-light bg-white border-bottom px-3 py-2 shadow-sm d-flex justify-content-between align-items-center flex-shrink-0" style="min-height: 60px;">
+            <div class="d-flex align-items-center">
+                <!-- ☰ Hamburger Toggle Button: Visible ONLY on mobile/tablet (< lg) -->
+                <button type="button" class="btn btn-link text-dark p-0 d-lg-none me-3 border-0 shadow-none text-decoration-none"
+                        @onclick="ToggleMobileMenu"
+                        style="display: inline-flex; align-items: center; line-height: 1;">
+                    <i class="bi bi-list" style="font-size: 2rem; color: #111111 !important;"></i>
                 </button>
+
                 <span class="navbar-brand m-0 h5 fw-bold text-dark">
                     Boutique Terminal
                 </span>
             </div>
+
             <span class="text-muted small d-none d-sm-inline font-monospace">
                 Dubai Terminal
             </span>
         </header>
-
         <!-- Page Context Body Wrapper -->
         <div class="container-fluid p-4 flex-grow-1 overflow-auto">
             @Body
@@ -126,9 +135,9 @@
     private void CloseMobileMenu()
     {
         isMobileMenuOpen = false;
+        // Swal.FireAsync("Hello world!");
     }
 
-    // Generates visual highlight on the matching navigation item automatically
     private string GetActiveStyle(string relativePath)
     {
         var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
@@ -139,7 +148,6 @@
                     : "nav-item nav-item-inactive text-decoration-none d-flex align-items-center p-3 rounded-3";
     }
 
-    // Handles safe, in-memory synchronous session destruction
     private void TriggerLogout()
     {
         CloseMobileMenu();
@@ -148,7 +156,7 @@
     }
 }
 
-<!-- Embedded styles for layout container structures -->
+<!-- Embedded styles for structural overrides -->
 <style>
     .page-container {
         display: flex;
@@ -159,13 +167,24 @@
         position: relative;
     }
 
-    .sidebar {
-        width: 260px;
-        min-width: 260px;
-        max-width: 260px;
-        height: 100vh;
-        z-index: 1100;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Standardizes the sidebar width constraints on large screens */
+    @@media (min-width: 992px) {
+        .offcanvas-lg {
+            width: 260px !important;
+            min-width: 260px !important;
+            max-width: 260px !important;
+            height: 100vh !important;
+            position: sticky !important;
+            top: 0;
+        }
+    }
+
+    /* Sets custom structural definitions for offcanvas layout drawer targets */
+    @@media (max-width: 991.98px) {
+        .offcanvas-lg {
+            width: 280px !important;
+            max-width: 85vw !important;
+        }
     }
 
     .workspace-panel {
@@ -180,7 +199,6 @@
         background-color: rgba(0, 0, 0, 0.2);
     }
 
-    /* Navigation Link Animations and Theming */
     .nav-item {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         font-size: 0.95rem;
@@ -190,62 +208,27 @@
         color: #adb5bd !important;
     }
 
-    .nav-item-inactive:hover {
-        background-color: rgba(255, 255, 255, 0.05);
-        color: #ffffff !important;
-    }
+        .nav-item-inactive:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #ffffff !important;
+        }
 
     .nav-item-active {
-        background-color: #d4af37 !important; /* Elegant gold selection highlight */
+        background-color: #d4af37 !important;
         color: #000000 !important;
         font-weight: 700;
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
     }
 
-    /* ======================================================== */
-    /* 📱 RESPONSIVE MOBILE OVERRIDES ( 992px)                  */
-    /* ======================================================== */
-    @@media (max-width: 991.98px) {
-        .sidebar {
-            position: fixed !important;
-            top: 0;
-            left: 0;
-            transform: translateX(-100%); /* Slides entirely off screen to the left */
-            z-index: 1200 !important;
-            box-shadow: none !important;
-            max-width: 85vw !important;
-        }
-
-        .sidebar.show-sidebar {
-            transform: translateX(0); /* Slides smoothly back into view */
-            box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5) !important;
-        }
-
-        /* Blurred Backdrop Overlay behind the side menu */
-        .sidebar-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(2px);
-            z-index: 1150;
-            animation: fadeIn 0.2s ease-out;
-        }
+    /* Safety adjustments to force mobile button alignment and icon visibility */
+    .d-lg-none i.bi-list {
+        display: inline-block !important;
+        line-height: 1 !important;
+        visibility: visible !important;
     }
 
-    /* ======================================================== */
-    /* 🖥️ DESKTOP-ONLY ADJUSTMENTS (>= 992px)                    */
-    /* ======================================================== */
-    @@media (min-width: 992px) {
-        .sidebar {
-            transform: translateX(0) !important; /* Always show layout sidebar */
-        }
-    }
-
-    @@keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+    button.d-lg-none {
+        min-width: 32px;
+        min-height: 32px;
     }
 </style>

@@ -221,6 +221,9 @@
             };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
+
+
+
             Navigation.NavigateTo("/orders/new");
         }
         catch (Exception)
@@ -299,12 +302,13 @@
             var session = new UserSession
             {
                 Username = worker.Username,
+                UserID = worker.WorkerId.ToString(),
                 Name = worker.Name,
                 Role = worker.AssignedRoles.ToString()
             };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
-            Navigation.NavigateTo("/orders/new");
+            Navigation.NavigateTo("/");
         }
         catch (Exception)
         {
