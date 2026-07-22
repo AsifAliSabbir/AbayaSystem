@@ -5,9 +5,13 @@ namespace AbayaSystem.Infrastructure
 {
     public class BoutiqueDbContext : DbContext
     {
+        public DbSet<Branch> Branches => Set<Branch>();
+        public DbSet<FabricShop> FabricShops => Set<FabricShop>();
+        public DbSet<Fabric> Fabrics => Set<Fabric>();
+        public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-        public DbSet<Worker> Workers => Set<Worker>(); // ◄ New physical table
+        public DbSet<Worker> Workers => Set<Worker>();
 
         public BoutiqueDbContext(DbContextOptions<BoutiqueDbContext> options) : base(options)
         {
@@ -17,100 +21,104 @@ namespace AbayaSystem.Infrastructure
         {
             base.OnModelCreating(modelBuilder);
 
-            // 🧾 Lock down OrderId as a raw manual string primary key
-            modelBuilder.Entity<Order>().HasKey(o => o.OrderId);
-            modelBuilder.Entity<Order>().Property(o => o.OrderId).ValueGeneratedNever().IsRequired();
+            // 🔑 Configure Composite Primary Key for Order
+            modelBuilder.Entity<Order>()
+                .HasKey(o => new { o.BranchId, o.OrderId });
 
-            // 🔗 Link items directly to the parent order
+            // 🔗 Link OrderItems to Composite Key Parent Order
             modelBuilder.Entity<OrderItem>()
                 .HasOne<Order>()
                 .WithMany(o => o.Items)
-                .HasForeignKey(i => i.OrderId)
+                .HasForeignKey(i => new { i.BranchId, i.OrderId })
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 🧵 Link Order Items to the Workers table for role assignments
-            modelBuilder.Entity<OrderItem>()
-                .HasOne<Worker>()
+            // Foreign Keys for Workers & Catalogs
+            modelBuilder.Entity<Worker>()
+                .HasOne(w => w.Branch)
                 .WithMany()
-                .HasForeignKey(i => i.CutByWorkerId)
-                .IsRequired(false) // Can be null before the cutting master claims it
+                .HasForeignKey(w => w.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<OrderItem>()
-                .HasOne<Worker>()
+                .HasOne(i => i.FabricShop)
                 .WithMany()
-                .HasForeignKey(i => i.StitchedByWorkerId)
-                .IsRequired(false) // Can be null before the tailor claims it
-                .OnDelete(DeleteBehavior.Restrict);
+                .HasForeignKey(i => i.FabricShopId)
+                .IsRequired(false);
+
+            modelBuilder.Entity<OrderItem>()
+                .HasOne(i => i.Fabric)
+                .WithMany()
+                .HasForeignKey(i => i.FabricId)
+                .IsRequired(false);
         }
 
-        // ... (Keep your existing DbSets and OnModelCreating code here) ...
-
-        /// <summary>
-        /// Seeds a default master employee account if the database table is completely empty.
-        /// </summary>
         public static async Task SeedDatabaseAsync(BoutiqueDbContext context)
         {
-            // Ensure the database itself is created before seeding
             await context.Database.EnsureCreatedAsync();
 
-            // Check if any employees exist in SQL Server
+            // 1. Seed Branches
+            if (!await context.Branches.AnyAsync())
+            {
+                var branches = new[]
+                {
+                    new Branch { BranchName = "Bahja", IsWorkshop = false }, // ID 1
+                    new Branch { BranchName = "Black View", IsWorkshop = false },  // ID 2
+                    new Branch { BranchName = "Hurain", IsWorkshop = false },  // ID 3
+                    new Branch { BranchName = "Workshop", IsWorkshop = true }      // ID 4
+                };
+                context.Branches.AddRange(branches);
+                await context.SaveChangesAsync();
+            }
+
+            // 2. Seed Fabric Shops
+            if (!await context.FabricShops.AnyAsync())
+            {
+                var shops = new[]
+                {
+                    new FabricShop { FabricShopName = "Sharqiya" },
+                    new FabricShop { FabricShopName = "Najmat Al Madina" },
+                    new FabricShop { FabricShopName = "ATN" }
+                };
+                context.FabricShops.AddRange(shops);
+                await context.SaveChangesAsync();
+            }
+
+            // 3. Seed Fabrics
+            if (!await context.Fabrics.AnyAsync())
+            {
+                var fabrics = new[]
+                {
+                    new Fabric { FabricName = "Nida" },
+                    new Fabric { FabricName = "Crepe" },
+                    new Fabric { FabricName = "Fua" },
+                    new Fabric { FabricName = "Bella linen" },
+                    new Fabric { FabricName = "Angelica" },
+                    new Fabric { FabricName = "Victoria" },
+                    new Fabric { FabricName = "Barbie Indonesian" },
+                };
+                context.Fabrics.AddRange(fabrics);
+                await context.SaveChangesAsync();
+            }
+
+            // 4. Seed Workers with Branch Assignments
             if (!await context.Workers.AnyAsync())
             {
-                var defaultAdmin = new Worker
+                var mainBranchId = (await context.Branches.FirstAsync(b => !b.IsWorkshop)).BranchId;
+                var workshopBranchId = (await context.Branches.FirstAsync(b => b.IsWorkshop)).BranchId;
+
+                var workers = new[]
                 {
-                    Name = "Asif",
-                    Username = "asif",
-                    PasswordHash = "1111", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.Admin
+                    new Worker { Name = "Asif", Username = "asif", PasswordHash = "1111", AssignedRoles = WorkerRole.Admin, BranchId = mainBranchId },
+                    new Worker { Name = "Nazrul", Username = "nazrul", PasswordHash = "2222", AssignedRoles = WorkerRole.Salesman, BranchId = mainBranchId },
+                    new Worker { Name = "Forhad", Username = "forhad", PasswordHash = "1234", AssignedRoles = WorkerRole.CuttingMaster, BranchId = workshopBranchId },
+                    new Worker { Name = "Razib", Username = "razib", PasswordHash = "1235", AssignedRoles = WorkerRole.Tailor, BranchId = workshopBranchId },
+                    new Worker { Name = "Mamun", Username = "mamun", PasswordHash = "1236", AssignedRoles = WorkerRole.Tailor, BranchId = workshopBranchId },
+                    new Worker { Name = "Jaojan", Username = "jaojan", PasswordHash = "1237", AssignedRoles = WorkerRole.HandEmbroiderer, BranchId = workshopBranchId }
                 };
 
-                var a = new Worker
-                {
-                    Name = "Nazrul",
-                    Username = "nazrul",
-                    PasswordHash = "2222", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.Salesman
-                };
-                var b = new Worker
-                {
-                    Name = "Forhad",
-                    Username = "forhad",
-                    PasswordHash = "1234", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.CuttingMaster
-                };
-
-                var c = new Worker
-                {
-                    Name = "Razib",
-                    Username = "razib",
-                    PasswordHash = "1235", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.Tailor
-                };
-
-                var d = new Worker
-                {
-                    Name = "Mamun",
-                    Username = "mamun",
-                    PasswordHash = "1236", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.Tailor
-                };
-
-                var e = new Worker
-                {
-                    Name = "jaojan",
-                    Username = "jaojan",
-                    PasswordHash = "1237", // Plain text string matching our dev auth scheme
-                    AssignedRoles = WorkerRole.HandEmbroiderer
-                };
-                Worker[] workers = new Worker[] { defaultAdmin, a, b, c, d, e };
-
-                //context.Workers.Add(defaultAdmin);
                 context.Workers.AddRange(workers);
                 await context.SaveChangesAsync();
             }
         }
     }
-
-
 }

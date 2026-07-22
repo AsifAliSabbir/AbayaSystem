@@ -1,9 +1,40 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace AbayaSystem.Core
 {
+    // 🏢 Branch / Workshop Locations
+    public class Branch
+    {
+        public int BranchId { get; set; }
+        public string BranchName { get; set; } = string.Empty;
+        public bool IsWorkshop { get; set; } = false; // True = Central Workshop, False = Showroom
+    }
+
+    // 🏬 Fabric Shops Catalog
+    public class FabricShop
+    {
+        public int FabricShopId { get; set; }
+        public string FabricShopName { get; set; } = string.Empty;
+    }
+
+    // 🧵 Fabric Names Catalog
+    public class Fabric
+    {
+        public int FabricId { get; set; }
+        public string FabricName { get; set; } = string.Empty;
+    }
+
+    // 🤝 External Suppliers / Vendors (Embroiderers, Full-Abaya Makers, etc.)
+    public class Supplier
+    {
+        public int SupplierId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
+    }
+
     [Flags]
     public enum WorkerRole
     {
@@ -11,101 +42,139 @@ namespace AbayaSystem.Core
         CuttingMaster = 2,
         Tailor = 4,
         Admin = 8,
-        HandEmbroiderer
+        HandEmbroiderer = 16
     }
 
     public class Worker
     {
-        public int WorkerId { get; set; } // Auto-incrementing internal ID
+        public int WorkerId { get; set; }
         public string Name { get; set; } = string.Empty;
-
-        // This holds the added math values of their combined roles (e.g., 6 = Cutter + Tailor)
         public WorkerRole AssignedRoles { get; set; }
-
-        // 🔒 New Authentication Fields
         public string Username { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty; // Never store plain text passwords!
+        public string PasswordHash { get; set; } = string.Empty;
+
+        // 🔗 Linked to specific Branch/Showroom or Workshop
+        public int BranchId { get; set; }
+        public Branch? Branch { get; set; }
     }
 
-
-    // 🏷️ Transaction and Tracking Pipelines
+    // 🏷️ Order Types
     public enum OrderType
     {
-        CustomOrder,                // Standard handwritten receipt customer build
-        ReadyMadeRetail,            // Customer bought the physical display sample
-        InternalStockReplenishment  // Manual factory re-make ticket (AED 0 value)
+        Internal, // Internal Workshop or Showroom tailor only
+        Hybrid,   // Internal Workshop + External Embroiderer/Vendor
+        External  // 100% External Supplier made
+    }
+
+    public enum HybridProcessType
+    {
+        None,
+        CutAndHalfStitchFirst, // Cut -> Half Stitch in Workshop -> External Embroiderer -> In-House Finish
+        RawFabricFirst         // Raw Fabric -> External Embroiderer -> In-House Cut & Stitch
     }
 
     public enum SheilaSize
     {
         Size_22x81, // Standard Stock
         Size_28x81, // Standard Stock
-        Size_28x90  // Custom XL - 🚨 Triggers dedicated fabric purchase
+        Size_28x90  // Custom XL - Triggers dedicated fabric purchase
     }
 
     public enum ItemStatus
     {
         ReadyForFabricProcurement,
-        ReadyForDispatch,
+        OutForRawFabricEmbroidery,
         AssignedToCutter,
         InStitchingQueue,
-        StitchingActive,
+        HalfStitchedInWorkshop,
+        OutForHalfStitchEmbroidery,
         HandEmbroideryActive,
         QualityCheck,
-        OutWithExternalWorkshop,
+        OutWithExternalVendor,
         ReadyAtShop,
         AlterationActive,
         Closed
     }
 
-    // 🧾 Parent Order Container
+    // 🧾 Parent Order Container (Uses Composite Key: BranchId + OrderId)
     public class Order
     {
-        // Pure manual entry text identifier (e.g., 45098, RM-45098, WM-502)
+        // 🔑 Composite Primary Key Part 1: Branch where order was created
+        public int BranchId { get; set; }
+        public Branch? Branch { get; set; }
+
+        // 🔑 Composite Primary Key Part 2: Manual receipt number (e.g., 45098, RM-101)
         public string OrderId { get; set; } = string.Empty;
+
         public string CustomerName { get; set; } = string.Empty;
         public DateTime DateOrdered { get; set; } = DateTime.UtcNow;
-        public OrderType TypeOfOrder { get; set; } = OrderType.CustomOrder;
+
+        // 📅 Delivery Tracking
+        public DateTime EstimatedDeliveryDate { get; set; } = DateTime.UtcNow.AddDays(7);
+        public DateTime? ActualDeliveryDate { get; set; }
+
+        // 🚨 Workflow Priority Flag
+        public bool IsUrgent { get; set; } = false;
+
+        // 📝 Order Level Note
+        public string Notes { get; set; } = string.Empty;
+
+        public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
 
         // Financials
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
         public decimal BalanceDue => TotalAmount - DepositPaid;
 
-        // One order sheet can hold multiple customized abaya pieces
         public List<OrderItem> Items { get; set; } = new();
     }
 
     // 👗 Individual Garment Line Item
     public class OrderItem
     {
-        public int OrderItemId { get; set; } // Auto-incrementing line ID
-        public string OrderId { get; set; } = string.Empty; // Maps back to your manual ID
+        public int OrderItemId { get; set; }
 
-        // Free-text descriptors matching receipt workflow
+        // 🔗 Foreign Key pointing back to Composite Parent Order
+        public int BranchId { get; set; }
+        public string OrderId { get; set; } = string.Empty;
+
         public string ModelTextDescription { get; set; } = string.Empty;
-        public string FabricName { get; set; } = string.Empty;
+
+        // 🏬 Dropdown Selections
+        public int? FabricShopId { get; set; }
+        public FabricShop? FabricShop { get; set; }
+
+        public int? FabricId { get; set; }
+        public Fabric? Fabric { get; set; }
+
+        // Whole number code from catalogue (e.g., "1", "2", "15")
+        public string ColorCode { get; set; } = string.Empty;
+
         public bool IsShopProvidingFabric { get; set; } = true;
 
-        // Sizing and Alterations
+        // Process details
+        public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
+
+        // Sizing & Sheila
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
         public bool IsReadyMadeAlteration { get; set; } = false;
         public string AlterationNotes { get; set; } = string.Empty;
 
-        // Logistics and Factory Routing Assignments
-        public int AssignedWorkshopId { get; set; } = 1;
+        // 📝 Item Level Note
+        public string Notes { get; set; } = string.Empty;
+
+        // Logistics & Routing
+        public int TargetBranchId { get; set; } // Workshop Branch ID or Local Showroom Branch ID
+        public int? AssignedSupplierId { get; set; } // External Computer Embroiderer / Vendor
+        public Supplier? AssignedSupplier { get; set; }
+
         public int? CutByWorkerId { get; set; }
         public int? StitchedByWorkerId { get; set; }
+        public int? HandEmbroideredByWorkerId { get; set; }
+
         public ItemStatus Status { get; set; } = ItemStatus.ReadyForFabricProcurement;
 
-        /// <summary>
-        /// Tracks if the shop-provided fabric has been purchased from the market.
-        /// </summary>
         public bool IsAbayaFabricBought { get; set; } = false;
-
-        /// <summary>
-        /// Tracks if the custom 28x90 XL Sheila fabric has been secured.
-        /// </summary>
         public bool IsSheilaFabricBought { get; set; } = false;
     }
 }
