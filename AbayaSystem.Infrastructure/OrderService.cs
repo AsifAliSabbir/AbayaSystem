@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore; // 👈 CRITICAL: Fixes CS0411 for ToListAsync and AnyAsync
+using Microsoft.EntityFrameworkCore;
 using AbayaSystem.Core;
 
 namespace AbayaSystem.Infrastructure
@@ -12,10 +12,13 @@ namespace AbayaSystem.Infrastructure
         Task<List<FabricShop>> GetFabricShopsAsync();
         Task<List<Fabric>> GetFabricsAsync();
         Task<List<Branch>> GetBranchesAsync();
+        Task<List<ExternalWorker>> GetExternalWorkersAsync();
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
+
+        // 🛍️ Fabric Procurement Methods
         Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync();
         Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync();
-        Task<bool> MarkFabricAsBoughtAsync(int orderItemId, bool isSheila);
+        Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId);
     }
 
     public class OrderService : IOrderService
@@ -36,30 +39,32 @@ namespace AbayaSystem.Infrastructure
         public async Task<List<Branch>> GetBranchesAsync() =>
             await _context.Branches.ToListAsync();
 
+        public async Task<List<ExternalWorker>> GetExternalWorkersAsync() =>
+            await _context.ExternalWorkers.Where(w => w.IsActive).ToListAsync();
+
         public async Task<ServiceResult> CreateOrderAsync(OrderFormModel model)
         {
             if (string.IsNullOrWhiteSpace(model.ManualOrderId))
-            {
-                return ServiceResult.Failure("You must specify a valid manual order number!");
-            }
+                return ServiceResult.Failure("Specify a valid manual ticket number!");
+
+            if (model.Items.Count == 0)
+                return ServiceResult.Failure("You must add at least one item to the order!");
 
             var cleanId = model.ManualOrderId.Trim().ToUpper();
 
-            // Checks composite key duplicate (BranchId + OrderId)
             var exist = await _context.Orders
                 .AnyAsync(o => o.BranchId == model.BranchId && o.OrderId == cleanId);
 
             if (exist)
-            {
-                return ServiceResult.Failure($"Order number '{cleanId}' already exists for this branch.");
-            }
+                return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
 
             var order = new Order
             {
                 BranchId = model.BranchId,
                 OrderId = cleanId,
                 CustomerName = model.CustomerName,
-                TypeOfOrder = model.TypeOfOrder,
+                OrderDate = model.OrderDate,
+                TypeOfOrder = OrderType.Internal,
                 EstimatedDeliveryDate = model.EstimatedDeliveryDate,
                 IsUrgent = model.IsUrgent,
                 Notes = model.OrderNotes,
@@ -67,40 +72,72 @@ namespace AbayaSystem.Infrastructure
                 DepositPaid = model.DepositPaid
             };
 
-            var orderItem = new OrderItem
+            foreach (var item in model.Items)
             {
-                BranchId = model.BranchId,
-                OrderId = cleanId,
-                ModelTextDescription = model.ModelTextDescription,
-                FabricShopId = model.FabricShopId,
-                FabricId = model.FabricId,
-                ColorCode = model.ColorCode,
-                SelectedSheilaSize = model.SelectedSheilaSize,
-                IsReadyMadeAlteration = model.IsReadyMadeAlteration,
-                AlterationNotes = model.AlterationNotes,
-                Notes = model.ItemNotes,
-                HybridProcess = model.HybridProcess,
-                TargetBranchId = model.TargetBranchId,
-                Status = ItemStatus.ReadyForFabricProcurement
-            };
+                OrderType itemOrderType = OrderType.Internal;
+                int? workerId = null;
 
-            order.Items.Add(orderItem);
+                if (item.SelectedWorkflowKey.StartsWith("Hybrid_"))
+                {
+                    itemOrderType = OrderType.Hybrid;
+                    workerId = int.Parse(item.SelectedWorkflowKey.Replace("Hybrid_", ""));
+                }
+                else if (item.SelectedWorkflowKey.StartsWith("External_"))
+                {
+                    itemOrderType = OrderType.External;
+                    workerId = int.Parse(item.SelectedWorkflowKey.Replace("External_", ""));
+                }
+
+                var orderItem = new OrderItem
+                {
+                    BranchId = model.BranchId,
+                    OrderId = cleanId,
+                    Category = item.Category,
+                    ModelTextDescription = item.ModelTextDescription,
+                    FabricShopId = item.FabricShopId,
+                    FabricId = item.FabricId,
+                    ColorCode = item.ColorCode,
+                    SelectedSheilaSize = item.SelectedSheilaSize,
+                    IsReadyMadeAlteration = item.IsReadyMadeAlteration,
+                    AlterationNotes = item.AlterationNotes,
+                    Notes = item.ItemNotes,
+                    HybridProcess = itemOrderType == OrderType.Hybrid ? item.HybridProcess : HybridProcessType.None,
+                    ExternalWorkerId = workerId,
+                    BuyFabricForExternal = item.BuyFabricForExternal,
+                    TargetBranchId = item.TargetBranchId,
+                    Status = (itemOrderType == OrderType.External && !item.BuyFabricForExternal)
+                              ? ItemStatus.Completed
+                              : ItemStatus.ReadyForFabricProcurement
+                };
+
+                order.Items.Add(orderItem);
+            }
+
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
 
             return ServiceResult.Success();
         }
 
+        // 🛍️ Fabric Procurement Implementations
         public async Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync()
         {
             return await _context.OrderItems
-                .Where(i => i.IsShopProvidingFabric && !i.IsAbayaFabricBought && i.Status == ItemStatus.ReadyForFabricProcurement)
+                .Include(i => i.Order)
+                .Include(i => i.FabricShop)
+                .Include(i => i.Fabric)
+                .Where(i => i.Status == ItemStatus.ReadyForFabricProcurement && (i.FabricShopId != null || i.FabricId != null))
                 .Select(i => new FabricProcurementItem
                 {
                     OrderItemId = i.OrderItemId,
+                    BranchId = i.BranchId,
                     OrderId = i.OrderId,
-                    FabricName = i.Fabric != null ? i.Fabric.FabricName : "Custom",
-                    ModelDescription = i.ModelTextDescription
+                    CustomerName = i.Order.CustomerName,
+                    ModelDescription = i.ModelTextDescription,
+                    FabricShopName = i.FabricShop != null ? i.FabricShop.FabricShopName : "N/A",
+                    FabricName = i.Fabric != null ? i.Fabric.FabricName : "N/A",
+                    ColorCode = i.ColorCode,
+                    OrderDate = i.Order.OrderDate
                 })
                 .ToListAsync();
         }
@@ -108,53 +145,30 @@ namespace AbayaSystem.Infrastructure
         public async Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync()
         {
             return await _context.OrderItems
-                .Where(i => i.SelectedSheilaSize == SheilaSize.Size_28x90 && !i.IsSheilaFabricBought && i.Status == ItemStatus.ReadyForFabricProcurement)
+                .Include(i => i.Order)
+                .Where(i => i.Status == ItemStatus.ReadyForFabricProcurement && i.SelectedSheilaSize == SheilaSize.Size_28x90)
                 .Select(i => new SheilaProcurementItem
                 {
                     OrderItemId = i.OrderItemId,
+                    BranchId = i.BranchId,
                     OrderId = i.OrderId,
-                    SheilaSizeText = "28 x 90 inches (XL Custom)",
-                    ModelDescription = i.ModelTextDescription
+                    CustomerName = i.Order.CustomerName,
+                    ModelTextDescription = i.ModelTextDescription,
+                    SelectedSheilaSize = i.SelectedSheilaSize,
+                    OrderDate = i.Order.OrderDate
                 })
                 .ToListAsync();
         }
 
-        public async Task<bool> MarkFabricAsBoughtAsync(int orderItemId, bool isSheila)
+        public async Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId)
         {
             var item = await _context.OrderItems.FindAsync(orderItemId);
-            if (item == null) return false;
+            if (item == null) return ServiceResult.Failure("Order item not found.");
 
-            if (isSheila)
-            {
-                item.IsSheilaFabricBought = true;
-            }
-            else
-            {
-                item.IsAbayaFabricBought = true;
-            }
-
-            bool needsAbayaFabric = item.IsShopProvidingFabric;
-            bool needsSheilaFabric = item.SelectedSheilaSize == SheilaSize.Size_28x90;
-
-            bool abayaReady = !needsAbayaFabric || item.IsAbayaFabricBought;
-            bool sheilaReady = !needsSheilaFabric || item.IsSheilaFabricBought;
-
-            if (abayaReady && sheilaReady)
-            {
-                item.Status = ItemStatus.AssignedToCutter;
-            }
-
+            item.Status = ItemStatus.AssignedToCutter;
             await _context.SaveChangesAsync();
-            return true;
+
+            return ServiceResult.Success();
         }
-    }
-
-    public class ServiceResult
-    {
-        public bool IsSuccess { get; set; }
-        public string ErrorMessage { get; set; } = string.Empty;
-
-        public static ServiceResult Success() => new() { IsSuccess = true };
-        public static ServiceResult Failure(string error) => new() { IsSuccess = false, ErrorMessage = error };
     }
 }

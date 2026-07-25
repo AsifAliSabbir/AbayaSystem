@@ -93,7 +93,7 @@ namespace AbayaSystem.Core
         OutWithExternalVendor,
         ReadyAtShop,
         AlterationActive,
-        Closed
+        Completed,
     }
 
     // 🧾 Parent Order Container (Uses Composite Key: BranchId + OrderId)
@@ -107,8 +107,7 @@ namespace AbayaSystem.Core
         public string OrderId { get; set; } = string.Empty;
 
         public string CustomerName { get; set; } = string.Empty;
-        public DateTime DateOrdered { get; set; } = DateTime.UtcNow;
-
+        public DateTime OrderDate { get; set; } = DateTime.Today;
         // 📅 Delivery Tracking
         public DateTime EstimatedDeliveryDate { get; set; } = DateTime.UtcNow.AddDays(7);
         public DateTime? ActualDeliveryDate { get; set; }
@@ -137,7 +136,7 @@ namespace AbayaSystem.Core
         // 🔗 Foreign Key pointing back to Composite Parent Order
         public int BranchId { get; set; }
         public string OrderId { get; set; } = string.Empty;
-
+        public Order? Order { get; set; }
         public string ModelTextDescription { get; set; } = string.Empty;
 
         // 🏬 Dropdown Selections
@@ -176,5 +175,35 @@ namespace AbayaSystem.Core
 
         public bool IsAbayaFabricBought { get; set; } = false;
         public bool IsSheilaFabricBought { get; set; } = false;
+
+        public ItemCategory Category { get; set; } = ItemCategory.Abaya;
+        public int? ExternalWorkerId { get; set; }
+        public ExternalWorker? ExternalWorker { get; set; }
+        public bool BuyFabricForExternal { get; set; } = false;
+    }
+
+    // --- Add these two procurement models for FabricProcurement.razor ---
+    public class FabricProcurementItem
+    {
+        public int OrderItemId { get; set; }
+        public int BranchId { get; set; }
+        public string OrderId { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public string ModelDescription { get; set; } = string.Empty;
+        public string FabricShopName { get; set; } = string.Empty;
+        public string FabricName { get; set; } = string.Empty;
+        public string ColorCode { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+    }
+
+    public class SheilaProcurementItem
+    {
+        public int OrderItemId { get; set; }
+        public int BranchId { get; set; }
+        public string OrderId { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public string ModelTextDescription { get; set; } = string.Empty;
+        public SheilaSize SelectedSheilaSize { get; set; }
+        public DateTime OrderDate { get; set; }
     }
 }

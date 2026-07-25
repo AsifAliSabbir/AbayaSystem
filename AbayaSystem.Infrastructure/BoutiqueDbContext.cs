@@ -12,6 +12,7 @@ namespace AbayaSystem.Infrastructure
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<Worker> Workers => Set<Worker>();
+        public DbSet<ExternalWorker> ExternalWorkers { get; set; }
 
         public BoutiqueDbContext(DbContextOptions<BoutiqueDbContext> options) : base(options)
         {
@@ -20,6 +21,14 @@ namespace AbayaSystem.Infrastructure
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ExternalWorker>().HasData(
+    new ExternalWorker { ExternalWorkerId = 1, Name = "Rubel", Phone = "+971500000001", SupportedType = ExternalWorkerType.FullExternal },
+    new ExternalWorker { ExternalWorkerId = 2, Name = "Saiful", Phone = "+971500000002", SupportedType = ExternalWorkerType.FullExternal },
+    new ExternalWorker { ExternalWorkerId = 3, Name = "Alim Emb", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
+    new ExternalWorker { ExternalWorkerId = 4, Name = "Computer Emb1", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
+    new ExternalWorker { ExternalWorkerId = 5, Name = "Computer Emb2", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid }
+);
 
             // 🔑 Configure Composite Primary Key for Order
             modelBuilder.Entity<Order>()
@@ -50,6 +59,7 @@ namespace AbayaSystem.Infrastructure
                 .WithMany()
                 .HasForeignKey(i => i.FabricId)
                 .IsRequired(false);
+
         }
 
         public static async Task SeedDatabaseAsync(BoutiqueDbContext context)

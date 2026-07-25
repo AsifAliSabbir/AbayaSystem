@@ -4,6 +4,7 @@
 @using AbayaSystem.Infrastructure
 @using CurrieTechnologies.Razor.SweetAlert2
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 
 @inject IOrderService OrderService
 @inject NavigationManager Navigation
@@ -12,11 +13,11 @@
 
 <div class="container-fluid max-w-1200 py-3">
 
-    <!-- Page Header Banner -->
+    <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
-            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">✨ New Abaya Order Intake</h3>
-            <p class="text-muted small mb-0">Record customer specs, fabric catalogs, color codes, and workshop routing</p>
+            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">✨ Multi-Item Order Intake</h3>
+            <p class="text-muted small mb-0">Record ticket details and add multiple garments per order</p>
         </div>
         <a href="/orders" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> View All Orders
@@ -26,285 +27,293 @@
     @if (isLoading)
     {
         <div class="text-center py-5">
-            <div class="spinner-border text-warning" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="text-muted mt-2">Loading catalogs and branches...</p>
+            <div class="spinner-border text-warning" role="status"></div>
+            <p class="text-muted mt-2">Loading catalogs and configuration...</p>
         </div>
     }
     else
     {
-        <EditForm Model="orderModel" OnValidSubmit="HandleSubmit">
-            <DataAnnotationsValidator />
+        <!-- SECTION 1: MASTER ORDER DETAILS (Disabled once items are added) -->
+        <div class="card border-0 shadow-sm rounded-3 mb-4 @(orderModel.Items.Count > 0 ? "border-start border-4 border-warning" : "")">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold m-0 text-dark">
+                    <i class="bi bi-receipt me-2 text-warning"></i>1. Master Order Ticket Information
+                    @if (orderModel.Items.Count > 0)
+                    {
+                        <span class="badge bg-warning text-dark ms-2">Locked (@orderModel.Items.Count items added)</span>
+                    }
+                </h6>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch"
+                           @bind="orderModel.IsUrgent" disabled="@IsMasterLocked">
+                    <label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">🚨 Urgent Order</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- 2. Showroom Branch Selector (Auto-selected & disabled for salesman) -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Showroom Branch *</label>
+                        <select class="form-select shadow-sm" @bind="orderModel.BranchId" disabled="@(isSalesman || IsMasterLocked)">
+                            @foreach (var branch in branches.Where(b => !b.IsWorkshop))
+                            {
+                                <option value="@branch.BranchId">@branch.BranchName</option>
+                            }
+                        </select>
+                    </div>
 
-            <div class="row g-4">
-                <!-- LEFT COLUMN: Order & Material Details -->
-                <div class="col-lg-8">
+                    <!-- Manual Ticket Number -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Receipt / Ticket # *</label>
+                        <input type="text" class="form-control fw-bold text-uppercase shadow-sm" placeholder="e.g. 45098"
+                               @bind="orderModel.ManualOrderId" disabled="@IsMasterLocked" />
+                    </div>
 
-                    <!-- CARD 1: Branch, Ticket & Urgency -->
-                    <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                            <h6 class="fw-bold m-0 text-dark">
-                                <i class="bi bi-receipt me-2 text-warning"></i>1. Order Identification & Urgency
-                            </h6>
-                            <div class="form-check form-switch m-0">
-                                <input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch" @bind="orderModel.IsUrgent">
-                                <label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">
-                                    🚨 Urgent Order
+                    <!-- Customer Name -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Customer Name *</label>
+                        <input type="text" class="form-control shadow-sm" placeholder="Client Name / Phone"
+                               @bind="orderModel.CustomerName" disabled="@IsMasterLocked" />
+                    </div>
+
+                    <!-- 1. Order Date (Manual Input, Default Today) -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Order Date *</label>
+                        <input type="date" class="form-control shadow-sm" @bind="orderModel.OrderDate" disabled="@IsMasterLocked" />
+                    </div>
+
+                    <!-- Delivery Date -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted">Estimated Delivery Date *</label>
+                        <input type="date" class="form-control shadow-sm" @bind="orderModel.EstimatedDeliveryDate" disabled="@IsMasterLocked" />
+                    </div>
+
+                    <!-- Financial Summary -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted">Total Amount (AED)</label>
+                        <input type="number" step="0.01" class="form-control fw-bold fs-6" @bind="orderModel.TotalAmount" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted">Advance Deposit Paid (AED)</label>
+                        <input type="number" step="0.01" class="form-control text-success fw-bold fs-6" @bind="orderModel.DepositPaid" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: ADD ITEM ENTRY FORM -->
+        <div class="card border-0 shadow-sm rounded-3 mb-4 border-top border-4 border-primary">
+            <div class="card-header bg-white border-bottom py-3">
+                <h6 class="fw-bold m-0 text-dark">
+                    <i class="bi bi-plus-circle me-2 text-primary"></i>2. Add Order Line Item
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+
+                    <!-- 4. Item Category Dropdown (Abaya or InnerDress) -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Item Category *</label>
+                        <select class="form-select shadow-sm fw-bold text-primary" @onchange="OnCategoryChanged" value="@currentItem.Category">
+                            <option value="@ItemCategory.Abaya">👗 Abaya</option>
+                            <option value="@ItemCategory.InnerDress">🥻 Inner Dress (Internal Only)</option>
+                        </select>
+                    </div>
+
+                    <!-- Model Description -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small text-muted">Model / Style Description *</label>
+                        <input type="text" class="form-control shadow-sm" placeholder="e.g. Butterfly sleeve with beaded collar" @bind="currentItem.ModelTextDescription" />
+                    </div>
+
+                    <!-- 6. Unified Workflow & External Worker Selection -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Workflow / Assigned Tailor *</label>
+                        <select class="form-select shadow-sm fw-bold" @bind="currentItem.SelectedWorkflowKey" disabled="@(currentItem.Category == ItemCategory.InnerDress)">
+                            <option value="Internal">🏠 Internal Workshop</option>
+                            @if (currentItem.Category == ItemCategory.Abaya)
+                            {
+                                @foreach (var w in externalWorkers)
+                                {
+                                    if (w.SupportedType == ExternalWorkerType.Hybrid || w.SupportedType == ExternalWorkerType.Both)
+                                    {
+                                        <option value="Hybrid_@w.ExternalWorkerId">🧵 Hybrid - @w.Name</option>
+                                    }
+                                    if (w.SupportedType == ExternalWorkerType.FullExternal || w.SupportedType == ExternalWorkerType.Both)
+                                    {
+                                        <option value="External_@w.ExternalWorkerId">🏬 Full External - @w.Name</option>
+                                    }
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- 6. Checkbox for External Worker Fabric Purchase -->
+                    @if (currentItem.SelectedWorkflowKey.StartsWith("External_"))
+                    {
+                        <div class="col-12">
+                            <div class="p-2 bg-warning-subtle rounded border border-warning form-check ms-3">
+                                <input class="form-check-input" type="checkbox" id="extFabricCheck" @bind="currentItem.BuyFabricForExternal">
+                                <label class="form-check-label fw-bold text-dark small" for="extFabricCheck">
+                                    🛒 Buy fabric for this External Worker model?
                                 </label>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <!-- Origin Branch Selector -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Showroom Branch *</label>
-                                    <InputSelect @bind-Value="orderModel.BranchId" class="form-select shadow-sm">
-                                        @foreach (var branch in branches.Where(b => !b.IsWorkshop))
-                                        {
-                                            <option value="@branch.BranchId">@branch.BranchName</option>
-                                        }
-                                    </InputSelect>
-                                </div>
+                    }
 
-                                <!-- Manual Ticket Number -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Receipt / Ticket # *</label>
-                                    <InputText @bind-Value="orderModel.ManualOrderId" class="form-control fw-bold text-uppercase shadow-sm" placeholder="e.g. 45098 or RM-101" />
-                                </div>
-
-                                <!-- Customer Name -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Customer Name *</label>
-                                    <InputText @bind-Value="orderModel.CustomerName" class="form-control shadow-sm" placeholder="Client name or phone" />
-                                </div>
-
-                                <!-- Estimated Delivery Date -->
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold small text-muted">Estimated Delivery Date *</label>
-                                    <InputDate @bind-Value="orderModel.EstimatedDeliveryDate" class="form-control shadow-sm" />
-                                </div>
-
-                                <!-- Target Manufacturing Location -->
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold small text-muted">Target Manufacturing Location</label>
-                                    <InputSelect @bind-Value="orderModel.TargetBranchId" class="form-select shadow-sm">
-                                        @foreach (var branch in branches)
-                                        {
-                                            <option value="@branch.BranchId">
-                                                @(branch.IsWorkshop ? $"🏭 {branch.BranchName}" : $"🏬 Local Tailor ({branch.BranchName})")
-                                            </option>
-                                        }
-                                    </InputSelect>
-                                </div>
-                            </div>
+                    <!-- Hybrid Execution Option -->
+                    @if (currentItem.SelectedWorkflowKey.StartsWith("Hybrid_"))
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted">Hybrid Cut & Stitch Path</label>
+                            <select class="form-select shadow-sm" @bind="currentItem.HybridProcess">
+                                <option value="@HybridProcessType.CutAndHalfStitchFirst">Cut & Half-Stitch First in Workshop</option>
+                                <option value="@HybridProcessType.RawFabricFirst">Raw Unstitched Fabric to Embroiderer First</option>
+                            </select>
                         </div>
-                    </div>
+                    }
 
-                    <!-- CARD 2: Abaya Model, Fabric Shops & Catalogs -->
-                    <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold m-0 text-dark">
-                                <i class="bi bi-scissors me-2 text-warning"></i>2. Garment, Fabric & Catalog Specs
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <!-- Sample Model Description -->
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold small text-muted">Sample Model Description / Style *</label>
-                                    <InputText @bind-Value="orderModel.ModelTextDescription" class="form-control shadow-sm" placeholder="e.g. Butterfly cut with sleeve beadwork, Bisht A-Line" />
-                                </div>
-
-                                <!-- Fabric Shop Dropdown -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Fabric Supplier Shop</label>
-                                    <InputSelect @bind-Value="orderModel.FabricShopId" class="form-select shadow-sm">
-                                        <option value="">-- Select Shop --</option>
-                                        @foreach (var shop in fabricShops)
-                                        {
-                                            <option value="@shop.FabricShopId">@shop.FabricShopName</option>
-                                        }
-                                    </InputSelect>
-                                </div>
-
-                                <!-- Fabric Name Dropdown -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Fabric Type</label>
-                                    <InputSelect @bind-Value="orderModel.FabricId" class="form-select shadow-sm">
-                                        <option value="">-- Select Fabric --</option>
-                                        @foreach (var fabric in fabrics)
-                                        {
-                                            <option value="@fabric.FabricId">@fabric.FabricName</option>
-                                        }
-                                    </InputSelect>
-                                </div>
-
-                                <!-- Color Catalog Code -->
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold small text-muted">Catalog Color Code #</label>
-                                    <InputText @bind-Value="orderModel.ColorCode" class="form-control shadow-sm" placeholder="e.g. 1, 5, 12" />
-                                </div>
-
-                                <!-- Sheila Selection -->
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold small text-muted">Sheila Specification</label>
-                                    <InputSelect @bind-Value="orderModel.SelectedSheilaSize" class="form-select shadow-sm">
-                                        <option value="@SheilaSize.Size_28x81">Standard (28 x 81 inches)</option>
-                                        <option value="@SheilaSize.Size_22x81">Small (22 x 81 inches)</option>
-                                        <option value="@SheilaSize.Size_28x90">Custom XL (28 x 90 inches - Triggers Fabric Purchase)</option>
-                                    </InputSelect>
-                                </div>
-
-                                <!-- Ready-Made Alteration Checkbox -->
-                                <div class="col-md-6 d-flex align-items-center mt-4">
-                                    <div class="form-check">
-                                        <InputCheckbox @bind-Value="orderModel.IsReadyMadeAlteration" class="form-check-input" id="altCheck" />
-                                        <label class="form-check-label fw-semibold small ms-1" for="altCheck">
-                                            Is Ready-Made Rack Alteration?
-                                        </label>
-                                    </div>
-                                </div>
-
-                                @if (orderModel.IsReadyMadeAlteration)
-                                {
-                                    <div class="col-12">
-                                        <label class="form-label fw-semibold small text-muted">Alteration Instructions</label>
-                                        <InputTextArea @bind-Value="orderModel.AlterationNotes" class="form-control shadow-sm" rows="2" placeholder="e.g. Shorten length by 2 inches, tighten sleeves" />
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- CARD 3: Custom Notes -->
-                    <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold m-0 text-dark">
-                                <i class="bi bi-chat-left-text me-2 text-warning"></i>3. Custom Notes & Instructions
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold small text-muted">Order-Level Notes</label>
-                                    <InputTextArea @bind-Value="orderModel.OrderNotes" class="form-control shadow-sm" rows="3" placeholder="General client preference, VIP instructions..." />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold small text-muted">Garment / Tailor Specific Notes</label>
-                                    <InputTextArea @bind-Value="orderModel.ItemNotes" class="form-control shadow-sm" rows="3" placeholder="Detailed measurement notes, lace placement details..." />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- RIGHT COLUMN: Workflow Pipeline & Financials -->
-                <div class="col-lg-4">
-
-                    <!-- CARD 4: Pipeline Workflow Selection -->
-                    <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold m-0 text-dark">
-                                <i class="bi bi-diagram-3 me-2 text-warning"></i>Production Pipeline
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Abaya Type / Fulfillment</label>
-                                <InputSelect @bind-Value="orderModel.TypeOfOrder" class="form-select shadow-sm fw-bold">
-                                    <option value="@OrderType.Internal">Type 1: Internal Workshop / Showroom</option>
-                                    <option value="@OrderType.Hybrid">Type 2: Hybrid (Internal + External Embroiderer)</option>
-                                    <option value="@OrderType.External">Type 3: 100% External Supplier</option>
-                                </InputSelect>
-                            </div>
-
-                            @if (orderModel.TypeOfOrder == OrderType.Hybrid)
+                    <!-- Fabric Supplier Shop & Type -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Fabric Supplier Shop</label>
+                        <select class="form-select shadow-sm" @bind="currentItem.FabricShopId">
+                            <option value="">-- Select Shop --</option>
+                            @foreach (var shop in fabricShops)
                             {
-                                <div class="p-3 bg-light rounded-3 border border-warning">
-                                    <label class="form-label fw-bold small text-dark">Hybrid Execution Path *</label>
-                                    <InputSelect @bind-Value="orderModel.HybridProcess" class="form-select shadow-sm mb-2">
-                                        <option value="@HybridProcessType.CutAndHalfStitchFirst">Cut & Half-Stitch First in Workshop</option>
-                                        <option value="@HybridProcessType.RawFabricFirst">Raw Unstitched Fabric to Embroiderer First</option>
-                                    </InputSelect>
-                                    <small class="text-muted d-block" style="font-size: 0.78rem;">
-                                        @if (orderModel.HybridProcess == HybridProcessType.CutAndHalfStitchFirst)
+                                <option value="@shop.FabricShopId">@shop.FabricShopName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Fabric Type</label>
+                        <select class="form-select shadow-sm" @bind="currentItem.FabricId">
+                            <option value="">-- Select Fabric --</option>
+                            @foreach (var f in fabrics)
+                            {
+                                <option value="@f.FabricId">@f.FabricName</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- 7. Color Code (Defaults to Black) -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Catalog Color Code</label>
+                        <input type="text" class="form-control shadow-sm" @bind="currentItem.ColorCode" placeholder="Black" />
+                    </div>
+
+                    <!-- Sheila Selection (For Abayas) -->
+                    @if (currentItem.Category == ItemCategory.Abaya)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small text-muted">Sheila Size</label>
+                            <select class="form-select shadow-sm" @bind="currentItem.SelectedSheilaSize">
+                                <option value="@SheilaSize.Size_28x81">Standard (28 x 81 in)</option>
+                                <option value="@SheilaSize.Size_22x81">Small (22 x 81 in)</option>
+                                <option value="@SheilaSize.Size_28x90">Custom XL (28 x 90 in - Needs Fabric)</option>
+                            </select>
+                        </div>
+                    }
+
+                    <!-- Add Item Button -->
+                    <div class="col-12 text-end mt-3">
+                        <button type="button" class="btn btn-primary fw-bold shadow-sm" @onclick="AddItemToList">
+                            <i class="bi bi-plus-lg me-1"></i> Add Item to Order List
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. ADDED ITEMS TABLE LIST -->
+        @if (orderModel.Items.Count > 0)
+        {
+            <div class="card border-0 shadow-sm rounded-3 mb-4">
+                <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold m-0"><i class="bi bi-list-check me-2"></i>3. Order Items List (@orderModel.Items.Count)</h6>
+                    <span class="badge bg-warning text-dark">Balance Due: AED @((orderModel.TotalAmount - orderModel.DepositPaid).ToString("N2"))</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>#</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Workflow / Tailor</th>
+                                <th>Color</th>
+                                <th>Fabric Buy?</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < orderModel.Items.Count; i++)
+                            {
+                                var item = orderModel.Items[i];
+                                var index = i;
+                                <tr>
+                                    <td class="fw-bold">@(index + 1)</td>
+                                    <td>
+                                        <span class="badge @(item.Category == ItemCategory.Abaya ? "bg-info text-dark" : "bg-purple text-white")">
+                                            @item.Category
+                                        </span>
+                                    </td>
+                                    <td>@item.ModelTextDescription</td>
+                                    <td><span class="fw-semibold">@GetWorkflowLabel(item)</span></td>
+                                    <td><span class="badge bg-secondary">@item.ColorCode</span></td>
+                                    <td>
+                                        @if (item.SelectedWorkflowKey.StartsWith("External_"))
                                         {
-                                            <span>✂️ Cut & half-stitched in workshop before sending to embroiderer.</span>
+                                            <span>@(item.BuyFabricForExternal ? "🛒 Yes" : "❌ No")</span>
                                         }
                                         else
                                         {
-                                            <span>🧵 Raw unstitched fabric dispatched straight to embroiderer.</span>
+                                            <span class="text-muted">N/A</span>
                                         }
-                                    </small>
-                                </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RemoveItem(index)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
                             }
-                        </div>
-                    </div>
-
-                    <!-- CARD 5: Financials & Deposit -->
-                    <div class="card border-0 shadow-sm rounded-3 mb-4">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold m-0 text-dark">
-                                <i class="bi bi-cash-stack me-2 text-warning"></i>Financial Summary
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Total Amount (AED)</label>
-                                <div class="input-group shadow-sm">
-                                    <span class="input-group-text bg-light fw-bold">AED</span>
-                                    <InputNumber @bind-Value="orderModel.TotalAmount" class="form-control fw-bold fs-5 text-end" />
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small text-muted">Advance Deposit Paid (AED)</label>
-                                <div class="input-group shadow-sm">
-                                    <span class="input-group-text bg-light fw-bold">AED</span>
-                                    <InputNumber @bind-Value="orderModel.DepositPaid" class="form-control text-success fw-bold fs-5 text-end" />
-                                </div>
-                            </div>
-
-                            <hr class="my-3" />
-
-                            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 bg-dark text-white">
-                                <span class="fw-bold small">Balance Due:</span>
-                                <span class="fs-4 fw-bold text-warning">
-                                    AED @((orderModel.TotalAmount - orderModel.DepositPaid).ToString("N2"))
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <button type="submit" class="btn btn-warning w-100 py-3 fw-bold shadow rounded-3 text-uppercase tracking-wider" disabled="@isSubmitting">
-                        @if (isSubmitting)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <span>Saving Order...</span>
-                        }
-                        else
-                        {
-                            <span><i class="bi bi-check-circle-fill me-2"></i> Save & Log Order</span>
-                        }
-                    </button>
-
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </EditForm>
+        }
+
+        <!-- FINAL SUBMIT BUTTON -->
+        <button type="button" class="btn btn-warning w-100 py-3 fw-bold shadow rounded-3 text-uppercase fs-5"
+                @onclick="HandleSubmit" disabled="@(isSubmitting || orderModel.Items.Count == 0)">
+            @if (isSubmitting)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                <span>Saving Order...</span>
+            }
+            else
+            {
+                <span><i class="bi bi-check-circle-fill me-2"></i> Save Entire Order (@orderModel.Items.Count Items)</span>
+            }
+        </button>
     }
 </div>
 
 @code {
     private OrderFormModel orderModel = new();
+    private OrderItemFormModel currentItem = new();
     private List<Branch> branches = new();
     private List<FabricShop> fabricShops = new();
     private List<Fabric> fabrics = new();
+    private List<ExternalWorker> externalWorkers = new();
 
     private bool isLoading = true;
     private bool isSubmitting = false;
+    private bool isSalesman = false;
+
+    private bool IsMasterLocked => orderModel.Items.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -313,28 +322,30 @@
             branches = await OrderService.GetBranchesAsync();
             fabricShops = await OrderService.GetFabricShopsAsync();
             fabrics = await OrderService.GetFabricsAsync();
+            externalWorkers = await OrderService.GetExternalWorkersAsync();
 
-            // Default branch to first showroom
-            var defaultShowroom = branches.FirstOrDefault(b => !b.IsWorkshop);
-            if (defaultShowroom != null)
+            // 2. Check user roles and auto-select salesman branch
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            isSalesman = user.IsInRole("Salesman") && !user.IsInRole("Admin");
+
+            var branchClaim = user.FindFirst("BranchId")?.Value;
+            if (int.TryParse(branchClaim, out var userBranchId) && userBranchId > 0)
             {
-                orderModel.BranchId = defaultShowroom.BranchId;
+                orderModel.BranchId = userBranchId;
+            }
+            else
+            {
+                var defaultShowroom = branches.FirstOrDefault(b => !b.IsWorkshop);
+                if (defaultShowroom != null) orderModel.BranchId = defaultShowroom.BranchId;
             }
 
-            // Default target manufacturing location to Central Workshop if present
             var workshop = branches.FirstOrDefault(b => b.IsWorkshop);
-            if (workshop != null)
-            {
-                orderModel.TargetBranchId = workshop.BranchId;
-            }
-            else if (defaultShowroom != null)
-            {
-                orderModel.TargetBranchId = defaultShowroom.BranchId;
-            }
+            currentItem.TargetBranchId = workshop != null ? workshop.BranchId : orderModel.BranchId;
         }
         catch (Exception ex)
         {
-            await Swal.FireAsync("Error Loading Catalogs", ex.Message, SweetAlertIcon.Error);
+            await Swal.FireAsync("Error Loading Data", ex.Message, SweetAlertIcon.Error);
         }
         finally
         {
@@ -342,17 +353,166 @@
         }
     }
 
-    private async Task HandleSubmit()
+    // 4. Force InnerDress to always be Internal
+    private void OnCategoryChanged(ChangeEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(orderModel.ManualOrderId))
+        if (Enum.TryParse<ItemCategory>(e.Value?.ToString(), out var category))
         {
-            await Swal.FireAsync("Validation Error", "Please enter a valid Receipt/Ticket Number.", SweetAlertIcon.Warning);
+            currentItem.Category = category;
+            if (category == ItemCategory.InnerDress)
+            {
+                currentItem.SelectedWorkflowKey = "Internal";
+                currentItem.BuyFabricForExternal = false;
+            }
+        }
+    }
+
+    private void AddItemToList()
+    {
+        // Basic required field check
+        if (string.IsNullOrWhiteSpace(currentItem.ModelTextDescription))
+        {
+            Swal.FireAsync("Validation Error", "Please provide a model description for the item.", SweetAlertIcon.Warning);
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(orderModel.ModelTextDescription))
+        // Workflow must be set
+        if (string.IsNullOrWhiteSpace(currentItem.SelectedWorkflowKey))
         {
-            await Swal.FireAsync("Validation Error", "Please enter a model description.", SweetAlertIcon.Warning);
+            Swal.FireAsync("Validation Error", "Select a workflow / tailor for this item.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        // If Sheila requires custom fabric, require fabric or shop selection
+        if (currentItem.Category == ItemCategory.Abaya && currentItem.SelectedSheilaSize == SheilaSize.Size_28x90)
+        {
+            if (currentItem.FabricId == null && currentItem.FabricShopId == null)
+            {
+                Swal.FireAsync("Validation Error", "This Sheila size requires a fabric selection (choose fabric or shop).", SweetAlertIcon.Warning);
+                return;
+            }
+        }
+
+        // If external workflow and user opted to buy fabric, require a fabric/shop selection
+        if (currentItem.SelectedWorkflowKey.StartsWith("External_") && currentItem.BuyFabricForExternal)
+        {
+            if (currentItem.FabricId == null && currentItem.FabricShopId == null)
+            {
+                Swal.FireAsync("Validation Error", "Buying fabric for an external worker requires selecting a fabric or shop.", SweetAlertIcon.Warning);
+                return;
+            }
+        }
+
+        // Ensure TargetBranchId is set
+        if (currentItem.TargetBranchId <= 0)
+        {
+            Swal.FireAsync("Validation Error", "Invalid target branch for the item.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        // Prepare a copy of the current item to add (avoid sharing the bound instance)
+        var itemToAdd = new OrderItemFormModel
+        {
+            Category = currentItem.Category,
+            ModelTextDescription = currentItem.ModelTextDescription?.Trim() ?? string.Empty,
+            FabricShopId = currentItem.FabricShopId,
+            FabricId = currentItem.FabricId,
+            ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode,
+            SelectedWorkflowKey = currentItem.SelectedWorkflowKey,
+            HybridProcess = currentItem.HybridProcess,
+            BuyFabricForExternal = currentItem.BuyFabricForExternal,
+            SelectedSheilaSize = currentItem.SelectedSheilaSize,
+            IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration,
+            AlterationNotes = currentItem.AlterationNotes,
+            ItemNotes = currentItem.ItemNotes,
+            TargetBranchId = currentItem.TargetBranchId
+        };
+
+        orderModel.Items.Add(itemToAdd);
+
+        // Reset item entry form with defaults, preserve the previously selected target branch
+        var preserveTarget = itemToAdd.TargetBranchId;
+        currentItem = new OrderItemFormModel
+        {
+            ColorCode = "Black",
+            TargetBranchId = preserveTarget
+        };
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (index >= 0 && index < orderModel.Items.Count)
+        {
+            orderModel.Items.RemoveAt(index);
+        }
+    }
+
+    private string GetWorkflowLabel(OrderItemFormModel item)
+    {
+        if (item.SelectedWorkflowKey == "Internal") return "🏠 Internal Workshop";
+
+        if (item.SelectedWorkflowKey.StartsWith("Hybrid_"))
+        {
+            var id = int.Parse(item.SelectedWorkflowKey.Replace("Hybrid_", ""));
+            var worker = externalWorkers.FirstOrDefault(w => w.ExternalWorkerId == id);
+            return $"🧵 Hybrid ({worker?.Name ?? "External"})";
+        }
+
+        if (item.SelectedWorkflowKey.StartsWith("External_"))
+        {
+            var id = int.Parse(item.SelectedWorkflowKey.Replace("External_", ""));
+            var worker = externalWorkers.FirstOrDefault(w => w.ExternalWorkerId == id);
+            return $"🏬 External ({worker?.Name ?? "External"})";
+        }
+
+        return "Unknown";
+    }
+
+    private async Task HandleSubmit()
+    {
+        // Normalize manual id
+        orderModel.ManualOrderId = orderModel.ManualOrderId?.Trim().ToUpper() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(orderModel.ManualOrderId))
+        {
+            await Swal.FireAsync("Validation Error", "Please specify a manual receipt number.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        // Master validation
+        if (orderModel.BranchId <= 0)
+        {
+            await Swal.FireAsync("Validation Error", "Select a valid branch for this order.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(orderModel.CustomerName))
+        {
+            await Swal.FireAsync("Validation Error", "Please enter customer name or contact.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (orderModel.EstimatedDeliveryDate < orderModel.OrderDate)
+        {
+            await Swal.FireAsync("Validation Error", "Estimated delivery must be the same or after the order date.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (orderModel.TotalAmount < 0 || orderModel.DepositPaid < 0)
+        {
+            await Swal.FireAsync("Validation Error", "Amounts cannot be negative.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (orderModel.DepositPaid > orderModel.TotalAmount)
+        {
+            await Swal.FireAsync("Validation Error", "Deposit cannot be greater than total amount.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (orderModel.Items.Count == 0)
+        {
+            await Swal.FireAsync("Validation Error", "Add at least one item to the list before saving.", SweetAlertIcon.Warning);
             return;
         }
 
@@ -364,24 +524,11 @@
 
             if (result.IsSuccess)
             {
-                await Swal.FireAsync(new SweetAlertOptions
-                {
-                    Title = "Order Saved Successfully!",
-                    Text = $"Order #{orderModel.ManualOrderId.ToUpper()} has been created and routed.",
-                    Icon = SweetAlertIcon.Success,
-                    ConfirmButtonText = "OK"
-                });
+                await Swal.FireAsync("Order Saved!", $"Order #{orderModel.ManualOrderId.ToUpper()} recorded with {orderModel.Items.Count} items.", SweetAlertIcon.Success);
 
-                // Reset form state for next order entry while preserving branch selection
-                var currentBranch = orderModel.BranchId;
-                var currentTarget = orderModel.TargetBranchId;
-
-                orderModel = new OrderFormModel
-                {
-                    BranchId = currentBranch,
-                    TargetBranchId = currentTarget,
-                    EstimatedDeliveryDate = DateTime.UtcNow.AddDays(7)
-                };
+                var branchId = orderModel.BranchId;
+                orderModel = new OrderFormModel { BranchId = branchId };
+                currentItem = new OrderItemFormModel { ColorCode = "Black" };
             }
             else
             {

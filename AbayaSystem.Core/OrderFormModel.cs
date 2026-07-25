@@ -1,15 +1,16 @@
-﻿namespace AbayaSystem.Core
+﻿using System;
+using System.Collections.Generic;
+
+namespace AbayaSystem.Core
 {
     public class OrderFormModel
     {
-        // 🏢 Parent Order Properties
+        // 🏢 Master Order Properties
         public int BranchId { get; set; }
         public string ManualOrderId { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;
-        public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
-
-        // 📅 Dates & Urgency
-        public DateTime EstimatedDeliveryDate { get; set; } = DateTime.UtcNow.AddDays(7);
+        public DateTime OrderDate { get; set; } = DateTime.Today; // 📅 1. Default to Current Date
+        public DateTime EstimatedDeliveryDate { get; set; } = DateTime.Today.AddDays(7);
         public bool IsUrgent { get; set; } = false;
         public string OrderNotes { get; set; } = string.Empty;
 
@@ -17,16 +18,26 @@
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
 
-        // 👗 Garment Line Item Properties
+        // 👗 3. List of Items in Order
+        public List<OrderItemFormModel> Items { get; set; } = new();
+    }
+
+    public class OrderItemFormModel
+    {
+        // 👗 4. Item Category (Default: Abaya)
+        public ItemCategory Category { get; set; } = ItemCategory.Abaya;
         public string ModelTextDescription { get; set; } = string.Empty;
 
-        // 🏬 Dropdown Selections
+        // 🏬 Dropdowns & Color Code
         public int? FabricShopId { get; set; }
         public int? FabricId { get; set; }
-        public string ColorCode { get; set; } = string.Empty;
+        public string ColorCode { get; set; } = "Black"; // 🎨 7. Default to Black
 
-        // 🧵 Process & Sizing
+        // 🧵 6. Selected Workflow String Key (e.g., "Internal", "Hybrid_1", "External_2")
+        public string SelectedWorkflowKey { get; set; } = "Internal";
         public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
+        public bool BuyFabricForExternal { get; set; } = false; // 🧵 Checkbox for External Fabric Purchase
+
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
 
         // ✂️ Alterations & Routing
@@ -34,22 +45,5 @@
         public string AlterationNotes { get; set; } = string.Empty;
         public string ItemNotes { get; set; } = string.Empty;
         public int TargetBranchId { get; set; }
-    }
-
-    // 📦 Helper DTOs for Procurement Lists
-    public class FabricProcurementItem
-    {
-        public int OrderItemId { get; set; }
-        public string OrderId { get; set; } = string.Empty;
-        public string FabricName { get; set; } = string.Empty;
-        public string ModelDescription { get; set; } = string.Empty;
-    }
-
-    public class SheilaProcurementItem
-    {
-        public int OrderItemId { get; set; }
-        public string OrderId { get; set; } = string.Empty;
-        public string SheilaSizeText { get; set; } = string.Empty;
-        public string ModelDescription { get; set; } = string.Empty;
     }
 }
