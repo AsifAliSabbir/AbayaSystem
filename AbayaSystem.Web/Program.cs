@@ -12,8 +12,14 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 
+//string conl = @"Server=db59869.public.databaseasp.net; Database=db59869; User Id=db59869; Password=Cy8+?Ga3h%2T; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True; ";
+
+
+//string conl2 = @"Server=db59869.databaseasp.net; Database=db59869; User Id=db59869; Password=Cy8+?Ga3h%2T; Encrypt=False; MultipleActiveResultSets=True;";
+
 
 string currentConnectionString = GlobalFunctions.conl; // Change this to the desired connection string
+//string currentConnectionString = conl; // Change this to the desired connection string
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,8 +30,10 @@ builder.Services.AddRazorComponents()
 // Wire up your Application Order Engine service dependency
 builder.Services.AddScoped<IOrderService, OrderService>();
 
+builder.Services.AddScoped<IExternalWorkerService, ExternalWorkerService>();
 
-//string con3 = @"Server=	AbayaBoutiqueDb.mssql.somee.com;Database=AbayaBoutiqueDb;User Id=asifalisabbir_SQLLogin_1;Password=o61shj57nu; Encrypt=False; MultipleActiveResultSets=True;";
+
+//string con3 = @"Server=	AbayaBoutiqueDb.mssql.somee.com; Database=AbayaBoutiqueDb;User Id=asifalisabbir_SQLLogin_1;Password=o61shj57nu; Encrypt=False; MultipleActiveResultSets=True;";
 
 
 

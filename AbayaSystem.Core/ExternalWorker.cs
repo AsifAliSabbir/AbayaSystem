@@ -21,6 +21,8 @@ namespace AbayaSystem.Core
 
         public ExternalWorkerType SupportedType { get; set; } = ExternalWorkerType.Both;
 
+
+
         public bool IsActive { get; set; } = true;
     }
 
