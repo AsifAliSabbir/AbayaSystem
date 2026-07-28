@@ -1,0 +1,368 @@
+﻿@page "/workers"
+@page "/internal-workers"
+@attribute [Authorize(Roles = "Admin")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject IWorkerService WorkerService
+@inject SweetAlertService Swal
+
+<div class="container-fluid max-w-1200 py-3">
+
+    <!-- Page Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">👥 Internal Workers</h3>
+            <p class="text-muted small mb-0">Manage internal boutique staff, credentials, and branch assignments</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-2">Loading internal workers...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Name *</th>
+                                <th>Username *</th>
+                                <th>Password *</th>
+                                <th>Branch *</th>
+                                <th>Assigned Role *</th>
+                                <th class="text-center" style="width: 180px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (workers.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        No workers found. Use the bottom row to add one.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @for (int i = 0; i < workers.Count; i++)
+                                {
+                                    var worker = workers[i];
+                                    var index = i + 1;
+
+                                    if (editingWorkerId == worker.WorkerId)
+                                    {
+                                        <!-- INLINE EDIT ROW -->
+                                        <tr class="table-warning">
+                                            <td class="fw-bold">@index</td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" @bind="editingWorker.Name" placeholder="Full Name" />
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" @bind="editingWorker.Username" placeholder="Username" />
+                                            </td>
+                                            <td>
+                                                <!-- Edit Password field (Leave blank to keep current, or enter new) -->
+                                                <input type="text" class="form-control form-control-sm" @bind="editingWorker.PasswordHash" placeholder="New Password (optional)" />
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm" @bind="editingWorker.BranchId">
+                                                    @foreach (var branch in branches)
+                                                    {
+                                                        <option value="@branch.BranchId">@branch.BranchName</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm fw-bold" @bind="editingWorker.AssignedRoles">
+                                                    @foreach (WorkerRole role in Enum.GetValues<WorkerRole>())
+                                                    {
+                                                        <option value="@role">@role</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-success fw-bold" @onclick="UpdateWorkerAsync">
+                                                        <i class="bi bi-check-lg me-1"></i> Save
+                                                    </button>
+                                                    <button class="btn btn-secondary" @onclick="CancelEdit">
+                                                        <i class="bi bi-x-lg me-1"></i> Cancel
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        <!-- NORMAL DISPLAY ROW -->
+                                        <tr>
+                                            <td class="fw-bold">@index</td>
+                                            <td class="fw-semibold">@worker.Name</td>
+                                            <td><code>@worker.Username</code></td>
+                                            <!-- Plaintext Password Display -->
+                                            <td><code>@worker.PasswordHash</code></td>
+                                            <td>
+                                                <span class="badge bg-light text-dark border">
+                                                    @(worker.Branch?.BranchName ?? "N/A")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info text-dark">
+                                                    @worker.AssignedRoles
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-primary" @onclick="() => StartEdit(worker)">
+                                                        <i class="bi bi-pencil me-1"></i> Edit
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" @onclick="() => ConfirmDeleteAsync(worker)">
+                                                        <i class="bi bi-trash me-1"></i> Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+
+                            <!-- BOTTOM ROW: ADD NEW WORKER (No defaults) -->
+                            <tr class="bg-light border-top border-2">
+                                <td class="fw-bold text-muted">New</td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" @bind="newWorker.Name" placeholder="Full Name *" />
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" @bind="newWorker.Username" placeholder="Username *" />
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" @bind="newWorker.PasswordHash" placeholder="Password *" />
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" @bind="newWorker.BranchId">
+                                        <option value="0" disabled selected>Select Branch...</option>
+                                        @foreach (var branch in branches)
+                                        {
+                                            <option value="@branch.BranchId">@branch.BranchName</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm fw-bold text-primary" @bind="newWorker.AssignedRoles">
+                                        <option value="0" disabled selected>Select Role...</option>
+                                        @foreach (WorkerRole role in Enum.GetValues<WorkerRole>())
+                                        {
+                                            <option value="@role">@role</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary fw-bold" @onclick="AddWorkerAsync" disabled="@isSubmitting">
+                                            <i class="bi bi-plus-lg me-1"></i> Add
+                                        </button>
+                                        <button class="btn btn-outline-secondary" @onclick="ClearNewWorkerInput">
+                                            <i class="bi bi-eraser me-1"></i> Clear
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Worker> workers = new();
+    private List<Branch> branches = new();
+    private Worker newWorker = new();
+    private Worker editingWorker = new();
+
+    private int? editingWorkerId = null;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+            branches = await WorkerService.GetBranchesAsync();
+            workers = await WorkerService.GetWorkersAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowAutoAlertAsync("Error Loading Data", ex.Message, SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // --- ADD WORKER LOGIC ---
+    private async Task AddWorkerAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newWorker.Name) || string.IsNullOrWhiteSpace(newWorker.Username) || string.IsNullOrWhiteSpace(newWorker.PasswordHash))
+        {
+            await ShowAutoAlertAsync("Validation Error", "Name, Username, and Password are required.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (newWorker.BranchId == 0)
+        {
+            await ShowAutoAlertAsync("Validation Error", "Please select a branch.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        if ((int)newWorker.AssignedRoles == 0)
+        {
+            await ShowAutoAlertAsync("Validation Error", "Please select an assigned role.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        // 🔑 Password Uniqueness Check for New Worker
+        var cleanPassword = newWorker.PasswordHash.Trim();
+        if (workers.Any(w => w.PasswordHash == cleanPassword))
+        {
+            await ShowAutoAlertAsync("Duplicate Password / PIN", $"The PIN/Password '{cleanPassword}' is already used by another worker. Please choose a unique PIN.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            await WorkerService.CreateWorkerAsync(newWorker);
+            await LoadDataAsync();
+            ClearNewWorkerInput();
+            await ShowAutoAlertAsync("Worker Added", "New internal worker account created.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex)
+        {
+            await ShowAutoAlertAsync("Error Adding Worker", ex.Message, SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void ClearNewWorkerInput()
+    {
+        newWorker = new Worker();
+    }
+
+    // --- INLINE EDIT LOGIC ---
+    private void StartEdit(Worker worker)
+    {
+        editingWorkerId = worker.WorkerId;
+        editingWorker = new Worker
+        {
+            WorkerId = worker.WorkerId,
+            Name = worker.Name,
+            Username = worker.Username,
+            BranchId = worker.BranchId,
+            AssignedRoles = worker.AssignedRoles,
+            PasswordHash = "" // Empty by default; leave blank to keep existing password or type a new one
+        };
+    }
+
+    private void CancelEdit()
+    {
+        editingWorkerId = null;
+        editingWorker = new();
+    }
+
+    private async Task UpdateWorkerAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingWorker.Name) || string.IsNullOrWhiteSpace(editingWorker.Username))
+        {
+            await ShowAutoAlertAsync("Validation Error", "Name and Username cannot be empty.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        // 🔑 Password Uniqueness Check for Editing Worker
+        if (!string.IsNullOrWhiteSpace(editingWorker.PasswordHash))
+        {
+            var cleanPassword = editingWorker.PasswordHash.Trim();
+            if (workers.Any(w => w.WorkerId != editingWorker.WorkerId && w.PasswordHash == cleanPassword))
+            {
+                await ShowAutoAlertAsync("Duplicate Password / PIN", $"The PIN/Password '{cleanPassword}' is already used by another worker. Please choose a unique PIN.", SweetAlertIcon.Warning);
+                return;
+            }
+            editingWorker.PasswordHash = cleanPassword;
+        }
+
+        try
+        {
+            await WorkerService.UpdateWorkerAsync(editingWorker);
+            await LoadDataAsync();
+            CancelEdit();
+            await ShowAutoAlertAsync("Updated", "Worker details updated successfully.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex)
+        {
+            await ShowAutoAlertAsync("Update Failed", ex.Message, SweetAlertIcon.Error);
+        }
+    }
+
+    // --- DELETE LOGIC ---
+    private async Task ConfirmDeleteAsync(Worker worker)
+    {
+        var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Are you sure?",
+            Text = $"Do you want to delete '{worker.Name}'? This action cannot be undone.",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Delete",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#dc3545"
+        });
+
+        if (confirmResult.IsConfirmed)
+        {
+            try
+            {
+                await WorkerService.DeleteWorkerAsync(worker.WorkerId);
+                workers.RemoveAll(w => w.WorkerId == worker.WorkerId);
+                await ShowAutoAlertAsync("Deleted", "Worker account removed successfully.", SweetAlertIcon.Success);
+            }
+            catch (Exception ex)
+            {
+                await ShowAutoAlertAsync("Delete Failed", ex.Message, SweetAlertIcon.Error);
+            }
+        }
+    }
+
+    // --- HELPER METHODS ---
+    private async Task ShowAutoAlertAsync(string title, string message, SweetAlertIcon icon)
+    {
+        await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = title,
+            Text = message,
+            Icon = icon,
+            ShowConfirmButton = false,
+            Timer = 1200,
+            TimerProgressBar = true
+        });
+    }
+}

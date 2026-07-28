@@ -40,8 +40,18 @@ namespace AbayaSystem.Infrastructure
             {
                 new Claim(ClaimTypes.Name, worker.Name),
                 new Claim("WorkerId", worker.WorkerId.ToString()),
-                new Claim("Roles", worker.AssignedRoles.ToString()) // e.g. "Salesman, QualityChecker"
+                //new Claim("Roles", worker.AssignedRoles.ToString()) // e.g. "Salesman, QualityChecker"
+
             };
+
+            // 🔑 Add a distinct ClaimTypes.Role claim for every active role flag
+            foreach (WorkerRole role in Enum.GetValues<WorkerRole>())
+            {
+                if (worker.AssignedRoles.HasFlag(role))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
+                }
+            }
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var authProperties = new AuthenticationProperties { IsPersistent = true };

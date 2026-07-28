@@ -35,17 +35,42 @@ namespace AbayaSystem.Web
             {
                 new Claim(ClaimTypes.Name, userSession.Name),
                 new Claim("Username", userSession.Username),
-                new Claim("UserID", userSession.UserID),
-                new Claim(ClaimTypes.Role, userSession.Role) 
-                // 🔑 Binds directly to @attribute [Authorize(Roles = "...")]
+                new Claim("UserID", userSession.UserID)
             };
+
+            // 🔑 Split combined roles into individual role claims
+            if (!string.IsNullOrWhiteSpace(userSession.Role))
+            {
+                var roles = userSession.Role.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var r in roles)
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, r.Trim()));
+                }
+            }
 
             var identity = new ClaimsIdentity(claims, "BoutiqueCircuitAuth");
             _currentUser = new ClaimsPrincipal(identity);
 
-            // Notify Blazor's UI to re-evaluate protected routes instantly
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_currentUser)));
         }
+
+        //public void MarkUserAsAuthenticated(UserSession userSession)
+        //{
+        //    var claims = new List<Claim>
+        //    {
+        //        new Claim(ClaimTypes.Name, userSession.Name),
+        //        new Claim("Username", userSession.Username),
+        //        new Claim("UserID", userSession.UserID),
+        //        new Claim(ClaimTypes.Role, userSession.Role) 
+        //        // 🔑 Binds directly to @attribute [Authorize(Roles = "...")]
+        //    };
+
+        //    var identity = new ClaimsIdentity(claims, "BoutiqueCircuitAuth");
+        //    _currentUser = new ClaimsPrincipal(identity);
+
+        //    // Notify Blazor's UI to re-evaluate protected routes instantly
+        //    NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_currentUser)));
+        //}
 
         public void MarkUserAsLoggedOut()
         {

@@ -47,11 +47,19 @@
                             Order Intake
                         </a>
 
-                        <!-- Fabric & Material Inventory -->
+                        <!-- Internal workers -->
+                        <a href="/workers" class="@GetActiveStyle("/workers")" @onclick="CloseMobileMenu">
+                            <span class="bi bi-scissors me-2"></span>
+                            Internal Workers entry
+                        </a>
+
+                        <!-- External workers-->
                         <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
                             <span class="bi bi-scissors me-2"></span>
                             External Workers entry
                         </a>
+
+
                     </Authorized>
                     <NotAuthorized>
                         <div class="text-center py-4 text-muted small">
