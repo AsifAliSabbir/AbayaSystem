@@ -52,7 +52,7 @@
                 <div class="row g-3">
                     <!-- Branch Selector Dropdown -->
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold small text-muted">Showroom Branch *</label>
+                        <label class="form-label fw-semibold small text-muted">Showroom Branch</label>
                         <select @ref="branchSelectRef" class="form-select shadow-sm" @bind="orderModel.BranchId" disabled="@(isSalesman || IsMasterLocked)">
                             <option value="0">-- Select Branch --</option>
                             @foreach (var branch in branches.Where(b => !b.IsWorkshop))
@@ -64,8 +64,8 @@
 
                     <!-- Receipt / Ticket Number -->
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold small text-muted">Receipt / Ticket # *</label>
-                        <input @ref="manualOrderIdRef" type="text" class="form-control fw-bold text-uppercase shadow-sm" placeholder="e.g. 45098"
+                        <label class="form-label fw-semibold small text-muted">Order No</label>
+                        <input @ref="manualOrderIdRef" type="text" class="form-control fw-bold text-uppercase shadow-sm" placeholder=""
                                @bind="orderModel.ManualOrderId" disabled="@IsMasterLocked" />
                     </div>
 
@@ -124,7 +124,7 @@
                     <!-- Model Description -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small text-muted">Model / Style Description *</label>
-                        <input @ref="modelDescRef" type="text" class="form-control shadow-sm" placeholder="e.g. Butterfly sleeve with beaded collar" @bind="currentItem.ModelTextDescription" />
+                        <input @ref="modelDescRef" type="text" class="form-control shadow-sm" placeholder="" @bind="currentItem.ModelTextDescription" />
                     </div>
 
                     <!-- Tailor/Workflow Selection Dropdown -->

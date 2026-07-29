@@ -217,7 +217,8 @@
             {
                 Username = worker.Username,
                 Name = worker.Name,
-                Role = worker.AssignedRoles.ToString()
+                Role = worker.AssignedRoles.ToString(),
+                BranchId = worker.BranchId
             };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
@@ -304,8 +305,8 @@
                 Username = worker.Username,
                 UserID = worker.WorkerId.ToString(),
                 Name = worker.Name,
-                Role = worker.AssignedRoles.ToString()
-            };
+                Role = worker.AssignedRoles.ToString(),
+                BranchId = worker.BranchId            };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
             Navigation.NavigateTo("/");
@@ -333,6 +334,14 @@
         width: 100%;
         max-width: 480px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    
+    .card-body {
+        min-height: 420px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .brand-header {
