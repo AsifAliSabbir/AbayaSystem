@@ -106,8 +106,12 @@ namespace AbayaSystem.Core
         // 🔑 Composite Primary Key Part 2: Manual receipt number (e.g., 45098, RM-101)
         public string OrderId { get; set; } = string.Empty;
 
+        // 👤 Separate Customer Details
         public string CustomerName { get; set; } = string.Empty;
+        public string CustomerPhone { get; set; } = string.Empty;
+
         public DateTime OrderDate { get; set; } = DateTime.Today;
+
         // 📅 Delivery Tracking
         public DateTime EstimatedDeliveryDate { get; set; } = DateTime.UtcNow.AddDays(7);
         public DateTime? ActualDeliveryDate { get; set; }
@@ -120,10 +124,10 @@ namespace AbayaSystem.Core
 
         public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
 
-        // Financials
+        // 💰 Financials
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
-        public decimal BalanceDue => TotalAmount - DepositPaid;
+        public decimal BalanceDue { get; set; } // Recorded directly into Orders DB table
 
         public List<OrderItem> Items { get; set; } = new();
     }
@@ -182,13 +186,12 @@ namespace AbayaSystem.Core
         public bool BuyFabricForExternal { get; set; } = false;
     }
 
-    // --- Add these two procurement models for FabricProcurement.razor ---
+    // 🛍️ Procurement DTOs (Cleaned up, no customer details needed)
     public class FabricProcurementItem
     {
         public int OrderItemId { get; set; }
         public int BranchId { get; set; }
         public string OrderId { get; set; } = string.Empty;
-        public string CustomerName { get; set; } = string.Empty;
         public string ModelDescription { get; set; } = string.Empty;
         public string FabricShopName { get; set; } = string.Empty;
         public string FabricName { get; set; } = string.Empty;
@@ -201,9 +204,11 @@ namespace AbayaSystem.Core
         public int OrderItemId { get; set; }
         public int BranchId { get; set; }
         public string OrderId { get; set; } = string.Empty;
-        public string CustomerName { get; set; } = string.Empty;
         public string ModelTextDescription { get; set; } = string.Empty;
         public SheilaSize SelectedSheilaSize { get; set; }
+        public string FabricShopName { get; set; } = string.Empty;
+        public string FabricName { get; set; } = string.Empty;
+        public string ColorCode { get; set; } = string.Empty;
         public DateTime OrderDate { get; set; }
     }
 }

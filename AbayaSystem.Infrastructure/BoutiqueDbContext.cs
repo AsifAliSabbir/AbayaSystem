@@ -22,21 +22,22 @@ namespace AbayaSystem.Infrastructure
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<ExternalWorker>().HasData(
-    new ExternalWorker { ExternalWorkerId = 1, Name = "Rubel", Phone = "+971500000001", SupportedType = ExternalWorkerType.FullExternal },
-    new ExternalWorker { ExternalWorkerId = 2, Name = "Saiful", Phone = "+971500000002", SupportedType = ExternalWorkerType.FullExternal },
-    new ExternalWorker { ExternalWorkerId = 3, Name = "Alim Emb", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
-    new ExternalWorker { ExternalWorkerId = 4, Name = "Computer Emb1", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
-    new ExternalWorker { ExternalWorkerId = 5, Name = "Computer Emb2", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid }
-);
-
             // 🔑 Configure Composite Primary Key for Order
             modelBuilder.Entity<Order>()
                 .HasKey(o => new { o.BranchId, o.OrderId });
 
+            // 💰 Column Specifications & Decimal Precision for Order
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
+                entity.Property(o => o.DepositPaid).HasColumnType("decimal(18,2)");
+                entity.Property(o => o.BalanceDue).HasColumnType("decimal(18,2)");
+                entity.Property(o => o.CustomerPhone).HasMaxLength(30);
+            });
+
             // 🔗 Link OrderItems to Composite Key Parent Order
             modelBuilder.Entity<OrderItem>()
-                .HasOne<Order>()
+                .HasOne(i => i.Order) // Specified 'i => i.Order' here
                 .WithMany(o => o.Items)
                 .HasForeignKey(i => new { i.BranchId, i.OrderId })
                 .OnDelete(DeleteBehavior.Cascade);
@@ -60,6 +61,14 @@ namespace AbayaSystem.Infrastructure
                 .HasForeignKey(i => i.FabricId)
                 .IsRequired(false);
 
+            // Seed External Workers Data
+            modelBuilder.Entity<ExternalWorker>().HasData(
+                new ExternalWorker { ExternalWorkerId = 1, Name = "Rubel", Phone = "+971500000001", SupportedType = ExternalWorkerType.FullExternal },
+                new ExternalWorker { ExternalWorkerId = 2, Name = "Saiful", Phone = "+971500000002", SupportedType = ExternalWorkerType.FullExternal },
+                new ExternalWorker { ExternalWorkerId = 3, Name = "Alim Emb", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
+                new ExternalWorker { ExternalWorkerId = 4, Name = "Computer Emb1", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid },
+                new ExternalWorker { ExternalWorkerId = 5, Name = "Computer Emb2", Phone = "+971500000003", SupportedType = ExternalWorkerType.Hybrid }
+            );
         }
 
         public static async Task SeedDatabaseAsync(BoutiqueDbContext context)

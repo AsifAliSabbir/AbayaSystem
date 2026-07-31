@@ -72,8 +72,15 @@
                     <!-- Customer Name -->
                     <div class="col-md-3">
                         <label class="form-label fw-semibold small text-muted">Customer Name *</label>
-                        <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Client Name / Phone"
+                        <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Full Name"
                                @bind="orderModel.CustomerName" disabled="@IsMasterLocked" />
+                    </div>
+
+                    <!-- Customer Phone Number -->
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
+                        <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp"
+                               @bind="orderModel.CustomerPhone" disabled="@IsMasterLocked" />
                     </div>
 
                     <!-- Order Date -->
@@ -83,20 +90,25 @@
                     </div>
 
                     <!-- Delivery Date (Defaults to +12 Days) -->
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold small text-muted">Estimated Delivery Date * (Default +12 Days)</label>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small text-muted">Estimated Delivery Date *</label>
                         <input @ref="deliveryDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.EstimatedDeliveryDate" disabled="@IsMasterLocked" />
                     </div>
 
                     <!-- Financial Summary -->
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label fw-semibold small text-muted">Total Amount (AED)</label>
                         <input @ref="totalAmountRef" type="number" step="0.01" class="form-control fw-bold fs-6" @bind="orderModel.TotalAmount" />
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold small text-muted">Advance Deposit Paid (AED)</label>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold small text-muted">Deposit Paid (AED)</label>
                         <input @ref="depositPaidRef" type="number" step="0.01" class="form-control text-success fw-bold fs-6" @bind="orderModel.DepositPaid" />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold small text-muted">Balance Due (AED)</label>
+                        <input type="number" step="0.01" class="form-control text-danger fw-bold fs-6 bg-light" value="@orderModel.BalanceDue" readonly />
                     </div>
                 </div>
             </div>
@@ -163,7 +175,7 @@
                         </div>
                     }
 
-                    <!-- Hybrid Execution Option Dropdown (Defaulted to Cut & Half Stitch) -->
+                    <!-- Hybrid Execution Option Dropdown -->
                     @if (currentItem.SelectedWorkflowKey.StartsWith("Hybrid_"))
                     {
                         <div class="col-md-6">
@@ -234,7 +246,7 @@
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
                     <h6 class="fw-bold m-0"><i class="bi bi-list-check me-2"></i>3. Order Items List (@orderModel.Items.Count)</h6>
-                    <span class="badge bg-warning text-dark">Balance Due: AED @((orderModel.TotalAmount - orderModel.DepositPaid).ToString("N2"))</span>
+                    <span class="badge bg-warning text-dark">Balance Due: AED @orderModel.BalanceDue.ToString("N2")</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -320,10 +332,11 @@
     private bool isSubmitting = false;
     private bool isSalesman = false;
 
-    // Target Element References (Inputs & Dropdowns)
+    // Target Element References
     private ElementReference branchSelectRef;
     private ElementReference manualOrderIdRef;
     private ElementReference customerNameRef;
+    private ElementReference customerPhoneRef;
     private ElementReference orderDateRef;
     private ElementReference deliveryDateRef;
     private ElementReference totalAmountRef;
@@ -397,9 +410,6 @@
         }
     }
 
-    /// <summary>
-    /// Processes dynamic rules array. Displays 1.2s auto-dismissing alert and focuses invalid input/dropdown.
-    /// </summary>
     private async Task<bool> ValidateFieldsAsync(params (bool IsInvalid, string Title, string Message, ElementReference ElementRef)[] rules)
     {
         foreach (var rule in rules)
@@ -417,21 +427,19 @@
                 });
 
                 await rule.ElementRef.FocusAsync();
-                return false; // Validation failed
+                return false;
             }
         }
-        return true; // All checks passed
+        return true;
     }
 
-    /// <summary>
-    /// Validates Master Order Header fields
-    /// </summary>
     private async Task<bool> ValidateMasterOrderAsync()
     {
         return await ValidateFieldsAsync(
             (orderModel.BranchId <= 0, "Validation Error", "Please select a valid showroom branch.", branchSelectRef),
             (string.IsNullOrWhiteSpace(orderModel.ManualOrderId), "Validation Error", "Please specify a manual receipt / ticket number.", manualOrderIdRef),
-            (string.IsNullOrWhiteSpace(orderModel.CustomerName), "Validation Error", "Please enter customer name or contact.", customerNameRef),
+            (string.IsNullOrWhiteSpace(orderModel.CustomerName), "Validation Error", "Please enter customer name.", customerNameRef),
+            (string.IsNullOrWhiteSpace(orderModel.CustomerPhone), "Validation Error", "Please enter customer phone number.", customerPhoneRef),
             (orderModel.EstimatedDeliveryDate < orderModel.OrderDate, "Validation Error", "Estimated delivery must be on or after order date.", deliveryDateRef),
             (orderModel.TotalAmount < 0, "Validation Error", "Total amount cannot be negative.", totalAmountRef),
             (orderModel.DepositPaid < 0, "Validation Error", "Advance deposit paid cannot be negative.", depositPaidRef),
@@ -439,15 +447,9 @@
         );
     }
 
-    /// <summary>
-    /// Validates Line Item Input fields and Dropdowns.
-    /// Fabric details are mandatory EXCEPT when Workflow is Full External AND BuyFabricForExternal is FALSE.
-    /// </summary>
     private async Task<bool> ValidateCurrentItemAsync()
     {
         bool isFullExternalWithoutFabric = currentItem.SelectedWorkflowKey.StartsWith("External_") && !currentItem.BuyFabricForExternal;
-
-        // Fabric supplier, fabric type, and catalog color code are required unless it's full external without buying fabric
         bool isFabricRequired = !isFullExternalWithoutFabric;
 
         return await ValidateFieldsAsync(
@@ -461,10 +463,7 @@
 
     private async Task AddItemToList()
     {
-        // 1. Validate Master Ticket Details First
         if (!await ValidateMasterOrderAsync()) return;
-
-        // 2. Validate Line Item Inputs & Dropdowns
         if (!await ValidateCurrentItemAsync()) return;
 
         var itemToAdd = new OrderItemFormModel

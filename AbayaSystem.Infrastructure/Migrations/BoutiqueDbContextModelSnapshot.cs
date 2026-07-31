@@ -157,9 +157,17 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.Property<DateTime?>("ActualDeliveryDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("BalanceDue")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("CustomerName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<decimal>("DepositPaid")
                         .HasColumnType("decimal(18,2)");
@@ -254,14 +262,8 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("OrderBranchId")
-                        .HasColumnType("int");
-
                     b.Property<string>("OrderId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("OrderId1")
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("SelectedSheilaSize")
@@ -287,8 +289,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.HasIndex("FabricShopId");
 
                     b.HasIndex("BranchId", "OrderId");
-
-                    b.HasIndex("OrderBranchId", "OrderId1");
 
                     b.ToTable("OrderItems");
                 });
@@ -384,15 +384,11 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("FabricShopId");
 
-                    b.HasOne("AbayaSystem.Core.Order", null)
+                    b.HasOne("AbayaSystem.Core.Order", "Order")
                         .WithMany("Items")
                         .HasForeignKey("BranchId", "OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("AbayaSystem.Core.Order", "Order")
-                        .WithMany()
-                        .HasForeignKey("OrderBranchId", "OrderId1");
 
                     b.Navigation("AssignedSupplier");
 

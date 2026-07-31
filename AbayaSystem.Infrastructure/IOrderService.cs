@@ -63,13 +63,15 @@ namespace AbayaSystem.Infrastructure
                 BranchId = model.BranchId,
                 OrderId = cleanId,
                 CustomerName = model.CustomerName,
+                CustomerPhone = model.CustomerPhone,
                 OrderDate = model.OrderDate,
                 TypeOfOrder = OrderType.Internal,
                 EstimatedDeliveryDate = model.EstimatedDeliveryDate,
                 IsUrgent = model.IsUrgent,
                 Notes = model.OrderNotes,
                 TotalAmount = model.TotalAmount,
-                DepositPaid = model.DepositPaid
+                DepositPaid = model.DepositPaid,
+                BalanceDue = model.BalanceDue
             };
 
             foreach (var item in model.Items)
@@ -132,7 +134,6 @@ namespace AbayaSystem.Infrastructure
                     OrderItemId = i.OrderItemId,
                     BranchId = i.BranchId,
                     OrderId = i.OrderId,
-                    CustomerName = i.Order.CustomerName,
                     ModelDescription = i.ModelTextDescription,
                     FabricShopName = i.FabricShop != null ? i.FabricShop.FabricShopName : "N/A",
                     FabricName = i.Fabric != null ? i.Fabric.FabricName : "N/A",
@@ -146,15 +147,19 @@ namespace AbayaSystem.Infrastructure
         {
             return await _context.OrderItems
                 .Include(i => i.Order)
+                .Include(i => i.FabricShop)
+                .Include(i => i.Fabric)
                 .Where(i => i.Status == ItemStatus.ReadyForFabricProcurement && i.SelectedSheilaSize == SheilaSize.Size_28x90)
                 .Select(i => new SheilaProcurementItem
                 {
                     OrderItemId = i.OrderItemId,
                     BranchId = i.BranchId,
                     OrderId = i.OrderId,
-                    CustomerName = i.Order.CustomerName,
                     ModelTextDescription = i.ModelTextDescription,
                     SelectedSheilaSize = i.SelectedSheilaSize,
+                    FabricShopName = i.FabricShop != null ? i.FabricShop.FabricShopName : "N/A",
+                    FabricName = i.Fabric != null ? i.Fabric.FabricName : "N/A",
+                    ColorCode = i.ColorCode,
                     OrderDate = i.Order.OrderDate
                 })
                 .ToListAsync();

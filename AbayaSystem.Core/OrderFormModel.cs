@@ -9,7 +9,8 @@ namespace AbayaSystem.Core
         public int BranchId { get; set; }
         public string ManualOrderId { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;
-        public DateTime OrderDate { get; set; } = DateTime.Today; // 📅 1. Default to Current Date
+        public string CustomerPhone { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; } = DateTime.Today;
         public DateTime EstimatedDeliveryDate { get; set; } = DateTime.Today.AddDays(7);
         public bool IsUrgent { get; set; } = false;
         public string OrderNotes { get; set; } = string.Empty;
@@ -17,26 +18,27 @@ namespace AbayaSystem.Core
         // 💰 Financials
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
+        public decimal BalanceDue => TotalAmount - DepositPaid;
 
-        // 👗 3. List of Items in Order
+        // 👗 List of Items in Order
         public List<OrderItemFormModel> Items { get; set; } = new();
     }
 
     public class OrderItemFormModel
     {
-        // 👗 4. Item Category (Default: Abaya)
+        // 👗 Item Category (Default: Abaya)
         public ItemCategory Category { get; set; } = ItemCategory.Abaya;
         public string ModelTextDescription { get; set; } = string.Empty;
 
         // 🏬 Dropdowns & Color Code
         public int? FabricShopId { get; set; }
         public int? FabricId { get; set; }
-        public string ColorCode { get; set; } = "Black"; // 🎨 7. Default to Black
+        public string ColorCode { get; set; } = "Black";
 
-        // 🧵 6. Selected Workflow String Key (e.g., "Internal", "Hybrid_1", "External_2")
+        // 🧵 Selected Workflow String Key (e.g., "Internal", "Hybrid_1", "External_2")
         public string SelectedWorkflowKey { get; set; } = "Internal";
         public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
-        public bool BuyFabricForExternal { get; set; } = false; // 🧵 Checkbox for External Fabric Purchase
+        public bool BuyFabricForExternal { get; set; } = false;
 
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
 

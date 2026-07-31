@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AbayaSystem.Infrastructure.Migrations
 {
     [DbContext(typeof(BoutiqueDbContext))]
-    [Migration("20260722205736_AddMultiBranchAndCatalogs")]
-    partial class AddMultiBranchAndCatalogs
+    [Migration("20260731084503_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -43,6 +43,76 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.HasKey("BranchId");
 
                     b.ToTable("Branches");
+                });
+
+            modelBuilder.Entity("AbayaSystem.Core.ExternalWorker", b =>
+                {
+                    b.Property<int>("ExternalWorkerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExternalWorkerId"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SupportedType")
+                        .HasColumnType("int");
+
+                    b.HasKey("ExternalWorkerId");
+
+                    b.ToTable("ExternalWorkers");
+
+                    b.HasData(
+                        new
+                        {
+                            ExternalWorkerId = 1,
+                            IsActive = true,
+                            Name = "Rubel",
+                            Phone = "+971500000001",
+                            SupportedType = 2
+                        },
+                        new
+                        {
+                            ExternalWorkerId = 2,
+                            IsActive = true,
+                            Name = "Saiful",
+                            Phone = "+971500000002",
+                            SupportedType = 2
+                        },
+                        new
+                        {
+                            ExternalWorkerId = 3,
+                            IsActive = true,
+                            Name = "Alim Emb",
+                            Phone = "+971500000003",
+                            SupportedType = 1
+                        },
+                        new
+                        {
+                            ExternalWorkerId = 4,
+                            IsActive = true,
+                            Name = "Computer Emb1",
+                            Phone = "+971500000003",
+                            SupportedType = 1
+                        },
+                        new
+                        {
+                            ExternalWorkerId = 5,
+                            IsActive = true,
+                            Name = "Computer Emb2",
+                            Phone = "+971500000003",
+                            SupportedType = 1
+                        });
                 });
 
             modelBuilder.Entity("AbayaSystem.Core.Fabric", b =>
@@ -90,12 +160,17 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.Property<DateTime?>("ActualDeliveryDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("BalanceDue")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("CustomerName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("DateOrdered")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<decimal>("DepositPaid")
                         .HasColumnType("decimal(18,2)");
@@ -109,6 +184,9 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
@@ -139,11 +217,20 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.Property<int>("BranchId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("BuyFabricForExternal")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
                     b.Property<string>("ColorCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("CutByWorkerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ExternalWorkerId")
                         .HasColumnType("int");
 
                     b.Property<int?>("FabricId")
@@ -197,6 +284,8 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.HasKey("OrderItemId");
 
                     b.HasIndex("AssignedSupplierId");
+
+                    b.HasIndex("ExternalWorkerId");
 
                     b.HasIndex("FabricId");
 
@@ -286,6 +375,10 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("AssignedSupplierId");
 
+                    b.HasOne("AbayaSystem.Core.ExternalWorker", "ExternalWorker")
+                        .WithMany()
+                        .HasForeignKey("ExternalWorkerId");
+
                     b.HasOne("AbayaSystem.Core.Fabric", "Fabric")
                         .WithMany()
                         .HasForeignKey("FabricId");
@@ -294,7 +387,7 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("FabricShopId");
 
-                    b.HasOne("AbayaSystem.Core.Order", null)
+                    b.HasOne("AbayaSystem.Core.Order", "Order")
                         .WithMany("Items")
                         .HasForeignKey("BranchId", "OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -302,9 +395,13 @@ namespace AbayaSystem.Infrastructure.Migrations
 
                     b.Navigation("AssignedSupplier");
 
+                    b.Navigation("ExternalWorker");
+
                     b.Navigation("Fabric");
 
                     b.Navigation("FabricShop");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("AbayaSystem.Core.Worker", b =>
