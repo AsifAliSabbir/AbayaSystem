@@ -32,20 +32,31 @@
     }
     else
     {
-        <!-- SECTION 1: MASTER ORDER DETAILS (Disabled once items are added) -->
+        <!-- SECTION 1: MASTER ORDER & CUSTOMER DETAILS -->
         <div class="card border-0 shadow-sm rounded-3 mb-4 @(orderModel.Items.Count > 0 ? "border-start border-4 border-warning" : "")">
             <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                 <h6 class="fw-bold m-0 text-dark">
-                    <i class="bi bi-receipt me-2 text-warning"></i>1. Master Order Information
+                    <i class="bi bi-receipt me-2 text-warning"></i>1. Master Order & Customer Information
                     @if (orderModel.Items.Count > 0)
                     {
                         <span class="badge bg-warning text-dark ms-2">Locked (@orderModel.Items.Count items added)</span>
                     }
                 </h6>
-                <div class="form-check form-switch m-0">
-                    <input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch"
-                           @bind="orderModel.IsUrgent" disabled="@IsMasterLocked">
-                    <label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">🚨 Urgent Order</label>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Measurements Modal Trigger Button -->
+                    <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm" @onclick="OpenMeasurementsModal" disabled="@IsMasterLocked">
+                        <i class="bi bi-ruler me-1"></i> 📐 Customer Measurements
+                        @if (HasRecordedMeasurements)
+                        {
+                            <span class="badge bg-success ms-1">Recorded</span>
+                        }
+                    </button>
+
+                    <div class="form-check form-switch m-0 ms-2">
+                        <input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch"
+                               @bind="orderModel.IsUrgent" disabled="@IsMasterLocked">
+                        <label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">🚨 Urgent</label>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -69,18 +80,30 @@
                                @bind="orderModel.ManualOrderId" disabled="@IsMasterLocked" />
                     </div>
 
-                    <!-- Customer Name -->
-                    <div class="col-md-3">
+                    <!-- Customer Name Search Input with Dropdown -->
+                    <div class="col-md-3 position-relative">
                         <label class="form-label fw-semibold small text-muted">Customer Name *</label>
                         <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Full Name"
-                               @bind="orderModel.CustomerName" disabled="@IsMasterLocked" />
+                               value="@orderModel.CustomerName" @oninput="OnCustomerNameInput" disabled="@IsMasterLocked" />
+
+                        @if (showDropdown && searchResults.Count > 0)
+                        {
+                            <div class="dropdown-menu show w-100 shadow mt-1 border-0 rounded-3" style="max-height: 220px; overflow-y: auto; z-index: 1050;">
+                                @foreach (var customer in searchResults)
+                                {
+                                    <button type="button" class="dropdown-item py-2 fw-semibold text-dark" @onclick="() => SelectCustomer(customer)">
+                                        <i class="bi bi-person-check text-primary me-2"></i>@($"{customer.CustomerName}_{customer.CustomerPhone}")
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
 
-                    <!-- Customer Phone Number -->
-                    <div class="col-md-3">
+                    <!-- Customer Phone Number Search Input -->
+                    <div class="col-md-3 position-relative">
                         <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
                         <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp"
-                               @bind="orderModel.CustomerPhone" disabled="@IsMasterLocked" />
+                               value="@orderModel.CustomerPhone" @oninput="OnCustomerPhoneInput" disabled="@IsMasterLocked" />
                     </div>
 
                     <!-- Order Date -->
@@ -315,6 +338,82 @@
     }
 </div>
 
+<!-- 📐 CUSTOMER MEASUREMENTS MODAL -->
+@if (showMeasurementsModal)
+{
+    <div class="modal fade show d-block tab-index='-1'" style="background-color: rgba(0,0,0,0.5); z-index: 1060;" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-header-title fw-bold m-0"><i class="bi bi-ruler me-2"></i>Customer Measurements Profile</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseMeasurementsModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Abaya Length (Front)</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaFront" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Abaya Length (Back)</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaBack" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Sleeve Length</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthSleeve" placeholder="0.0" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Arm Hole Width</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthArmHole" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Sleeve Opening Width</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthSleeveOpening" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Shoulder Width</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthShoulder" placeholder="0.0" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Body / Chest Width</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBody" placeholder="0.0" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Bottom / Flare Width</label>
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBottom" placeholder="0.0" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold text-muted">Button Configuration</label>
+                            <select class="form-select" @bind="orderModel.ButtonType">
+                                <option value="@ButtonType.NoButtons">No Buttons</option>
+                                <option value="@ButtonType.ButtonsWithBand">Buttons With Band</option>
+                                <option value="@ButtonType.ButtonsWithoutBand">Buttons Without Band</option>
+                            </select>
+                        </div>
+
+                        @if (orderModel.ButtonType != ButtonType.NoButtons)
+                        {
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold text-muted">Number of Buttons</label>
+                                <input type="number" class="form-control" @bind="orderModel.NumberOfButtons" placeholder="0" />
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-secondary btn-sm fw-bold" @onclick="CloseMeasurementsModal">Skip / Close</button>
+                    <button type="button" class="btn btn-primary btn-sm fw-bold" @onclick="CloseMeasurementsModal">
+                        <i class="bi bi-check2 me-1"></i> Save Measurements
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private OrderFormModel orderModel = new();
     private OrderItemFormModel currentItem = new()
@@ -327,6 +426,10 @@
     private List<FabricShop> fabricShops = new();
     private List<Fabric> fabrics = new();
     private List<ExternalWorker> externalWorkers = new();
+
+    private List<Customer> searchResults = new();
+    private bool showDropdown = false;
+    private bool showMeasurementsModal = false;
 
     private bool isLoading = true;
     private bool isSubmitting = false;
@@ -353,6 +456,12 @@
 
     private bool IsMasterLocked => orderModel.Items.Count > 0;
 
+    private bool HasRecordedMeasurements => orderModel.LengthAbayaFront > 0 ||
+                                           orderModel.LengthAbayaBack > 0 ||
+                                           orderModel.LengthSleeve > 0 ||
+                                           orderModel.WidthBody > 0 ||
+                                           orderModel.ButtonType != ButtonType.NoButtons;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -377,7 +486,6 @@
                 if (defaultShowroom != null) orderModel.BranchId = defaultShowroom.BranchId;
             }
 
-            // Default estimated delivery date to 12 days after order date
             orderModel.EstimatedDeliveryDate = orderModel.OrderDate.AddDays(12);
 
             var workshop = branches.FirstOrDefault(b => b.IsWorkshop);
@@ -392,6 +500,60 @@
             isLoading = false;
         }
     }
+
+    // 🔍 Live Search Event Handlers
+    private async Task OnCustomerNameInput(ChangeEventArgs e)
+    {
+        orderModel.CustomerName = e.Value?.ToString() ?? string.Empty;
+        orderModel.CustomerId = null; // Typing unlinks pre-selected customer ID
+        await PerformCustomerSearch(orderModel.CustomerName);
+    }
+
+    private async Task OnCustomerPhoneInput(ChangeEventArgs e)
+    {
+        orderModel.CustomerPhone = e.Value?.ToString() ?? string.Empty;
+        orderModel.CustomerId = null; // Typing unlinks pre-selected customer ID
+        await PerformCustomerSearch(orderModel.CustomerPhone);
+    }
+
+    private async Task PerformCustomerSearch(string query)
+    {
+        if (!string.IsNullOrWhiteSpace(query) && query.Trim().Length >= 3)
+        {
+            searchResults = await OrderService.SearchCustomersAsync(query);
+            showDropdown = searchResults.Count > 0;
+        }
+        else
+        {
+            searchResults.Clear();
+            showDropdown = false;
+        }
+    }
+
+    private void SelectCustomer(Customer customer)
+    {
+        orderModel.CustomerId = customer.CustomerId;
+        orderModel.CustomerName = customer.CustomerName;
+        orderModel.CustomerPhone = customer.CustomerPhone;
+
+        // Auto-fill existing customer measurements
+        orderModel.LengthAbayaFront = customer.LengthAbayaFront;
+        orderModel.LengthAbayaBack = customer.LengthAbayaBack;
+        orderModel.LengthSleeve = customer.LengthSleeve;
+        orderModel.WidthArmHole = customer.WidthArmHole;
+        orderModel.WidthSleeveOpening = customer.WidthSleeveOpening;
+        orderModel.WidthShoulder = customer.WidthShoulder;
+        orderModel.WidthBody = customer.WidthBody;
+        orderModel.WidthBottom = customer.WidthBottom;
+        orderModel.ButtonType = customer.ButtonType;
+        orderModel.NumberOfButtons = customer.NumberOfButtons;
+
+        showDropdown = false;
+        searchResults.Clear();
+    }
+
+    private void OpenMeasurementsModal() => showMeasurementsModal = true;
+    private void CloseMeasurementsModal() => showMeasurementsModal = false;
 
     private void OnCategoryChanged(ChangeEventArgs e)
     {

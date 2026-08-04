@@ -28,6 +28,30 @@ namespace AbayaSystem.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Customers",
+                columns: table => new
+                {
+                    CustomerId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    CustomerName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    CustomerPhone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    LengthAbayaFront = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    LengthAbayaBack = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    LengthSleeve = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    WidthArmHole = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    WidthSleeveOpening = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    WidthShoulder = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    WidthBody = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    WidthBottom = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    ButtonType = table.Column<int>(type: "int", nullable: false),
+                    NumberOfButtons = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Customers", x => x.CustomerId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ExternalWorkers",
                 columns: table => new
                 {
@@ -86,35 +110,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Orders",
-                columns: table => new
-                {
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    OrderId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    CustomerName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CustomerPhone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
-                    OrderDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EstimatedDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsUrgent = table.Column<bool>(type: "bit", nullable: false),
-                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    TypeOfOrder = table.Column<int>(type: "int", nullable: false),
-                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    DepositPaid = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    BalanceDue = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Orders", x => new { x.BranchId, x.OrderId });
-                    table.ForeignKey(
-                        name: "FK_Orders_Branches_BranchId",
-                        column: x => x.BranchId,
-                        principalTable: "Branches",
-                        principalColumn: "BranchId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Workers",
                 columns: table => new
                 {
@@ -134,6 +129,40 @@ namespace AbayaSystem.Infrastructure.Migrations
                         column: x => x.BranchId,
                         principalTable: "Branches",
                         principalColumn: "BranchId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Orders",
+                columns: table => new
+                {
+                    BranchId = table.Column<int>(type: "int", nullable: false),
+                    OrderId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    CustomerId = table.Column<int>(type: "int", nullable: false),
+                    OrderDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    EstimatedDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsUrgent = table.Column<bool>(type: "bit", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    TypeOfOrder = table.Column<int>(type: "int", nullable: false),
+                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    DepositPaid = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    BalanceDue = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Orders", x => new { x.BranchId, x.OrderId });
+                    table.ForeignKey(
+                        name: "FK_Orders_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "BranchId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Orders_Customers_CustomerId",
+                        column: x => x.CustomerId,
+                        principalTable: "Customers",
+                        principalColumn: "CustomerId",
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -236,6 +265,11 @@ namespace AbayaSystem.Infrastructure.Migrations
                 column: "FabricShopId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Orders_CustomerId",
+                table: "Orders",
+                column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Workers_BranchId",
                 table: "Workers",
                 column: "BranchId");
@@ -267,6 +301,9 @@ namespace AbayaSystem.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Branches");
+
+            migrationBuilder.DropTable(
+                name: "Customers");
         }
     }
 }

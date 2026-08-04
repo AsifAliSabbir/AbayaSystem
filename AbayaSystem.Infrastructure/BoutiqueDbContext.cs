@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using AbayaSystem.Core;
+using System.Threading.Tasks;
 
 namespace AbayaSystem.Infrastructure
 {
@@ -9,6 +10,7 @@ namespace AbayaSystem.Infrastructure
         public DbSet<FabricShop> FabricShops => Set<FabricShop>();
         public DbSet<Fabric> Fabrics => Set<Fabric>();
         public DbSet<Supplier> Suppliers => Set<Supplier>();
+        public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<Worker> Workers => Set<Worker>();
@@ -22,22 +24,42 @@ namespace AbayaSystem.Infrastructure
         {
             base.OnModelCreating(modelBuilder);
 
-            // 🔑 Configure Composite Primary Key for Order
+            // 👤 Configure Customer Entity Properties & Precision
+            modelBuilder.Entity<Customer>(entity =>
+            {
+                entity.HasKey(c => c.CustomerId);
+                entity.Property(c => c.CustomerName).HasMaxLength(150).IsRequired();
+                entity.Property(c => c.CustomerPhone).HasMaxLength(30).IsRequired();
+
+                entity.Property(c => c.LengthAbayaFront).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.LengthAbayaBack).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.LengthSleeve).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.WidthArmHole).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.WidthSleeveOpening).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.WidthShoulder).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.WidthBody).HasColumnType("decimal(18,2)");
+                entity.Property(c => c.WidthBottom).HasColumnType("decimal(18,2)");
+            });
+
+            // 🔑 Configure Composite Primary Key for Order & Customer FK
             modelBuilder.Entity<Order>()
                 .HasKey(o => new { o.BranchId, o.OrderId });
 
-            // 💰 Column Specifications & Decimal Precision for Order
             modelBuilder.Entity<Order>(entity =>
             {
                 entity.Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
                 entity.Property(o => o.DepositPaid).HasColumnType("decimal(18,2)");
                 entity.Property(o => o.BalanceDue).HasColumnType("decimal(18,2)");
-                entity.Property(o => o.CustomerPhone).HasMaxLength(30);
+
+                entity.HasOne(o => o.Customer)
+                      .WithMany()
+                      .HasForeignKey(o => o.CustomerId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // 🔗 Link OrderItems to Composite Key Parent Order
             modelBuilder.Entity<OrderItem>()
-                .HasOne(i => i.Order) // Specified 'i => i.Order' here
+                .HasOne(i => i.Order)
                 .WithMany(o => o.Items)
                 .HasForeignKey(i => new { i.BranchId, i.OrderId })
                 .OnDelete(DeleteBehavior.Cascade);
@@ -80,10 +102,10 @@ namespace AbayaSystem.Infrastructure
             {
                 var branches = new[]
                 {
-                    new Branch { BranchName = "Bahja", IsWorkshop = false }, // ID 1
-                    new Branch { BranchName = "Black View", IsWorkshop = false },  // ID 2
-                    new Branch { BranchName = "Hurain", IsWorkshop = false },  // ID 3
-                    new Branch { BranchName = "Workshop", IsWorkshop = true }      // ID 4
+                    new Branch { BranchName = "Bahja", IsWorkshop = false },
+                    new Branch { BranchName = "Black View", IsWorkshop = false },
+                    new Branch { BranchName = "Hurain", IsWorkshop = false },
+                    new Branch { BranchName = "Workshop", IsWorkshop = true }
                 };
                 context.Branches.AddRange(branches);
                 await context.SaveChangesAsync();

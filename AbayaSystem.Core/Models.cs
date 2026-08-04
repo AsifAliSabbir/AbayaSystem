@@ -25,7 +25,7 @@ namespace AbayaSystem.Core
         public string FabricName { get; set; } = string.Empty;
     }
 
-    // 🤝 External Suppliers / Vendors (Embroiderers, Full-Abaya Makers, etc.)
+    // 🤝 External Suppliers / Vendors
     public class Supplier
     {
         public int SupplierId { get; set; }
@@ -33,6 +33,35 @@ namespace AbayaSystem.Core
         public string Phone { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
+    }
+
+    // 🔘 Abaya Button Configuration Options
+    public enum ButtonType
+    {
+        NoButtons,
+        ButtonsWithBand,
+        ButtonsWithoutBand
+    }
+
+    // 👤 Separate Customer Entity with Complete Measurement Profile
+    public class Customer
+    {
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerPhone { get; set; } = string.Empty;
+
+        // 📏 Measurements (in inches/cm as per shop standard)
+        public decimal LengthAbayaFront { get; set; }
+        public decimal LengthAbayaBack { get; set; }
+        public decimal LengthSleeve { get; set; }
+        public decimal WidthArmHole { get; set; }
+        public decimal WidthSleeveOpening { get; set; }
+        public decimal WidthShoulder { get; set; }
+        public decimal WidthBody { get; set; }
+        public decimal WidthBottom { get; set; }
+
+        public ButtonType ButtonType { get; set; } = ButtonType.NoButtons;
+        public int NumberOfButtons { get; set; }
     }
 
     [Flags]
@@ -53,31 +82,29 @@ namespace AbayaSystem.Core
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
 
-        // 🔗 Linked to specific Branch/Showroom or Workshop
         public int BranchId { get; set; }
         public Branch? Branch { get; set; }
     }
 
-    // 🏷️ Order Types
     public enum OrderType
     {
-        Internal, // Internal Workshop or Showroom tailor only
-        Hybrid,   // Internal Workshop + External Embroiderer/Vendor
-        External  // 100% External Supplier made
+        Internal,
+        Hybrid,
+        External
     }
 
     public enum HybridProcessType
     {
         None,
-        CutAndHalfStitchFirst, // Cut -> Half Stitch in Workshop -> External Embroiderer -> In-House Finish
-        RawFabricFirst         // Raw Fabric -> External Embroiderer -> In-House Cut & Stitch
+        CutAndHalfStitchFirst,
+        RawFabricFirst
     }
 
     public enum SheilaSize
     {
-        Size_22x81, // Standard Stock
-        Size_28x81, // Standard Stock
-        Size_28x90  // Custom XL - Triggers dedicated fabric purchase
+        Size_22x81,
+        Size_28x81,
+        Size_28x90
     }
 
     public enum ItemStatus
@@ -103,31 +130,25 @@ namespace AbayaSystem.Core
         public int BranchId { get; set; }
         public Branch? Branch { get; set; }
 
-        // 🔑 Composite Primary Key Part 2: Manual receipt number (e.g., 45098, RM-101)
+        // 🔑 Composite Primary Key Part 2: Manual receipt number
         public string OrderId { get; set; } = string.Empty;
 
-        // 👤 Separate Customer Details
-        public string CustomerName { get; set; } = string.Empty;
-        public string CustomerPhone { get; set; } = string.Empty;
+        // 👤 Linked Customer Primary Key
+        public int CustomerId { get; set; }
+        public Customer? Customer { get; set; }
 
         public DateTime OrderDate { get; set; } = DateTime.Today;
-
-        // 📅 Delivery Tracking
         public DateTime EstimatedDeliveryDate { get; set; } = DateTime.UtcNow.AddDays(7);
         public DateTime? ActualDeliveryDate { get; set; }
 
-        // 🚨 Workflow Priority Flag
         public bool IsUrgent { get; set; } = false;
-
-        // 📝 Order Level Note
         public string Notes { get; set; } = string.Empty;
 
         public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
 
-        // 💰 Financials
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
-        public decimal BalanceDue { get; set; } // Recorded directly into Orders DB table
+        public decimal BalanceDue { get; set; }
 
         public List<OrderItem> Items { get; set; } = new();
     }
@@ -137,38 +158,30 @@ namespace AbayaSystem.Core
     {
         public int OrderItemId { get; set; }
 
-        // 🔗 Foreign Key pointing back to Composite Parent Order
         public int BranchId { get; set; }
         public string OrderId { get; set; } = string.Empty;
         public Order? Order { get; set; }
         public string ModelTextDescription { get; set; } = string.Empty;
 
-        // 🏬 Dropdown Selections
         public int? FabricShopId { get; set; }
         public FabricShop? FabricShop { get; set; }
 
         public int? FabricId { get; set; }
         public Fabric? Fabric { get; set; }
 
-        // Whole number code from catalogue (e.g., "1", "2", "15")
         public string ColorCode { get; set; } = string.Empty;
-
         public bool IsShopProvidingFabric { get; set; } = true;
 
-        // Process details
         public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
 
-        // Sizing & Sheila
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
         public bool IsReadyMadeAlteration { get; set; } = false;
         public string AlterationNotes { get; set; } = string.Empty;
 
-        // 📝 Item Level Note
         public string Notes { get; set; } = string.Empty;
 
-        // Logistics & Routing
-        public int TargetBranchId { get; set; } // Workshop Branch ID or Local Showroom Branch ID
-        public int? AssignedSupplierId { get; set; } // External Computer Embroiderer / Vendor
+        public int TargetBranchId { get; set; }
+        public int? AssignedSupplierId { get; set; }
         public Supplier? AssignedSupplier { get; set; }
 
         public int? CutByWorkerId { get; set; }
@@ -186,7 +199,6 @@ namespace AbayaSystem.Core
         public bool BuyFabricForExternal { get; set; } = false;
     }
 
-    // 🛍️ Procurement DTOs (Cleaned up, no customer details needed)
     public class FabricProcurementItem
     {
         public int OrderItemId { get; set; }

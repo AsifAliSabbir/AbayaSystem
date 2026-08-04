@@ -42,6 +42,59 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.ToTable("Branches");
                 });
 
+            modelBuilder.Entity("AbayaSystem.Core.Customer", b =>
+                {
+                    b.Property<int>("CustomerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CustomerId"));
+
+                    b.Property<int>("ButtonType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CustomerPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("LengthAbayaBack")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LengthAbayaFront")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LengthSleeve")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("NumberOfButtons")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("WidthArmHole")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WidthBody")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WidthBottom")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WidthShoulder")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WidthSleeveOpening")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("CustomerId");
+
+                    b.ToTable("Customers");
+                });
+
             modelBuilder.Entity("AbayaSystem.Core.ExternalWorker", b =>
                 {
                     b.Property<int>("ExternalWorkerId")
@@ -160,14 +213,8 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.Property<decimal>("BalanceDue")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("CustomerName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CustomerPhone")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("DepositPaid")
                         .HasColumnType("decimal(18,2)");
@@ -192,6 +239,8 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("BranchId", "OrderId");
+
+                    b.HasIndex("CustomerId");
 
                     b.ToTable("Orders");
                 });
@@ -363,7 +412,15 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AbayaSystem.Core.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Branch");
+
+                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("AbayaSystem.Core.OrderItem", b =>

@@ -13,6 +13,7 @@ namespace AbayaSystem.Infrastructure
         Task<List<Fabric>> GetFabricsAsync();
         Task<List<Branch>> GetBranchesAsync();
         Task<List<ExternalWorker>> GetExternalWorkersAsync();
+        Task<List<Customer>> SearchCustomersAsync(string query);
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
 
         // 🛍️ Fabric Procurement Methods
@@ -42,6 +43,19 @@ namespace AbayaSystem.Infrastructure
         public async Task<List<ExternalWorker>> GetExternalWorkersAsync() =>
             await _context.ExternalWorkers.Where(w => w.IsActive).ToListAsync();
 
+        // 🔍 Live Customer Search Method (Matches after 3+ characters)
+        public async Task<List<Customer>> SearchCustomersAsync(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
+                return new List<Customer>();
+
+            var cleanQuery = query.Trim().ToLower();
+            return await _context.Customers
+                .Where(c => c.CustomerName.ToLower().Contains(cleanQuery) || c.CustomerPhone.Contains(cleanQuery))
+                .Take(10)
+                .ToListAsync();
+        }
+
         public async Task<ServiceResult> CreateOrderAsync(OrderFormModel model)
         {
             if (string.IsNullOrWhiteSpace(model.ManualOrderId))
@@ -49,6 +63,9 @@ namespace AbayaSystem.Infrastructure
 
             if (model.Items.Count == 0)
                 return ServiceResult.Failure("You must add at least one item to the order!");
+
+            if (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone))
+                return ServiceResult.Failure("Customer name and phone number are required!");
 
             var cleanId = model.ManualOrderId.Trim().ToUpper();
 
@@ -58,12 +75,49 @@ namespace AbayaSystem.Infrastructure
             if (exist)
                 return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
 
+            // 👤 Handle Customer Persistence or Update
+            Customer customer;
+            if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
+            {
+                customer = await _context.Customers.FindAsync(model.CustomerId.Value);
+                if (customer == null)
+                {
+                    return ServiceResult.Failure("Selected customer profile was not found.");
+                }
+            }
+            else
+            {
+                // Fallback check: existing phone match
+                var cleanPhone = model.CustomerPhone.Trim();
+                customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerPhone == cleanPhone);
+                if (customer == null)
+                {
+                    customer = new Customer();
+                    _context.Customers.Add(customer);
+                }
+            }
+
+            // Sync Customer Details and Measurements
+            customer.CustomerName = model.CustomerName.Trim();
+            customer.CustomerPhone = model.CustomerPhone.Trim();
+            customer.LengthAbayaFront = model.LengthAbayaFront;
+            customer.LengthAbayaBack = model.LengthAbayaBack;
+            customer.LengthSleeve = model.LengthSleeve;
+            customer.WidthArmHole = model.WidthArmHole;
+            customer.WidthSleeveOpening = model.WidthSleeveOpening;
+            customer.WidthShoulder = model.WidthShoulder;
+            customer.WidthBody = model.WidthBody;
+            customer.WidthBottom = model.WidthBottom;
+            customer.ButtonType = model.ButtonType;
+            customer.NumberOfButtons = model.NumberOfButtons;
+
+            await _context.SaveChangesAsync(); // Saves customer first to generate CustomerId if new
+
             var order = new Order
             {
                 BranchId = model.BranchId,
                 OrderId = cleanId,
-                CustomerName = model.CustomerName,
-                CustomerPhone = model.CustomerPhone,
+                CustomerId = customer.CustomerId,
                 OrderDate = model.OrderDate,
                 TypeOfOrder = OrderType.Internal,
                 EstimatedDeliveryDate = model.EstimatedDeliveryDate,
@@ -121,7 +175,6 @@ namespace AbayaSystem.Infrastructure
             return ServiceResult.Success();
         }
 
-        // 🛍️ Fabric Procurement Implementations
         public async Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync()
         {
             return await _context.OrderItems
