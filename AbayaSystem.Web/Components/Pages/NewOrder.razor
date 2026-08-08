@@ -64,7 +64,7 @@
                     <!-- Branch Selector Dropdown -->
                     <div class="col-md-3">
                         <label class="form-label fw-semibold small text-muted">Showroom Branch</label>
-                        <select @ref="branchSelectRef" class="form-select shadow-sm" @bind="orderModel.BranchId" disabled="@(isSalesman || IsMasterLocked)">
+                        <select @ref="branchSelectRef" class="form-select shadow-sm" value="@orderModel.BranchId" @onchange="OnBranchChanged" disabled="@(isSalesman || IsMasterLocked)">
                             <option value="0">-- Select Branch --</option>
                             @foreach (var branch in branches.Where(b => !b.IsWorkshop))
                             {
@@ -86,13 +86,13 @@
                         <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Full Name"
                                value="@orderModel.CustomerName" @oninput="OnCustomerNameInput" disabled="@IsMasterLocked" />
 
-                        @if (showDropdown && searchResults.Count > 0)
+                        @if (showDropdown && activeSearchField == "name" && searchResults.Count > 0)
                         {
                             <div class="dropdown-menu show w-100 shadow mt-1 border-0 rounded-3" style="max-height: 220px; overflow-y: auto; z-index: 1050;">
                                 @foreach (var customer in searchResults)
                                 {
                                     <button type="button" class="dropdown-item py-2 fw-semibold text-dark" @onclick="() => SelectCustomer(customer)">
-                                        <i class="bi bi-person-check text-primary me-2"></i>@($"{customer.CustomerName}_{customer.CustomerPhone}")
+                                        <i class="bi bi-person-check text-primary me-2"></i>@($"{customer.CustomerName}_{customer.CustomerPhone}{(string.IsNullOrEmpty(customer.LastOrderId) ? "" : $"_{customer.LastOrderId}")}")
                                     </button>
                                 }
                             </div>
@@ -104,6 +104,18 @@
                         <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
                         <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp"
                                value="@orderModel.CustomerPhone" @oninput="OnCustomerPhoneInput" disabled="@IsMasterLocked" />
+
+                        @if (showDropdown && activeSearchField == "phone" && searchResults.Count > 0)
+                        {
+                            <div class="dropdown-menu show w-100 shadow mt-1 border-0 rounded-3" style="max-height: 220px; overflow-y: auto; z-index: 1050;">
+                                @foreach (var customer in searchResults)
+                                {
+                                    <button type="button" class="dropdown-item py-2 fw-semibold text-dark" @onclick="() => SelectCustomer(customer)">
+                                        <i class="bi bi-person-check text-primary me-2"></i>@($"{customer.CustomerName}_{customer.CustomerPhone}{(string.IsNullOrEmpty(customer.LastOrderId) ? "" : $"_{customer.LastOrderId}")}")
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
 
                     <!-- Order Date -->
@@ -427,8 +439,9 @@
     private List<Fabric> fabrics = new();
     private List<ExternalWorker> externalWorkers = new();
 
-    private List<Customer> searchResults = new();
+    private List<CustomerSearchResultDto> searchResults = new();
     private bool showDropdown = false;
+    private string activeSearchField = string.Empty;
     private bool showMeasurementsModal = false;
 
     private bool isLoading = true;
@@ -486,6 +499,12 @@
                 if (defaultShowroom != null) orderModel.BranchId = defaultShowroom.BranchId;
             }
 
+            // Auto-fill next order number for selected branch
+            if (orderModel.BranchId > 0)
+            {
+                await AutoFillNextOrderId();
+            }
+
             orderModel.EstimatedDeliveryDate = orderModel.OrderDate.AddDays(12);
 
             var workshop = branches.FirstOrDefault(b => b.IsWorkshop);
@@ -501,9 +520,31 @@
         }
     }
 
+    private async Task OnBranchChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var branchId))
+        {
+            orderModel.BranchId = branchId;
+            if (branchId > 0)
+            {
+                await AutoFillNextOrderId();
+            }
+        }
+    }
+
+    private async Task AutoFillNextOrderId()
+    {
+        if (orderModel.BranchId > 0)
+        {
+            var nextId = await OrderService.GetNextOrderIdForBranchAsync(orderModel.BranchId);
+            orderModel.ManualOrderId = nextId.ToString();
+        }
+    }
+
     // 🔍 Live Search Event Handlers
     private async Task OnCustomerNameInput(ChangeEventArgs e)
     {
+        activeSearchField = "name";
         orderModel.CustomerName = e.Value?.ToString() ?? string.Empty;
         orderModel.CustomerId = null; // Typing unlinks pre-selected customer ID
         await PerformCustomerSearch(orderModel.CustomerName);
@@ -511,6 +552,7 @@
 
     private async Task OnCustomerPhoneInput(ChangeEventArgs e)
     {
+        activeSearchField = "phone";
         orderModel.CustomerPhone = e.Value?.ToString() ?? string.Empty;
         orderModel.CustomerId = null; // Typing unlinks pre-selected customer ID
         await PerformCustomerSearch(orderModel.CustomerPhone);
@@ -530,13 +572,13 @@
         }
     }
 
-    private void SelectCustomer(Customer customer)
+    private void SelectCustomer(CustomerSearchResultDto customer)
     {
         orderModel.CustomerId = customer.CustomerId;
         orderModel.CustomerName = customer.CustomerName;
         orderModel.CustomerPhone = customer.CustomerPhone;
 
-        // Auto-fill existing customer measurements
+        // Auto-fill existing customer measurements (OrderNo remains untouched)
         orderModel.LengthAbayaFront = customer.LengthAbayaFront;
         orderModel.LengthAbayaBack = customer.LengthAbayaBack;
         orderModel.LengthSleeve = customer.LengthSleeve;
@@ -712,6 +754,8 @@
                     OrderDate = DateTime.Today,
                     EstimatedDeliveryDate = DateTime.Today.AddDays(12)
                 };
+                await AutoFillNextOrderId();
+
                 currentItem = new OrderItemFormModel
                 {
                     ColorCode = "Black",

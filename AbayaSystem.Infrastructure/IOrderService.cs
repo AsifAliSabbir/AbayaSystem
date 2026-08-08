@@ -13,7 +13,8 @@ namespace AbayaSystem.Infrastructure
         Task<List<Fabric>> GetFabricsAsync();
         Task<List<Branch>> GetBranchesAsync();
         Task<List<ExternalWorker>> GetExternalWorkersAsync();
-        Task<List<Customer>> SearchCustomersAsync(string query);
+        Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query);
+        Task<int> GetNextOrderIdForBranchAsync(int branchId);
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
 
         // 🛍️ Fabric Procurement Methods
@@ -43,17 +44,71 @@ namespace AbayaSystem.Infrastructure
         public async Task<List<ExternalWorker>> GetExternalWorkersAsync() =>
             await _context.ExternalWorkers.Where(w => w.IsActive).ToListAsync();
 
-        // 🔍 Live Customer Search Method (Matches after 3+ characters)
-        public async Task<List<Customer>> SearchCustomersAsync(string query)
+        // 🔢 Calculate Next Order Number for Branch
+        public async Task<int> GetNextOrderIdForBranchAsync(int branchId)
+        {
+            var orderIds = await _context.Orders
+                .Where(o => o.BranchId == branchId)
+                .Select(o => o.OrderId)
+                .ToListAsync();
+
+            int maxOrderNo = 0;
+            foreach (var id in orderIds)
+            {
+                if (int.TryParse(id, out int parsed))
+                {
+                    if (parsed > maxOrderNo) maxOrderNo = parsed;
+                }
+            }
+
+            return maxOrderNo + 1;
+        }
+
+        // 🔍 Live Customer Search Method (Returns Last OrderNo)
+        public async Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query)
         {
             if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
-                return new List<Customer>();
+                return new List<CustomerSearchResultDto>();
 
             var cleanQuery = query.Trim().ToLower();
-            return await _context.Customers
+
+            var customers = await _context.Customers
                 .Where(c => c.CustomerName.ToLower().Contains(cleanQuery) || c.CustomerPhone.Contains(cleanQuery))
                 .Take(10)
                 .ToListAsync();
+
+            if (!customers.Any())
+                return new List<CustomerSearchResultDto>();
+
+            var customerIds = customers.Select(c => c.CustomerId).ToList();
+
+            var lastOrders = await _context.Orders
+                .Where(o => customerIds.Contains(o.CustomerId))
+                .GroupBy(o => o.CustomerId)
+                .Select(g => new
+                {
+                    CustomerId = g.Key,
+                    LastOrderId = g.OrderByDescending(o => o.OrderDate).Select(o => o.OrderId).FirstOrDefault() ?? ""
+                })
+                .ToDictionaryAsync(x => x.CustomerId, x => x.LastOrderId);
+
+            return customers.Select(c => new CustomerSearchResultDto
+            {
+                CustomerId = c.CustomerId,
+                CustomerName = c.CustomerName,
+                CustomerPhone = c.CustomerPhone,
+                LastOrderId = lastOrders.TryGetValue(c.CustomerId, out var lastId) ? lastId : string.Empty,
+                LengthAbayaFront = c.LengthAbayaFront,
+                LengthAbayaBack = c.LengthAbayaBack,
+                LengthSleeve = c.LengthSleeve,
+                WidthArmHole = c.WidthArmHole,
+                WidthSleeveOpening = c.WidthSleeveOpening,
+                WidthShoulder = c.WidthShoulder,
+                WidthBody = c.WidthBody,
+                WidthBottom = c.WidthBottom,
+                ButtonType = c.ButtonType,
+                NumberOfButtons = c.NumberOfButtons
+            }).ToList();
         }
 
         public async Task<ServiceResult> CreateOrderAsync(OrderFormModel model)
@@ -87,7 +142,6 @@ namespace AbayaSystem.Infrastructure
             }
             else
             {
-                // Fallback check: existing phone match
                 var cleanPhone = model.CustomerPhone.Trim();
                 customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerPhone == cleanPhone);
                 if (customer == null)
@@ -111,7 +165,7 @@ namespace AbayaSystem.Infrastructure
             customer.ButtonType = model.ButtonType;
             customer.NumberOfButtons = model.NumberOfButtons;
 
-            await _context.SaveChangesAsync(); // Saves customer first to generate CustomerId if new
+            await _context.SaveChangesAsync();
 
             var order = new Order
             {
