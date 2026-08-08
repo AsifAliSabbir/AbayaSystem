@@ -21,6 +21,9 @@ namespace AbayaSystem.Infrastructure
         Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync();
         Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync();
         Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId);
+
+        // Add to IOrderService interface:
+        Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
     }
 
     public class OrderService : IOrderService
@@ -281,6 +284,94 @@ namespace AbayaSystem.Infrastructure
             await _context.SaveChangesAsync();
 
             return ServiceResult.Success();
+        }
+
+        // Add implementation inside OrderService class:
+        public async Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter)
+        {
+            var query = _context.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.Branch)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.FabricShop)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Fabric)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.ExternalWorker) // Include External Worker info
+                .AsQueryable();
+
+            // 🏬 Branch Filter
+            if (filter.BranchId.HasValue && filter.BranchId.Value > 0)
+            {
+                query = query.Where(o => o.BranchId == filter.BranchId.Value);
+            }
+
+            // 🔍 Filters
+            if (!string.IsNullOrWhiteSpace(filter.OrderId))
+            {
+                var cleanId = filter.OrderId.Trim().ToLower();
+                query = query.Where(o => o.OrderId.ToLower().Contains(cleanId));
+            }
+
+            if (filter.OrderDateFrom.HasValue)
+                query = query.Where(o => o.OrderDate >= filter.OrderDateFrom.Value.Date);
+
+            if (filter.OrderDateTo.HasValue)
+                query = query.Where(o => o.OrderDate <= filter.OrderDateTo.Value.Date.AddDays(1).AddTicks(-1));
+
+            if (filter.DeliveryDateFrom.HasValue)
+                query = query.Where(o => o.EstimatedDeliveryDate >= filter.DeliveryDateFrom.Value.Date);
+
+            if (filter.DeliveryDateTo.HasValue)
+                query = query.Where(o => o.EstimatedDeliveryDate <= filter.DeliveryDateTo.Value.Date.AddDays(1).AddTicks(-1));
+
+            if (!string.IsNullOrWhiteSpace(filter.CustomerName))
+            {
+                var cleanName = filter.CustomerName.Trim().ToLower();
+                query = query.Where(o => o.Customer.CustomerName.ToLower().Contains(cleanName));
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.CustomerPhone))
+            {
+                var cleanPhone = filter.CustomerPhone.Trim();
+                query = query.Where(o => o.Customer.CustomerPhone.Contains(cleanPhone));
+            }
+
+            if (filter.ItemStatus.HasValue)
+            {
+                query = query.Where(o => o.Items.Any(i => i.Status == filter.ItemStatus.Value));
+            }
+
+            // 🚨 Sorting: Urgent Orders ALWAYS on top first
+            IOrderedQueryable<Order> orderedQuery;
+
+            if (filter.SortBy == "DeliveryDate")
+            {
+                orderedQuery = filter.SortDescending
+                    ? query.OrderByDescending(o => o.IsUrgent).ThenByDescending(o => o.EstimatedDeliveryDate)
+                    : query.OrderByDescending(o => o.IsUrgent).ThenBy(o => o.EstimatedDeliveryDate);
+            }
+            else
+            {
+                orderedQuery = filter.SortDescending
+                    ? query.OrderByDescending(o => o.IsUrgent).ThenByDescending(o => o.OrderDate)
+                    : query.OrderByDescending(o => o.IsUrgent).ThenBy(o => o.OrderDate);
+            }
+
+            var totalCount = await orderedQuery.CountAsync();
+
+            var items = await orderedQuery
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            return new PagedResult<Order>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = filter.Page,
+                PageSize = filter.PageSize
+            };
         }
     }
 }

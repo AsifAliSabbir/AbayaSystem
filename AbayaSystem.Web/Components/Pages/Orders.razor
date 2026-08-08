@@ -1,0 +1,510 @@
+﻿@page "/orders"
+@attribute [Authorize(Roles = "Admin,Salesman")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
+@inject SweetAlertService Swal
+
+<div class="container-fluid max-w-1200 py-3">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">📦 Orders Directory</h3>
+            <p class="text-muted small mb-0">Search, filter, track status, and manage all customer orders</p>
+        </div>
+        <a href="/orders/new" class="btn btn-primary fw-bold shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Create New Order
+        </a>
+    </div>
+
+    <!-- 🔍 SEARCH & FILTER BAR -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold m-0 text-dark">
+                <i class="bi bi-funnel text-warning me-2"></i>Filter & Search Options
+            </h6>
+            <button type="button" class="btn btn-link text-decoration-none btn-sm fw-bold text-muted p-0" @onclick="ResetFilters">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+            </button>
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-2">
+
+                <!-- Branch Filter -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Showroom Branch</label>
+                    <select class="form-select form-select-sm shadow-sm" value="@(filter.BranchId?.ToString() ?? "")" @onchange="OnBranchFilterChanged">
+                        <option value="">All Branches</option>
+                        @foreach (var branch in branches.Where(b => !b.IsWorkshop))
+                        {
+                            <option value="@branch.BranchId">@branch.BranchName</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Search Order ID -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Order No</label>
+                    <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Ticket #"
+                           @bind="filter.OrderId" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+
+                <!-- Customer Name Autocomplete -->
+                <div class="col-md-3 position-relative">
+                    <label class="form-label small fw-semibold text-muted mb-1">Customer Name</label>
+                    <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Customer..."
+                           value="@filter.CustomerName" @oninput="OnCustomerNameInput" />
+
+                    @if (showNameDropdown && nameSearchResults.Count > 0)
+                    {
+                        <div class="dropdown-menu show w-100 shadow border-0 rounded-3 mt-1" style="max-height: 200px; overflow-y: auto; z-index: 1050;">
+                            @foreach (var c in nameSearchResults)
+                            {
+                                <button type="button" class="dropdown-item py-1 small fw-semibold" @onclick="() => SelectCustomerName(c.CustomerName)">
+                                    <i class="bi bi-person me-2 text-primary"></i>@c.CustomerName (@c.CustomerPhone)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Customer Phone Autocomplete -->
+                <div class="col-md-3 position-relative">
+                    <label class="form-label small fw-semibold text-muted mb-1">Customer Phone</label>
+                    <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Phone..."
+                           value="@filter.CustomerPhone" @oninput="OnCustomerPhoneInput" />
+
+                    @if (showPhoneDropdown && phoneSearchResults.Count > 0)
+                    {
+                        <div class="dropdown-menu show w-100 shadow border-0 rounded-3 mt-1" style="max-height: 200px; overflow-y: auto; z-index: 1050;">
+                            @foreach (var c in phoneSearchResults)
+                            {
+                                <button type="button" class="dropdown-item py-1 small fw-semibold" @onclick="() => SelectCustomerPhone(c.CustomerPhone)">
+                                    <i class="bi bi-telephone me-2 text-success"></i>@c.CustomerPhone (@c.CustomerName)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Item Status Filter -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Item State</label>
+                    <select class="form-select form-select-sm shadow-sm" value="@(filter.ItemStatus?.ToString() ?? "")" @onchange="OnStatusFilterChanged">
+                        <option value="">All States</option>
+                        @foreach (var status in Enum.GetValues<ItemStatus>())
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Sort By -->
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold text-muted mb-1">Sort By (Urgent First)</label>
+                    <select class="form-select form-select-sm shadow-sm" @bind="filter.SortBy" @bind:after="ApplySearch">
+                        <option value="OrderDate">Order Date</option>
+                        <option value="DeliveryDate">Delivery Date</option>
+                    </select>
+                </div>
+
+                <!-- Order Date Range From -->
+                <div class="col-md-2.5">
+                    <label class="form-label small fw-semibold text-muted mb-1">Order Date From</label>
+                    <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.OrderDateFrom" @bind:after="ApplySearch" />
+                </div>
+
+                <!-- Order Date Range To -->
+                <div class="col-md-2.5">
+                    <label class="form-label small fw-semibold text-muted mb-1">Order Date To</label>
+                    <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.OrderDateTo" @bind:after="ApplySearch" />
+                </div>
+
+                <!-- Delivery Date Range From -->
+                <div class="col-md-2.5">
+                    <label class="form-label small fw-semibold text-muted mb-1">Delivery Date From</label>
+                    <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.DeliveryDateFrom" @bind:after="ApplySearch" />
+                </div>
+
+                <!-- Delivery Date Range To -->
+                <div class="col-md-2.5">
+                    <label class="form-label small fw-semibold text-muted mb-1">Delivery Date To</label>
+                    <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.DeliveryDateTo" @bind:after="ApplySearch" />
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 📋 ORDERS LIST TABLE -->
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-warning" role="status"></div>
+            <p class="text-muted mt-2">Loading orders...</p>
+        </div>
+    }
+    else if (pagedResult.Items.Count == 0)
+    {
+        <div class="card border-0 shadow-sm text-center py-5 rounded-3">
+            <i class="bi bi-inbox fs-1 text-muted"></i>
+            <h5 class="fw-bold mt-2 text-dark">No Orders Found</h5>
+            <p class="text-muted small">Try adjusting your filters or search keywords.</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-3 mb-4">
+            @foreach (var order in pagedResult.Items)
+            {
+                <div class="card border-0 shadow-sm rounded-3 @(order.IsUrgent ? "border-start border-4 border-danger" : "")">
+                    <div class="card-header bg-white py-3 d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-dark fs-6">#@order.OrderId</span>
+                            @if (order.IsUrgent)
+                            {
+                                <span class="badge bg-danger text-white">🚨 Urgent</span>
+                            }
+                            <span class="badge bg-secondary">@order.Branch?.BranchName</span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="text-muted small">
+                                <i class="bi bi-calendar-event me-1"></i>Order: <strong>@order.OrderDate.ToString("yyyy-MM-dd")</strong>
+                            </div>
+                            <div class="text-muted small">
+                                <i class="bi bi-truck me-1"></i>Delivery: <strong class="text-primary">@order.EstimatedDeliveryDate.ToString("yyyy-MM-dd")</strong>
+                            </div>
+                            <!-- Edit Button Redirects to Order Page -->
+                            <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm" @onclick="() => EditOrder(order)">
+                                <i class="bi bi-pencil-square me-1"></i> Edit Order
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <!-- Customer & Financial Summary -->
+                            <div class="col-md-3 border-end">
+                                <h6 class="fw-bold text-dark mb-1">
+                                    <i class="bi bi-person-circle me-1 text-primary"></i>@order.Customer?.CustomerName
+                                </h6>
+                                <p class="text-muted small mb-2"><i class="bi bi-telephone me-1"></i>@order.Customer?.CustomerPhone</p>
+
+                                <div class="bg-light p-2 rounded small">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Total:</span>
+                                        <strong class="text-dark">AED @order.TotalAmount.ToString("N2")</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Paid:</span>
+                                        <strong class="text-success">AED @order.DepositPaid.ToString("N2")</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Balance:</span>
+                                        <strong class="text-danger">AED @order.BalanceDue.ToString("N2")</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Detailed Order Line Items -->
+                            <div class="col-md-9">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light extra-small">
+                                            <tr>
+                                                <th>Category</th>
+                                                <th>Description</th>
+                                                <th>Workflow</th>
+                                                <th>Fabric Details (Supplier_Type_Color)</th>
+                                                <th>Sheila Size</th>
+                                                <th>Current State</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="small">
+                                            @foreach (var item in order.Items)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <span class="badge @(item.Category == ItemCategory.Abaya ? "bg-info text-dark" : "bg-purple text-white")">
+                                                            @item.Category
+                                                        </span>
+                                                    </td>
+                                                    <td class="fw-semibold">@item.ModelTextDescription</td>
+                                                    <td>
+                                                        <span class="fw-semibold text-secondary">@GetWorkflowDisplay(item)</span>
+                                                    </td>
+                                                    <td class="fw-semibold text-dark">
+                                                        @GetFabricDetailsDisplay(item)
+                                                    </td>
+                                                    <td>
+                                                        @if (item.Category == ItemCategory.Abaya)
+                                                        {
+                                                            <span class="badge bg-light text-dark border">@GetSheilaSizeDisplay(item.SelectedSheilaSize)</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">N/A</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @GetItemStatusBadgeClass(item.Status)">
+                                                            @item.Status
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- 📄 PAGINATION CONTROLS -->
+        <div class="card border-0 shadow-sm rounded-3 p-3 d-flex flex-row justify-content-between align-items-center">
+            <span class="text-muted small">
+                Showing <strong>@GetShowingStart()</strong> to <strong>@GetShowingEnd()</strong> of <strong>@pagedResult.TotalCount</strong> orders
+            </span>
+
+            <nav aria-label="Order pagination">
+                <ul class="pagination pagination-sm m-0">
+                    <!-- Previous Page -->
+                    <li class="page-item @(pagedResult.HasPreviousPage ? "" : "disabled")">
+                        <button class="page-link" @onclick="() => GoToPage(pagedResult.Page - 1)">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                    </li>
+
+                    <!-- Page Numbers -->
+                    @for (int p = 1; p <= pagedResult.TotalPages; p++)
+                    {
+                        var pageNum = p;
+                        <li class="page-item @(pageNum == pagedResult.Page ? "active" : "")">
+                            <button class="page-link fw-bold" @onclick="() => GoToPage(pageNum)">
+                                @pageNum
+                            </button>
+                        </li>
+                    }
+
+                    <!-- Next Page -->
+                    <li class="page-item @(pagedResult.HasNextPage ? "" : "disabled")">
+                        <button class="page-link" @onclick="() => GoToPage(pagedResult.Page + 1)">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    }
+</div>
+
+@code {
+    private OrderFilterModel filter = new() { PageSize = 5 };
+    private PagedResult<Order> pagedResult = new();
+    private List<Branch> branches = new();
+
+    private List<CustomerSearchResultDto> nameSearchResults = new();
+    private List<CustomerSearchResultDto> phoneSearchResults = new();
+    private bool showNameDropdown = false;
+    private bool showPhoneDropdown = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            branches = await OrderService.GetBranchesAsync();
+            await LoadOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync("Error Loading Data", ex.Message, SweetAlertIcon.Error);
+        }
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        isLoading = true;
+        try
+        {
+            pagedResult = await OrderService.GetOrdersPagedAsync(filter);
+        }
+        catch (Exception ex)
+        {
+            await Swal.FireAsync("Error", ex.Message, SweetAlertIcon.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ApplySearch()
+    {
+        filter.Page = 1;
+        await LoadOrdersAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ApplySearch();
+        }
+    }
+
+    private async Task GoToPage(int pageNumber)
+    {
+        if (pageNumber >= 1 && pageNumber <= pagedResult.TotalPages && pageNumber != pagedResult.Page)
+        {
+            filter.Page = pageNumber;
+            await LoadOrdersAsync();
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        filter = new OrderFilterModel { PageSize = 5 };
+        showNameDropdown = false;
+        showPhoneDropdown = false;
+        await LoadOrdersAsync();
+    }
+
+    private async Task OnBranchFilterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var branchId) && branchId > 0)
+        {
+            filter.BranchId = branchId;
+        }
+        else
+        {
+            filter.BranchId = null;
+        }
+        await ApplySearch();
+    }
+
+    private async Task OnCustomerNameInput(ChangeEventArgs e)
+    {
+        filter.CustomerName = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(filter.CustomerName) && filter.CustomerName.Trim().Length >= 2)
+        {
+            nameSearchResults = await OrderService.SearchCustomersAsync(filter.CustomerName);
+            showNameDropdown = nameSearchResults.Count > 0;
+        }
+        else
+        {
+            showNameDropdown = false;
+        }
+        await ApplySearch();
+    }
+
+    private async Task OnCustomerPhoneInput(ChangeEventArgs e)
+    {
+        filter.CustomerPhone = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(filter.CustomerPhone) && filter.CustomerPhone.Trim().Length >= 2)
+        {
+            phoneSearchResults = await OrderService.SearchCustomersAsync(filter.CustomerPhone);
+            showPhoneDropdown = phoneSearchResults.Count > 0;
+        }
+        else
+        {
+            showPhoneDropdown = false;
+        }
+        await ApplySearch();
+    }
+
+    private async Task SelectCustomerName(string name)
+    {
+        filter.CustomerName = name;
+        showNameDropdown = false;
+        await ApplySearch();
+    }
+
+    private async Task SelectCustomerPhone(string phone)
+    {
+        filter.CustomerPhone = phone;
+        showPhoneDropdown = false;
+        await ApplySearch();
+    }
+
+    private async Task OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ItemStatus>(e.Value?.ToString(), out var status))
+        {
+            filter.ItemStatus = status;
+        }
+        else
+        {
+            filter.ItemStatus = null;
+        }
+        await ApplySearch();
+    }
+
+    private void EditOrder(Order order)
+    {
+        Navigation.NavigateTo($"/orders/new?branchId={order.BranchId}&orderId={order.OrderId}");
+    }
+
+    private int GetShowingStart() => pagedResult.TotalCount == 0 ? 0 : ((pagedResult.Page - 1) * pagedResult.PageSize) + 1;
+    private int GetShowingEnd() => Math.Min(pagedResult.Page * pagedResult.PageSize, pagedResult.TotalCount);
+
+    private string GetWorkflowDisplay(OrderItem item)
+    {
+        if (item.ExternalWorkerId.HasValue)
+        {
+            var workerName = item.ExternalWorker?.Name ?? "Worker";
+
+            if (item.HybridProcess != HybridProcessType.None || item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
+            {
+                return $"🧵 Hybrid ({workerName})";
+            }
+
+            return $"🏬 External ({workerName})";
+        }
+
+        return "🏠 Internal";
+    }
+
+    private string GetFabricDetailsDisplay(OrderItem item)
+    {
+        var supplier = item.FabricShop?.FabricShopName ?? "N/A";
+        var type = item.Fabric?.FabricName ?? "N/A";
+        var color = string.IsNullOrWhiteSpace(item.ColorCode) ? "N/A" : item.ColorCode;
+
+        return $"{supplier}_{type}_{color}";
+    }
+
+    private string GetSheilaSizeDisplay(SheilaSize size)
+    {
+        return size switch
+        {
+            SheilaSize.Size_28x81 => "28 x 81 in",
+            SheilaSize.Size_22x81 => "22 x 81 in",
+            SheilaSize.Size_28x90 => "28 x 90 in",
+            _ => size.ToString()
+        };
+    }
+
+    private string GetItemStatusBadgeClass(ItemStatus status)
+    {
+        return status switch
+        {
+            ItemStatus.ReadyForFabricProcurement => "bg-warning text-dark",
+            ItemStatus.AssignedToCutter => "bg-info text-dark",
+            // ItemStatus.CutCompleted => "bg-primary",
+            // ItemStatus.AssignedToTailor => "bg-secondary",
+            // ItemStatus.StitchingCompleted => "bg-dark",
+            // ItemStatus.QualityCheckPassed => "bg-success",
+            ItemStatus.Completed => "bg-success",
+            _ => "bg-light text-dark"
+        };
+    }
+}
