@@ -5,6 +5,11 @@ namespace AbayaSystem.Core
 {
     public class OrderFormModel
     {
+        // 🔄 Edit Tracking
+        public bool IsEditMode { get; set; } = false;
+        public int OriginalBranchId { get; set; }
+        public string OriginalOrderId { get; set; } = string.Empty;
+
         // 🏢 Master Order Properties
         public int BranchId { get; set; }
         public string ManualOrderId { get; set; } = string.Empty;
@@ -42,6 +47,10 @@ namespace AbayaSystem.Core
 
     public class OrderItemFormModel
     {
+        public int OrderItemId { get; set; } = 0; // 0 for new items
+        public ItemStatus Status { get; set; } = ItemStatus.ReadyForFabricProcurement;
+        public bool IsLocked { get; set; } = false; // True if item is in workflow
+
         public ItemCategory Category { get; set; } = ItemCategory.Abaya;
         public string ModelTextDescription { get; set; } = string.Empty;
 

@@ -15,8 +15,9 @@
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
-            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">Order Intake</h3>
-
+            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">
+                @(orderModel.IsEditMode ? $"✏️ Edit Order #{orderModel.OriginalOrderId}" : "Order Intake")
+            </h3>
         </div>
         <a href="/orders" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> All Orders
@@ -27,7 +28,7 @@
     {
         <div class="text-center py-5">
             <div class="spinner-border text-warning" role="status"></div>
-            <p class="text-muted mt-2">Loading catalogs and configuration...</p>
+            <p class="text-muted mt-2">Loading order information...</p>
         </div>
     }
     else
@@ -36,12 +37,10 @@
         <div class="card border-0 shadow-sm rounded-3 mb-4">
             <div class="card-body py-3">
                 <div class="d-flex justify-content-between align-items-center position-relative">
-                    <!-- Background Progress Line -->
                     <div class="progress position-absolute w-100" style="height: 4px; top: 50%; transform: translateY(-50%); z-index: 1;">
                         <div class="progress-bar bg-warning" role="progressbar" style="width: @GetProgressPercentage()%;"></div>
                     </div>
 
-                    <!-- Step 1 Indicator -->
                     <div class="step-item text-center position-relative" style="z-index: 2;" @onclick="() => JumpToStep(1)">
                         <div class="step-number rounded-circle mx-auto fw-bold d-flex align-items-center justify-content-center @(currentStep >= 1 ? "bg-warning text-dark" : "bg-light text-muted border")"
                              style="width: 38px; height: 38px; cursor: pointer;">
@@ -52,7 +51,6 @@
                         </span>
                     </div>
 
-                    <!-- Step 2 Indicator -->
                     <div class="step-item text-center position-relative" style="z-index: 2;" @onclick="() => JumpToStep(2)">
                         <div class="step-number rounded-circle mx-auto fw-bold d-flex align-items-center justify-content-center @(currentStep >= 2 ? "bg-warning text-dark" : "bg-light text-muted border")"
                              style="width: 38px; height: 38px; cursor: pointer;">
@@ -63,7 +61,6 @@
                         </span>
                     </div>
 
-                    <!-- Step 3 Indicator -->
                     <div class="step-item text-center position-relative" style="z-index: 2;" @onclick="() => JumpToStep(3)">
                         <div class="step-number rounded-circle mx-auto fw-bold d-flex align-items-center justify-content-center @(currentStep >= 3 ? "bg-warning text-dark" : "bg-light text-muted border")"
                              style="width: 38px; height: 38px; cursor: pointer;">
@@ -74,7 +71,6 @@
                         </span>
                     </div>
 
-                    <!-- Step 4 Indicator -->
                     <div class="step-item text-center position-relative" style="z-index: 2;" @onclick="() => JumpToStep(4)">
                         <div class="step-number rounded-circle mx-auto fw-bold d-flex align-items-center justify-content-center @(currentStep >= 4 ? "bg-warning text-dark" : "bg-light text-muted border")"
                              style="width: 38px; height: 38px; cursor: pointer;">
@@ -88,7 +84,6 @@
             </div>
         </div>
 
-        <!-- WIZARD STEP CONTENT -->
         <!-- STEP 1: MASTER ORDER & CUSTOMER DETAILS -->
         @if (currentStep == 1)
         {
@@ -129,7 +124,7 @@
                             <input @ref="orderDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.OrderDate" />
                         </div>
 
-                        <!-- Customer Name Search Input -->
+                        <!-- Customer Name -->
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Name *</label>
                             <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Search or type full name..."
@@ -148,7 +143,7 @@
                             }
                         </div>
 
-                        <!-- Customer Phone Search Input -->
+                        <!-- Customer Phone -->
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
                             <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp number..."
@@ -175,32 +170,37 @@
         @if (currentStep == 2)
         {
             <div class="card border-0 shadow-sm rounded-3 mb-4">
-                <div class="card-header bg-white border-bottom py-3">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                     <h6 class="fw-bold m-0 text-dark">
-                        <i class="bi bi-plus-circle me-2 text-primary"></i>Step 2: Order Line Items Entry
+                        <i class="bi @(editingIndex >= 0 ? "bi-pencil-square text-warning" : "bi-plus-circle text-primary") me-2"></i>
+                        @(editingIndex >= 0 ? $"Edit Item #{editingIndex + 1}" : "Add New Item to Order")
                     </h6>
+                    @if (editingIndex >= 0)
+                    {
+                        <span class="badge bg-warning text-dark"><i class="bi bi-info-circle me-1"></i> Editing Mode Active</span>
+                    }
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
-                        <!-- Category Dropdown -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Item Category *</label>
-                            <select @ref="categorySelectRef" class="form-select shadow-sm fw-bold text-primary" @onchange="OnCategoryChanged" value="@currentItem.Category">
+                            <select @ref="categorySelectRef" class="form-select shadow-sm fw-bold text-primary"
+                                    @onchange="OnCategoryChanged" value="@currentItem.Category" disabled="@currentItem.IsLocked">
                                 <option value="@ItemCategory.Abaya">👗 Abaya</option>
                                 <option value="@ItemCategory.InnerDress">🥻 Inner Dress (Internal Only)</option>
                             </select>
                         </div>
 
-                        <!-- Model Description -->
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small text-muted">Model / Style Description *</label>
-                            <input @ref="modelDescRef" type="text" class="form-control shadow-sm" placeholder="Enter model details or design notes..." @bind="currentItem.ModelTextDescription" />
+                            <input @ref="modelDescRef" type="text" class="form-control shadow-sm"
+                                   placeholder="Enter model details or design notes..." @bind="currentItem.ModelTextDescription" />
                         </div>
 
-                        <!-- Tailor/Workflow Selection Dropdown -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Workflow / Assigned Tailor *</label>
-                            <select @ref="workflowSelectRef" class="form-select shadow-sm fw-bold" @bind="currentItem.SelectedWorkflowKey" disabled="@(currentItem.Category == ItemCategory.InnerDress)">
+                            <select @ref="workflowSelectRef" class="form-select shadow-sm fw-bold"
+                                    @bind="currentItem.SelectedWorkflowKey" disabled="@(currentItem.Category == ItemCategory.InnerDress || currentItem.IsLocked)">
                                 <option value="">-- Select Tailor --</option>
                                 <option value="Internal">🏠 Internal Workshop</option>
                                 @if (currentItem.Category == ItemCategory.Abaya)
@@ -220,12 +220,12 @@
                             </select>
                         </div>
 
-                        <!-- Fabric Checkbox for External Worker -->
                         @if (currentItem.SelectedWorkflowKey.StartsWith("External_"))
                         {
                             <div class="col-12">
                                 <div class="p-2 bg-warning-subtle rounded border border-warning form-check ms-3">
-                                    <input class="form-check-input" type="checkbox" id="extFabricCheck" @bind="currentItem.BuyFabricForExternal">
+                                    <input class="form-check-input" type="checkbox" id="extFabricCheck"
+                                           @bind="currentItem.BuyFabricForExternal" disabled="@currentItem.IsLocked">
                                     <label class="form-check-label fw-bold text-dark small" for="extFabricCheck">
                                         🛒 Buy fabric for this External Worker model?
                                     </label>
@@ -233,22 +233,22 @@
                             </div>
                         }
 
-                        <!-- Hybrid Execution Option Dropdown -->
                         @if (currentItem.SelectedWorkflowKey.StartsWith("Hybrid_"))
                         {
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small text-muted">Hybrid Cut & Stitch Path *</label>
-                                <select @ref="hybridProcessSelectRef" class="form-select shadow-sm" @bind="currentItem.HybridProcess">
+                                <select @ref="hybridProcessSelectRef" class="form-select shadow-sm"
+                                        @bind="currentItem.HybridProcess" disabled="@currentItem.IsLocked">
                                     <option value="@HybridProcessType.CutAndHalfStitchFirst">Cut & Half-Stitch First in Workshop</option>
                                     <option value="@HybridProcessType.RawFabricFirst">Raw Unstitched Fabric to Embroiderer First</option>
                                 </select>
                             </div>
                         }
 
-                        <!-- Fabric Supplier Shop Dropdown -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Fabric Supplier Shop *</label>
-                            <select @ref="fabricShopSelectRef" class="form-select shadow-sm" @bind="currentItem.FabricShopId">
+                            <select @ref="fabricShopSelectRef" class="form-select shadow-sm"
+                                    @bind="currentItem.FabricShopId" disabled="@currentItem.IsLocked">
                                 <option value="">-- Select Shop --</option>
                                 @foreach (var shop in fabricShops)
                                 {
@@ -257,10 +257,10 @@
                             </select>
                         </div>
 
-                        <!-- Fabric Type Dropdown -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Fabric Type *</label>
-                            <select @ref="fabricSelectRef" class="form-select shadow-sm" @bind="currentItem.FabricId">
+                            <select @ref="fabricSelectRef" class="form-select shadow-sm"
+                                    @bind="currentItem.FabricId" disabled="@currentItem.IsLocked">
                                 <option value="">-- Select Fabric --</option>
                                 @foreach (var f in fabrics)
                                 {
@@ -269,18 +269,18 @@
                             </select>
                         </div>
 
-                        <!-- Color Code -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Catalog Color Code *</label>
-                            <input @ref="colorCodeRef" type="text" class="form-control shadow-sm" @bind="currentItem.ColorCode" placeholder="e.g. Black / #001" />
+                            <input @ref="colorCodeRef" type="text" class="form-control shadow-sm"
+                                   @bind="currentItem.ColorCode" placeholder="e.g. Black / #001" disabled="@currentItem.IsLocked" />
                         </div>
 
-                        <!-- Sheila Selection Dropdown -->
                         @if (currentItem.Category == ItemCategory.Abaya)
                         {
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold small text-muted">Sheila Size</label>
-                                <select @ref="sheilaSizeSelectRef" class="form-select shadow-sm" @bind="currentItem.SelectedSheilaSize">
+                                <select @ref="sheilaSizeSelectRef" class="form-select shadow-sm"
+                                        @bind="currentItem.SelectedSheilaSize" disabled="@currentItem.IsLocked">
                                     <option value="@SheilaSize.Size_28x81">Standard (28 x 81 in)</option>
                                     <option value="@SheilaSize.Size_22x81">Small (22 x 81 in)</option>
                                     <option value="@SheilaSize.Size_28x90">Custom XL (28 x 90 in - Needs Fabric)</option>
@@ -288,11 +288,22 @@
                             </div>
                         }
 
-                        <!-- Add Item Button -->
                         <div class="col-12 text-end mt-3">
-                            <button type="button" class="btn btn-primary fw-bold shadow-sm" @onclick="AddItemToList">
-                                <i class="bi bi-plus-lg me-1"></i> Add Item to Order List
-                            </button>
+                            @if (editingIndex >= 0)
+                            {
+                                <button type="button" class="btn btn-outline-secondary fw-bold me-2 shadow-sm" @onclick="CancelItemEdit">
+                                    <i class="bi bi-x-lg me-1"></i> Cancel
+                                </button>
+                                <button type="button" class="btn btn-warning fw-bold shadow-sm" @onclick="AddOrUpdateItem">
+                                    <i class="bi bi-check-lg me-1"></i> Update Line Item
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-primary fw-bold shadow-sm" @onclick="AddOrUpdateItem">
+                                    <i class="bi bi-plus-lg me-1"></i> Add Item to Order List
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>
@@ -303,7 +314,7 @@
             {
                 <div class="card border-0 shadow-sm rounded-3 mb-4">
                     <div class="card-header bg-dark text-white py-3">
-                        <h6 class="fw-bold m-0"><i class="bi bi-list-check me-2"></i>Added Order Line Items (@orderModel.Items.Count)</h6>
+                        <h6 class="fw-bold m-0"><i class="bi bi-list-check me-2"></i>Order Line Items (@orderModel.Items.Count)</h6>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -314,8 +325,8 @@
                                     <th>Description</th>
                                     <th>Workflow / Tailor</th>
                                     <th>Color</th>
-                                    <th>Fabric Buy?</th>
-                                    <th class="text-end">Action</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -323,30 +334,45 @@
                                 {
                                     var item = orderModel.Items[i];
                                     var index = i;
-                                    <tr>
+                                    <tr class="@(index == editingIndex ? "table-warning border-warning" : "")">
                                         <td class="fw-bold">@(index + 1)</td>
                                         <td>
                                             <span class="badge @(item.Category == ItemCategory.Abaya ? "bg-info text-dark" : "bg-purple text-white")">
                                                 @item.Category
                                             </span>
                                         </td>
-                                        <td>@item.ModelTextDescription</td>
+                                        <td><span class="fw-semibold">@item.ModelTextDescription</span></td>
                                         <td><span class="fw-semibold">@GetWorkflowLabel(item)</span></td>
                                         <td><span class="badge bg-secondary">@item.ColorCode</span></td>
                                         <td>
-                                            @if (item.SelectedWorkflowKey.StartsWith("External_"))
+                                            @if (item.IsLocked)
                                             {
-                                                <span>@(item.BuyFabricForExternal ? "🛒 Yes" : "❌ No")</span>
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Locked (@item.Status)</span>
                                             }
                                             else
                                             {
-                                                <span class="text-muted">N/A</span>
+                                                <span class="badge bg-success">@item.Status</span>
                                             }
                                         </td>
                                         <td class="text-end">
-                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RemoveItem(index)">
-                                                <i class="bi bi-trash"></i>
+                                            <button type="button" class="btn btn-outline-primary btn-sm me-1"
+                                                    @onclick="() => EditItem(index)" title="Edit Item">
+                                                <i class="bi bi-pencil-fill"></i>
                                             </button>
+
+                                            @if (item.IsLocked)
+                                            {
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Locked: Item in workflow">
+                                                    <i class="bi bi-lock-fill"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                                        @onclick="() => RemoveItem(index)" disabled="@(index == editingIndex)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -357,7 +383,7 @@
             }
         }
 
-        <!-- STEP 3: MEASUREMENTS (SKIPPABLE) -->
+        <!-- STEP 3: MEASUREMENTS -->
         @if (currentStep == 3)
         {
             <div class="card border-0 shadow-sm rounded-3 mb-4">
@@ -368,43 +394,39 @@
                     <span class="badge bg-secondary">Optional / Skippable</span>
                 </div>
                 <div class="card-body p-4">
-                    <p class="text-muted small mb-4">Fill in measurements if available, or tap <strong>Next Step</strong> to skip.</p>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Abaya Length (Front)</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaFront" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaFront" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Abaya Length (Back)</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaBack" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaBack" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Sleeve Length</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthSleeve" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthSleeve" />
                         </div>
-
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Arm Hole Width</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthArmHole" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthArmHole" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Sleeve Opening Width</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthSleeveOpening" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthSleeveOpening" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Shoulder Width</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthShoulder" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthShoulder" />
                         </div>
-
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Body / Chest Width</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBody" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBody" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Bottom / Flare Width</label>
-                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBottom" placeholder="0.0" />
+                            <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBottom" />
                         </div>
-
                         <div class="col-md-4">
                             <label class="form-label small fw-semibold text-muted">Button Configuration</label>
                             <select class="form-select" @bind="orderModel.ButtonType">
@@ -413,12 +435,11 @@
                                 <option value="@ButtonType.ButtonsWithoutBand">Buttons Without Band</option>
                             </select>
                         </div>
-
                         @if (orderModel.ButtonType != ButtonType.NoButtons)
                         {
                             <div class="col-md-4">
                                 <label class="form-label small fw-semibold text-muted">Number of Buttons</label>
-                                <input type="number" class="form-control" @bind="orderModel.NumberOfButtons" placeholder="0" />
+                                <input type="number" class="form-control" @bind="orderModel.NumberOfButtons" />
                             </div>
                         }
                     </div>
@@ -426,7 +447,7 @@
             </div>
         }
 
-        <!-- STEP 4: PAYMENT, ESTIMATED DELIVERY & FINAL REVIEW -->
+        <!-- STEP 4: PAYMENT & REVIEW -->
         @if (currentStep == 4)
         {
             <div class="card border-0 shadow-sm rounded-3 mb-4">
@@ -436,7 +457,6 @@
                     </h6>
                 </div>
                 <div class="card-body p-4">
-                    <!-- Order Review Summary Box -->
                     <div class="alert alert-light border rounded-3 p-3 mb-4">
                         <div class="row g-2 small">
                             <div class="col-md-3"><strong>Customer:</strong> @orderModel.CustomerName (@orderModel.CustomerPhone)</div>
@@ -447,31 +467,22 @@
                     </div>
 
                     <div class="row g-3">
-                        <!-- Estimated Delivery Date -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Estimated Delivery Date *</label>
                             <input @ref="deliveryDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.EstimatedDeliveryDate" />
                         </div>
-
-                        <!-- Total Amount -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Total Amount (AED) *</label>
                             <input @ref="totalAmountRef" type="number" step="0.01" class="form-control fw-bold fs-6" @bind="orderModel.TotalAmount" />
                         </div>
-
-                        <!-- Deposit Paid -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Deposit Paid (AED) *</label>
                             <input @ref="depositPaidRef" type="number" step="0.01" class="form-control text-success fw-bold fs-6" @bind="orderModel.DepositPaid" />
                         </div>
-
-                        <!-- Balance Due -->
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Balance Due (AED)</label>
                             <input type="number" step="0.01" class="form-control text-danger fw-bold fs-6 bg-light" value="@orderModel.BalanceDue" readonly />
                         </div>
-
-                        <!-- Order Notes -->
                         <div class="col-12">
                             <label class="form-label fw-semibold small text-muted">Order Notes / Instructions</label>
                             <textarea class="form-control shadow-sm" rows="3" placeholder="Enter special delivery instructions or order notes..." @bind="orderModel.OrderNotes"></textarea>
@@ -510,7 +521,7 @@
                         }
                         else
                         {
-                            <span><i class="bi bi-check-circle-fill me-2"></i> Save Entire Order</span>
+                            <span><i class="bi bi-check-circle-fill me-2"></i> @(orderModel.IsEditMode ? "Update Order" : "Save Entire Order")</span>
                         }
                     </button>
                 }
@@ -520,7 +531,16 @@
 </div>
 
 @code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? BranchId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? OrderId { get; set; }
+
     private int currentStep = 1;
+    private int editingIndex = -1;
     private OrderFormModel orderModel = new();
     private OrderItemFormModel currentItem = new()
     {
@@ -573,23 +593,41 @@
             var user = authState.User;
             isSalesman = user.IsInRole("Salesman") && !user.IsInRole("Admin");
 
-            var branchClaim = user.FindFirst("BranchId")?.Value;
-            if (int.TryParse(branchClaim, out var userBranchId) && userBranchId > 0)
+            // ✏️ Edit Mode Initialization
+            if (BranchId.HasValue && !string.IsNullOrWhiteSpace(OrderId))
             {
-                orderModel.BranchId = userBranchId;
+                var existingModel = await OrderService.GetOrderForEditAsync(BranchId.Value, OrderId);
+                if (existingModel != null)
+                {
+                    orderModel = existingModel;
+                }
+                else
+                {
+                    await Swal.FireAsync("Order Not Found", "Could not load specified order for editing.", SweetAlertIcon.Error);
+                    Navigation.NavigateTo("/orders");
+                    return;
+                }
             }
             else
             {
-                var defaultShowroom = branches.FirstOrDefault(b => !b.IsWorkshop);
-                if (defaultShowroom != null) orderModel.BranchId = defaultShowroom.BranchId;
-            }
+                var branchClaim = user.FindFirst("BranchId")?.Value;
+                if (int.TryParse(branchClaim, out var userBranchId) && userBranchId > 0)
+                {
+                    orderModel.BranchId = userBranchId;
+                }
+                else
+                {
+                    var defaultShowroom = branches.FirstOrDefault(b => !b.IsWorkshop);
+                    if (defaultShowroom != null) orderModel.BranchId = defaultShowroom.BranchId;
+                }
 
-            if (orderModel.BranchId > 0)
-            {
-                await AutoFillNextOrderId();
-            }
+                if (orderModel.BranchId > 0)
+                {
+                    await AutoFillNextOrderId();
+                }
 
-            orderModel.EstimatedDeliveryDate = orderModel.OrderDate.AddDays(12);
+                orderModel.EstimatedDeliveryDate = orderModel.OrderDate.AddDays(12);
+            }
 
             var workshop = branches.FirstOrDefault(b => b.IsWorkshop);
             currentItem.TargetBranchId = workshop != null ? workshop.BranchId : orderModel.BranchId;
@@ -604,24 +642,21 @@
         }
     }
 
-    private double GetProgressPercentage()
+    private double GetProgressPercentage() => currentStep switch
     {
-        return currentStep switch
-        {
-            1 => 0,
-            2 => 33.3,
-            3 => 66.6,
-            4 => 100,
-            _ => 0
-        };
-    }
+        1 => 0,
+        2 => 33.3,
+        3 => 66.6,
+        4 => 100,
+        _ => 0
+    };
 
     private async Task OnBranchChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var branchId))
         {
             orderModel.BranchId = branchId;
-            if (branchId > 0)
+            if (branchId > 0 && !orderModel.IsEditMode)
             {
                 await AutoFillNextOrderId();
             }
@@ -637,7 +672,6 @@
         }
     }
 
-    // 🔍 Live Search Event Handlers
     private async Task OnCustomerNameInput(ChangeEventArgs e)
     {
         activeSearchField = "name";
@@ -674,7 +708,6 @@
         orderModel.CustomerName = customer.CustomerName;
         orderModel.CustomerPhone = customer.CustomerPhone;
 
-        // Populate Customer Measurements
         orderModel.LengthAbayaFront = customer.LengthAbayaFront;
         orderModel.LengthAbayaBack = customer.LengthAbayaBack;
         orderModel.LengthSleeve = customer.LengthSleeve;
@@ -707,37 +740,21 @@
         }
     }
 
-    // WIZARD STEP NAVIGATION AND VALIDATION
     private async Task NextStep()
     {
-        if (currentStep == 1 && await ValidateStep1Async())
-        {
-            currentStep = 2;
-        }
-        else if (currentStep == 2 && await ValidateStep2Async())
-        {
-            currentStep = 3;
-        }
-        else if (currentStep == 3)
-        {
-            currentStep = 4;
-        }
+        if (currentStep == 1 && await ValidateStep1Async()) currentStep = 2;
+        else if (currentStep == 2 && await ValidateStep2Async()) currentStep = 3;
+        else if (currentStep == 3) currentStep = 4;
     }
 
     private void PreviousStep()
     {
-        if (currentStep > 1)
-        {
-            currentStep--;
-        }
+        if (currentStep > 1) currentStep--;
     }
 
     private async Task JumpToStep(int targetStep)
     {
-        if (targetStep < currentStep)
-        {
-            currentStep = targetStep;
-        }
+        if (targetStep < currentStep) currentStep = targetStep;
         else if (targetStep > currentStep)
         {
             if (currentStep == 1 && await ValidateStep1Async())
@@ -777,15 +794,12 @@
         return true;
     }
 
-    private async Task<bool> ValidateStep1Async()
-    {
-        return await ValidateFieldsAsync(
-            (orderModel.BranchId <= 0, "Validation Error", "Please select a valid showroom branch.", branchSelectRef),
-            (string.IsNullOrWhiteSpace(orderModel.ManualOrderId), "Validation Error", "Please specify a manual receipt / ticket number.", manualOrderIdRef),
-            (string.IsNullOrWhiteSpace(orderModel.CustomerName), "Validation Error", "Please enter customer name.", customerNameRef),
-            (string.IsNullOrWhiteSpace(orderModel.CustomerPhone), "Validation Error", "Please enter customer phone number.", customerPhoneRef)
-        );
-    }
+    private async Task<bool> ValidateStep1Async() => await ValidateFieldsAsync(
+        (orderModel.BranchId <= 0, "Validation Error", "Please select a valid showroom branch.", branchSelectRef),
+        (string.IsNullOrWhiteSpace(orderModel.ManualOrderId), "Validation Error", "Please specify a manual receipt / ticket number.", manualOrderIdRef),
+        (string.IsNullOrWhiteSpace(orderModel.CustomerName), "Validation Error", "Please enter customer name.", customerNameRef),
+        (string.IsNullOrWhiteSpace(orderModel.CustomerPhone), "Validation Error", "Please enter customer phone number.", customerPhoneRef)
+    );
 
     private async Task<bool> ValidateStep2Async()
     {
@@ -811,40 +825,102 @@
         );
     }
 
-    private async Task<bool> ValidateStep4Async()
+    private async Task<bool> ValidateStep4Async() => await ValidateFieldsAsync(
+        (orderModel.EstimatedDeliveryDate < orderModel.OrderDate, "Validation Error", "Estimated delivery date must be on or after order date.", deliveryDateRef),
+        (orderModel.TotalAmount < 0, "Validation Error", "Total amount cannot be negative.", totalAmountRef),
+        (orderModel.DepositPaid < 0, "Validation Error", "Advance deposit paid cannot be negative.", depositPaidRef),
+        (orderModel.DepositPaid > orderModel.TotalAmount, "Validation Error", "Deposit paid cannot exceed total amount.", depositPaidRef)
+    );
+
+    private void EditItem(int index)
     {
-        return await ValidateFieldsAsync(
-            (orderModel.EstimatedDeliveryDate < orderModel.OrderDate, "Validation Error", "Estimated delivery date must be on or after order date.", deliveryDateRef),
-            (orderModel.TotalAmount < 0, "Validation Error", "Total amount cannot be negative.", totalAmountRef),
-            (orderModel.DepositPaid < 0, "Validation Error", "Advance deposit paid cannot be negative.", depositPaidRef),
-            (orderModel.DepositPaid > orderModel.TotalAmount, "Validation Error", "Deposit paid cannot exceed total amount.", depositPaidRef)
-        );
+        if (index < 0 || index >= orderModel.Items.Count) return;
+
+        var itemToEdit = orderModel.Items[index];
+
+        currentItem = new OrderItemFormModel
+        {
+            OrderItemId = itemToEdit.OrderItemId,
+            Status = itemToEdit.Status,
+            IsLocked = itemToEdit.IsLocked,
+            Category = itemToEdit.Category,
+            ModelTextDescription = itemToEdit.ModelTextDescription,
+            FabricShopId = itemToEdit.FabricShopId,
+            FabricId = itemToEdit.FabricId,
+            ColorCode = itemToEdit.ColorCode,
+            SelectedWorkflowKey = itemToEdit.SelectedWorkflowKey,
+            HybridProcess = itemToEdit.HybridProcess,
+            BuyFabricForExternal = itemToEdit.BuyFabricForExternal,
+            SelectedSheilaSize = itemToEdit.SelectedSheilaSize,
+            IsReadyMadeAlteration = itemToEdit.IsReadyMadeAlteration,
+            AlterationNotes = itemToEdit.AlterationNotes,
+            ItemNotes = itemToEdit.ItemNotes,
+            TargetBranchId = itemToEdit.TargetBranchId
+        };
+
+        editingIndex = index;
     }
 
-    private async Task AddItemToList()
+    private void CancelItemEdit()
+    {
+        editingIndex = -1;
+        ResetCurrentItemForm();
+    }
+
+    private async Task AddOrUpdateItem()
     {
         if (!await ValidateCurrentItemAsync()) return;
 
-        var itemToAdd = new OrderItemFormModel
+        if (editingIndex >= 0 && editingIndex < orderModel.Items.Count)
         {
-            Category = currentItem.Category,
-            ModelTextDescription = currentItem.ModelTextDescription?.Trim() ?? string.Empty,
-            FabricShopId = currentItem.FabricShopId,
-            FabricId = currentItem.FabricId,
-            ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode,
-            SelectedWorkflowKey = currentItem.SelectedWorkflowKey,
-            HybridProcess = currentItem.HybridProcess,
-            BuyFabricForExternal = currentItem.BuyFabricForExternal,
-            SelectedSheilaSize = currentItem.SelectedSheilaSize,
-            IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration,
-            AlterationNotes = currentItem.AlterationNotes,
-            ItemNotes = currentItem.ItemNotes,
-            TargetBranchId = currentItem.TargetBranchId
-        };
+            var targetItem = orderModel.Items[editingIndex];
+            targetItem.Category = currentItem.Category;
+            targetItem.ModelTextDescription = currentItem.ModelTextDescription?.Trim() ?? string.Empty;
+            targetItem.FabricShopId = currentItem.FabricShopId;
+            targetItem.FabricId = currentItem.FabricId;
+            targetItem.ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode;
+            targetItem.SelectedWorkflowKey = currentItem.SelectedWorkflowKey;
+            targetItem.HybridProcess = currentItem.HybridProcess;
+            targetItem.BuyFabricForExternal = currentItem.BuyFabricForExternal;
+            targetItem.SelectedSheilaSize = currentItem.SelectedSheilaSize;
+            targetItem.IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration;
+            targetItem.AlterationNotes = currentItem.AlterationNotes;
+            targetItem.ItemNotes = currentItem.ItemNotes;
+            targetItem.TargetBranchId = currentItem.TargetBranchId;
 
-        orderModel.Items.Add(itemToAdd);
+            editingIndex = -1;
+        }
+        else
+        {
+            var itemToAdd = new OrderItemFormModel
+            {
+                OrderItemId = 0,
+                Category = currentItem.Category,
+                ModelTextDescription = currentItem.ModelTextDescription?.Trim() ?? string.Empty,
+                FabricShopId = currentItem.FabricShopId,
+                FabricId = currentItem.FabricId,
+                ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode,
+                SelectedWorkflowKey = currentItem.SelectedWorkflowKey,
+                HybridProcess = currentItem.HybridProcess,
+                BuyFabricForExternal = currentItem.BuyFabricForExternal,
+                SelectedSheilaSize = currentItem.SelectedSheilaSize,
+                IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration,
+                AlterationNotes = currentItem.AlterationNotes,
+                ItemNotes = currentItem.ItemNotes,
+                TargetBranchId = currentItem.TargetBranchId,
+                Status = ItemStatus.ReadyForFabricProcurement,
+                IsLocked = false
+            };
 
-        var preserveTarget = itemToAdd.TargetBranchId;
+            orderModel.Items.Add(itemToAdd);
+        }
+
+        ResetCurrentItemForm();
+    }
+
+    private void ResetCurrentItemForm()
+    {
+        var preserveTarget = currentItem.TargetBranchId;
         currentItem = new OrderItemFormModel
         {
             ColorCode = "Black",
@@ -857,7 +933,18 @@
     {
         if (index >= 0 && index < orderModel.Items.Count)
         {
-            orderModel.Items.RemoveAt(index);
+            if (!orderModel.Items[index].IsLocked)
+            {
+                orderModel.Items.RemoveAt(index);
+                if (editingIndex == index)
+                {
+                    CancelItemEdit();
+                }
+                else if (editingIndex > index)
+                {
+                    editingIndex--;
+                }
+            }
         }
     }
 
@@ -892,27 +979,15 @@
 
         try
         {
-            var result = await OrderService.CreateOrderAsync(orderModel);
+            ServiceResult result = orderModel.IsEditMode
+                ? await OrderService.UpdateOrderAsync(orderModel)
+                : await OrderService.CreateOrderAsync(orderModel);
 
             if (result.IsSuccess)
             {
-                await Swal.FireAsync("Order Saved!", $"Order #{orderModel.ManualOrderId.ToUpper()} recorded with {orderModel.Items.Count} items.", SweetAlertIcon.Success);
-
-                var branchId = orderModel.BranchId;
-                orderModel = new OrderFormModel
-                {
-                    BranchId = branchId,
-                    OrderDate = DateTime.Today,
-                    EstimatedDeliveryDate = DateTime.Today.AddDays(12)
-                };
-                currentStep = 1;
-                await AutoFillNextOrderId();
-
-                currentItem = new OrderItemFormModel
-                {
-                    ColorCode = "Black",
-                    HybridProcess = HybridProcessType.CutAndHalfStitchFirst
-                };
+                string msg = orderModel.IsEditMode ? "Order Updated!" : "Order Saved!";
+                await Swal.FireAsync(msg, $"Order #{orderModel.ManualOrderId.ToUpper()} was saved successfully.", SweetAlertIcon.Success);
+                Navigation.NavigateTo("/orders");
             }
             else
             {

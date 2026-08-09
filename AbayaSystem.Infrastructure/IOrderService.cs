@@ -13,7 +13,7 @@ namespace AbayaSystem.Infrastructure
         Task<List<Fabric>> GetFabricsAsync();
         Task<List<Branch>> GetBranchesAsync();
         Task<List<ExternalWorker>> GetExternalWorkersAsync();
-        Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query);
+        Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query, CancellationToken cancellationToken = default);
         Task<int> GetNextOrderIdForBranchAsync(int branchId);
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
 
@@ -24,6 +24,9 @@ namespace AbayaSystem.Infrastructure
 
         // Add to IOrderService interface:
         Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
+
+        Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
+        Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
     }
 
     public class OrderService : IOrderService
@@ -68,7 +71,7 @@ namespace AbayaSystem.Infrastructure
         }
 
         // 🔍 Live Customer Search Method (Returns Last OrderNo)
-        public async Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query)
+        public async Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
                 return new List<CustomerSearchResultDto>();
@@ -76,9 +79,11 @@ namespace AbayaSystem.Infrastructure
             var cleanQuery = query.Trim().ToLower();
 
             var customers = await _context.Customers
-                .Where(c => c.CustomerName.ToLower().Contains(cleanQuery) || c.CustomerPhone.Contains(cleanQuery))
+                .AsNoTracking()
+                .Where(c => c.CustomerName.ToLower().Contains(cleanQuery) ||
+                            c.CustomerPhone.Contains(cleanQuery))
                 .Take(10)
-                .ToListAsync();
+                .ToListAsync(cancellationToken); // 👈 Pass cancellation token here
 
             if (!customers.Any())
                 return new List<CustomerSearchResultDto>();
@@ -86,21 +91,22 @@ namespace AbayaSystem.Infrastructure
             var customerIds = customers.Select(c => c.CustomerId).ToList();
 
             var lastOrders = await _context.Orders
+                .AsNoTracking()
                 .Where(o => customerIds.Contains(o.CustomerId))
                 .GroupBy(o => o.CustomerId)
                 .Select(g => new
                 {
                     CustomerId = g.Key,
-                    LastOrderId = g.OrderByDescending(o => o.OrderDate).Select(o => o.OrderId).FirstOrDefault() ?? ""
+                    LastOrderId = g.OrderByDescending(o => o.OrderDate).Select(o => o.OrderId).FirstOrDefault()
                 })
-                .ToDictionaryAsync(x => x.CustomerId, x => x.LastOrderId);
+                .ToListAsync(cancellationToken); // 👈 Pass cancellation token here
 
             return customers.Select(c => new CustomerSearchResultDto
             {
                 CustomerId = c.CustomerId,
                 CustomerName = c.CustomerName,
                 CustomerPhone = c.CustomerPhone,
-                LastOrderId = lastOrders.TryGetValue(c.CustomerId, out var lastId) ? lastId : string.Empty,
+                LastOrderId = lastOrders.FirstOrDefault(o => o.CustomerId == c.CustomerId)?.LastOrderId ?? string.Empty,
                 LengthAbayaFront = c.LengthAbayaFront,
                 LengthAbayaBack = c.LengthAbayaBack,
                 LengthSleeve = c.LengthSleeve,
@@ -372,6 +378,267 @@ namespace AbayaSystem.Infrastructure
                 Page = filter.Page,
                 PageSize = filter.PageSize
             };
+        }
+
+        public async Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId)
+        {
+            var cleanId = orderId.Trim().ToUpper();
+            var order = await _context.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.ExternalWorker)
+                .FirstOrDefaultAsync(o => o.BranchId == branchId && o.OrderId == cleanId);
+
+            if (order == null) return null;
+
+            var model = new OrderFormModel
+            {
+                IsEditMode = true,
+                OriginalBranchId = order.BranchId,
+                OriginalOrderId = order.OrderId,
+                BranchId = order.BranchId,
+                ManualOrderId = order.OrderId,
+                CustomerId = order.CustomerId,
+                CustomerName = order.Customer?.CustomerName ?? string.Empty,
+                CustomerPhone = order.Customer?.CustomerPhone ?? string.Empty,
+                LengthAbayaFront = order.Customer?.LengthAbayaFront ?? 0,
+                LengthAbayaBack = order.Customer?.LengthAbayaBack ?? 0,
+                LengthSleeve = order.Customer?.LengthSleeve ?? 0,
+                WidthArmHole = order.Customer?.WidthArmHole ?? 0,
+                WidthSleeveOpening = order.Customer?.WidthSleeveOpening ?? 0,
+                WidthShoulder = order.Customer?.WidthShoulder ?? 0,
+                WidthBody = order.Customer?.WidthBody ?? 0,
+                WidthBottom = order.Customer?.WidthBottom ?? 0,
+                ButtonType = order.Customer?.ButtonType ?? ButtonType.NoButtons,
+                NumberOfButtons = order.Customer?.NumberOfButtons ?? 0,
+                OrderDate = order.OrderDate,
+                EstimatedDeliveryDate = order.EstimatedDeliveryDate,
+                IsUrgent = order.IsUrgent,
+                OrderNotes = order.Notes,
+                TotalAmount = order.TotalAmount,
+                DepositPaid = order.DepositPaid
+            };
+
+            foreach (var item in order.Items)
+            {
+                string workflowKey = "Internal";
+                if (item.ExternalWorkerId.HasValue)
+                {
+                    if (item.HybridProcess != HybridProcessType.None || item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
+                    {
+                        workflowKey = $"Hybrid_{item.ExternalWorkerId}";
+                    }
+                    else
+                    {
+                        workflowKey = $"External_{item.ExternalWorkerId}";
+                    }
+                }
+
+                // Lock item if it has already progressed past initial status
+                bool isLocked = item.Status != ItemStatus.ReadyForFabricProcurement;
+
+                model.Items.Add(new OrderItemFormModel
+                {
+                    OrderItemId = item.OrderItemId,
+                    Category = item.Category,
+                    ModelTextDescription = item.ModelTextDescription,
+                    FabricShopId = item.FabricShopId,
+                    FabricId = item.FabricId,
+                    ColorCode = item.ColorCode,
+                    SelectedWorkflowKey = workflowKey,
+                    HybridProcess = item.HybridProcess,
+                    BuyFabricForExternal = item.BuyFabricForExternal,
+                    SelectedSheilaSize = item.SelectedSheilaSize,
+                    IsReadyMadeAlteration = item.IsReadyMadeAlteration,
+                    AlterationNotes = item.AlterationNotes,
+                    ItemNotes = item.Notes,
+                    TargetBranchId = item.TargetBranchId,
+                    Status = item.Status,
+                    IsLocked = isLocked
+                });
+            }
+
+            return model;
+        }
+
+        public async Task<ServiceResult> UpdateOrderAsync(OrderFormModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.ManualOrderId))
+                return ServiceResult.Failure("Specify a valid manual ticket number!");
+
+            if (model.Items.Count == 0)
+                return ServiceResult.Failure("You must have at least one item in the order!");
+
+            if (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone))
+                return ServiceResult.Failure("Customer name and phone number are required!");
+
+            var cleanId = model.ManualOrderId.Trim().ToUpper();
+
+            // 1. Fetch Existing Order
+            var order = await _context.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(o => o.BranchId == model.OriginalBranchId && o.OrderId == model.OriginalOrderId);
+
+            if (order == null)
+                return ServiceResult.Failure("Original order not found.");
+
+            // 2. Check if Order Ticket or Branch changed, check collision
+            bool isKeyChanged = (model.BranchId != model.OriginalBranchId) || (cleanId != model.OriginalOrderId);
+            if (isKeyChanged)
+            {
+                var exists = await _context.Orders
+                    .AnyAsync(o => o.BranchId == model.BranchId && o.OrderId == cleanId);
+                if (exists)
+                    return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
+            }
+
+            // 3. Customer Sync / Persistence
+            Customer customer;
+            if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
+            {
+                customer = await _context.Customers.FindAsync(model.CustomerId.Value);
+                if (customer == null) return ServiceResult.Failure("Selected customer profile was not found.");
+            }
+            else
+            {
+                var cleanPhone = model.CustomerPhone.Trim();
+                customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerPhone == cleanPhone);
+                if (customer == null)
+                {
+                    customer = new Customer();
+                    _context.Customers.Add(customer);
+                }
+            }
+
+            customer.CustomerName = model.CustomerName.Trim();
+            customer.CustomerPhone = model.CustomerPhone.Trim();
+            customer.LengthAbayaFront = model.LengthAbayaFront;
+            customer.LengthAbayaBack = model.LengthAbayaBack;
+            customer.LengthSleeve = model.LengthSleeve;
+            customer.WidthArmHole = model.WidthArmHole;
+            customer.WidthSleeveOpening = model.WidthSleeveOpening;
+            customer.WidthShoulder = model.WidthShoulder;
+            customer.WidthBody = model.WidthBody;
+            customer.WidthBottom = model.WidthBottom;
+            customer.ButtonType = model.ButtonType;
+            customer.NumberOfButtons = model.NumberOfButtons;
+
+            await _context.SaveChangesAsync();
+
+            // 4. Update Order Master Record
+            order.CustomerId = customer.CustomerId;
+            order.OrderDate = model.OrderDate;
+            order.EstimatedDeliveryDate = model.EstimatedDeliveryDate;
+            order.IsUrgent = model.IsUrgent;
+            order.Notes = model.OrderNotes;
+            order.TotalAmount = model.TotalAmount;
+            order.DepositPaid = model.DepositPaid;
+            order.BalanceDue = model.BalanceDue;
+
+            if (isKeyChanged)
+            {
+                order.BranchId = model.BranchId;
+                order.OrderId = cleanId;
+                foreach (var item in order.Items)
+                {
+                    item.BranchId = model.BranchId;
+                    item.OrderId = cleanId;
+                }
+            }
+
+            // 5. Line Items Sync
+            var formItemIds = model.Items.Where(i => i.OrderItemId > 0).Select(i => i.OrderItemId).ToList();
+
+            // Prevent removing items already in workflow
+            var itemsToRemove = order.Items.Where(i => !formItemIds.Contains(i.OrderItemId)).ToList();
+            foreach (var itemToRemove in itemsToRemove)
+            {
+                if (itemToRemove.Status != ItemStatus.ReadyForFabricProcurement)
+                {
+                    return ServiceResult.Failure($"Cannot remove item '{itemToRemove.ModelTextDescription}' because it is already in workflow ({itemToRemove.Status}).");
+                }
+                _context.OrderItems.Remove(itemToRemove);
+            }
+
+            // Update existing items or add new items
+            foreach (var itemModel in model.Items)
+            {
+                OrderType itemOrderType = OrderType.Internal;
+                int? workerId = null;
+
+                if (itemModel.SelectedWorkflowKey.StartsWith("Hybrid_"))
+                {
+                    itemOrderType = OrderType.Hybrid;
+                    workerId = int.Parse(itemModel.SelectedWorkflowKey.Replace("Hybrid_", ""));
+                }
+                else if (itemModel.SelectedWorkflowKey.StartsWith("External_"))
+                {
+                    itemOrderType = OrderType.External;
+                    workerId = int.Parse(itemModel.SelectedWorkflowKey.Replace("External_", ""));
+                }
+
+                if (itemModel.OrderItemId > 0)
+                {
+                    var existingItem = order.Items.FirstOrDefault(i => i.OrderItemId == itemModel.OrderItemId);
+                    if (existingItem != null)
+                    {
+                        if (existingItem.Status == ItemStatus.ReadyForFabricProcurement)
+                        {
+                            existingItem.Category = itemModel.Category;
+                            existingItem.ModelTextDescription = itemModel.ModelTextDescription;
+                            existingItem.FabricShopId = itemModel.FabricShopId;
+                            existingItem.FabricId = itemModel.FabricId;
+                            existingItem.ColorCode = itemModel.ColorCode;
+                            existingItem.SelectedSheilaSize = itemModel.SelectedSheilaSize;
+                            existingItem.IsReadyMadeAlteration = itemModel.IsReadyMadeAlteration;
+                            existingItem.AlterationNotes = itemModel.AlterationNotes;
+                            existingItem.Notes = itemModel.ItemNotes;
+                            existingItem.HybridProcess = itemOrderType == OrderType.Hybrid ? itemModel.HybridProcess : HybridProcessType.None;
+                            existingItem.ExternalWorkerId = workerId;
+                            existingItem.BuyFabricForExternal = itemModel.BuyFabricForExternal;
+                            existingItem.TargetBranchId = itemModel.TargetBranchId;
+                            existingItem.Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
+                                ? ItemStatus.Completed
+                                : ItemStatus.ReadyForFabricProcurement;
+                        }
+                        else
+                        {
+                            // For locked items in workflow, only allow non-workflow descriptions/notes updates
+                            existingItem.ModelTextDescription = itemModel.ModelTextDescription;
+                            existingItem.Notes = itemModel.ItemNotes;
+                            existingItem.AlterationNotes = itemModel.AlterationNotes;
+                        }
+                    }
+                }
+                else
+                {
+                    var newOrderItem = new OrderItem
+                    {
+                        BranchId = model.BranchId,
+                        OrderId = cleanId,
+                        Category = itemModel.Category,
+                        ModelTextDescription = itemModel.ModelTextDescription,
+                        FabricShopId = itemModel.FabricShopId,
+                        FabricId = itemModel.FabricId,
+                        ColorCode = itemModel.ColorCode,
+                        SelectedSheilaSize = itemModel.SelectedSheilaSize,
+                        IsReadyMadeAlteration = itemModel.IsReadyMadeAlteration,
+                        AlterationNotes = itemModel.AlterationNotes,
+                        Notes = itemModel.ItemNotes,
+                        HybridProcess = itemOrderType == OrderType.Hybrid ? itemModel.HybridProcess : HybridProcessType.None,
+                        ExternalWorkerId = workerId,
+                        BuyFabricForExternal = itemModel.BuyFabricForExternal,
+                        TargetBranchId = itemModel.TargetBranchId,
+                        Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
+                                  ? ItemStatus.Completed
+                                  : ItemStatus.ReadyForFabricProcurement
+                    };
+                    order.Items.Add(newOrderItem);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return ServiceResult.Success();
         }
     }
 }

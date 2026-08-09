@@ -30,6 +30,7 @@ builder.Services.AddRazorComponents()
 // Wire up your Application Order Engine service dependency
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IWorkerService, WorkerService>();
+builder.Services.AddScoped<IFabricManagementService, FabricManagementService>();
 
 builder.Services.AddScoped<IExternalWorkerService, ExternalWorkerService>();
 

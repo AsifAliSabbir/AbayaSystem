@@ -55,10 +55,21 @@
 
                         <!-- External workers-->
                         <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-scissors me-2"></span>
+                            <span class="bi bi-shop me-2"></span>
                             External Workers entry
                         </a>
 
+                        <!-- Fabric Suppliers -->
+                        <a href="/fabric-suppliers" class="@GetActiveStyle("/fabric-suppliers")" @onclick="CloseMobileMenu">
+                            <span class="bi bi-building me-2"></span>
+                            Fabric Suppliers entry
+                        </a>
+
+                        <!-- Fabric Types -->
+                        <a href="/fabric-types" class="@GetActiveStyle("/fabric-types")" @onclick="CloseMobileMenu">
+                            <span class="bi bi-layers me-2"></span>
+                            Fabric Types entry
+                        </a>
 
                     </Authorized>
                     <NotAuthorized>
@@ -117,7 +128,7 @@
                 </button>
 
                 <span class="navbar-brand m-0 h5 fw-bold text-dark">
-                    Showroom 
+                    Showroom
                 </span>
             </div>
 
@@ -143,7 +154,6 @@
     private void CloseMobileMenu()
     {
         isMobileMenuOpen = false;
-        // Swal.FireAsync("Hello world!");
     }
 
     private string GetActiveStyle(string relativePath)
@@ -164,7 +174,6 @@
     }
 }
 
-<!-- Embedded styles for structural overrides -->
 <style>
     .page-container {
         display: flex;
@@ -175,7 +184,6 @@
         position: relative;
     }
 
-    /* Standardizes the sidebar width constraints on large screens */
     @@media (min-width: 992px) {
         .offcanvas-lg {
             width: 260px !important;
@@ -187,7 +195,6 @@
         }
     }
 
-    /* Sets custom structural definitions for offcanvas layout drawer targets */
     @@media (max-width: 991.98px) {
         .offcanvas-lg {
             width: 280px !important;
@@ -228,7 +235,6 @@
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
     }
 
-    /* Safety adjustments to force mobile button alignment and icon visibility */
     .d-lg-none i.bi-list {
         display: inline-block !important;
         line-height: 1 !important;
