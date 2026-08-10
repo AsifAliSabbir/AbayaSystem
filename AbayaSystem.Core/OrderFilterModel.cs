@@ -5,8 +5,7 @@ namespace AbayaSystem.Core
 {
     public class OrderFilterModel
     {
-
-        public int? BranchId { get; set; } 
+        public int? BranchId { get; set; }
         public string? OrderId { get; set; }
         public DateTime? OrderDateFrom { get; set; }
         public DateTime? OrderDateTo { get; set; }
@@ -32,4 +31,3 @@ namespace AbayaSystem.Core
         public bool HasNextPage => Page < TotalPages;
     }
 }
-

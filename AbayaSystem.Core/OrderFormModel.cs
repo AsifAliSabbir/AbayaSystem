@@ -59,7 +59,6 @@ namespace AbayaSystem.Core
         public string ColorCode { get; set; } = "Black";
 
         public string SelectedWorkflowKey { get; set; } = "Internal";
-        public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
         public bool BuyFabricForExternal { get; set; } = false;
 
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
@@ -68,5 +67,9 @@ namespace AbayaSystem.Core
         public string AlterationNotes { get; set; } = string.Empty;
         public string ItemNotes { get; set; } = string.Empty;
         public int TargetBranchId { get; set; }
+
+        // 🆕 NEW FORM BINDINGS
+        public bool HandEmbRequired { get; set; } = false;
+        public bool rawFabricEmb { get; set; } = false;
     }
 }

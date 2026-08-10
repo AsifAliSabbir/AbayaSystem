@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using AbayaSystem.Core;
@@ -16,15 +17,10 @@ namespace AbayaSystem.Infrastructure
         Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query, CancellationToken cancellationToken = default);
         Task<int> GetNextOrderIdForBranchAsync(int branchId);
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
-
-        // 🛍️ Fabric Procurement Methods
         Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync();
         Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync();
         Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId);
-
-        // Add to IOrderService interface:
         Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
-
         Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
         Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
     }
@@ -50,7 +46,6 @@ namespace AbayaSystem.Infrastructure
         public async Task<List<ExternalWorker>> GetExternalWorkersAsync() =>
             await _context.ExternalWorkers.Where(w => w.IsActive).ToListAsync();
 
-        // 🔢 Calculate Next Order Number for Branch
         public async Task<int> GetNextOrderIdForBranchAsync(int branchId)
         {
             var orderIds = await _context.Orders
@@ -70,7 +65,6 @@ namespace AbayaSystem.Infrastructure
             return maxOrderNo + 1;
         }
 
-        // 🔍 Live Customer Search Method (Returns Last OrderNo)
         public async Task<List<CustomerSearchResultDto>> SearchCustomersAsync(string query, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
@@ -83,7 +77,7 @@ namespace AbayaSystem.Infrastructure
                 .Where(c => c.CustomerName.ToLower().Contains(cleanQuery) ||
                             c.CustomerPhone.Contains(cleanQuery))
                 .Take(10)
-                .ToListAsync(cancellationToken); // 👈 Pass cancellation token here
+                .ToListAsync(cancellationToken);
 
             if (!customers.Any())
                 return new List<CustomerSearchResultDto>();
@@ -99,7 +93,7 @@ namespace AbayaSystem.Infrastructure
                     CustomerId = g.Key,
                     LastOrderId = g.OrderByDescending(o => o.OrderDate).Select(o => o.OrderId).FirstOrDefault()
                 })
-                .ToListAsync(cancellationToken); // 👈 Pass cancellation token here
+                .ToListAsync(cancellationToken);
 
             return customers.Select(c => new CustomerSearchResultDto
             {
@@ -139,7 +133,6 @@ namespace AbayaSystem.Infrastructure
             if (exist)
                 return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
 
-            // 👤 Handle Customer Persistence or Update
             Customer customer;
             if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
             {
@@ -160,7 +153,6 @@ namespace AbayaSystem.Infrastructure
                 }
             }
 
-            // Sync Customer Details and Measurements
             customer.CustomerName = model.CustomerName.Trim();
             customer.CustomerPhone = model.CustomerPhone.Trim();
             customer.LengthAbayaFront = model.LengthAbayaFront;
@@ -207,6 +199,8 @@ namespace AbayaSystem.Infrastructure
                     workerId = int.Parse(item.SelectedWorkflowKey.Replace("External_", ""));
                 }
 
+                bool isHybrid = itemOrderType == OrderType.Hybrid;
+
                 var orderItem = new OrderItem
                 {
                     BranchId = model.BranchId,
@@ -220,9 +214,10 @@ namespace AbayaSystem.Infrastructure
                     IsReadyMadeAlteration = item.IsReadyMadeAlteration,
                     AlterationNotes = item.AlterationNotes,
                     Notes = item.ItemNotes,
-                    HybridProcess = itemOrderType == OrderType.Hybrid ? item.HybridProcess : HybridProcessType.None,
                     ExternalWorkerId = workerId,
                     BuyFabricForExternal = item.BuyFabricForExternal,
+                    HandEmbRequired = item.HandEmbRequired,
+                    rawFabricEmb = isHybrid && item.rawFabricEmb,
                     TargetBranchId = item.TargetBranchId,
                     Status = (itemOrderType == OrderType.External && !item.BuyFabricForExternal)
                               ? ItemStatus.Completed
@@ -292,7 +287,6 @@ namespace AbayaSystem.Infrastructure
             return ServiceResult.Success();
         }
 
-        // Add implementation inside OrderService class:
         public async Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter)
         {
             var query = _context.Orders
@@ -303,16 +297,14 @@ namespace AbayaSystem.Infrastructure
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Fabric)
                 .Include(o => o.Items)
-                    .ThenInclude(i => i.ExternalWorker) // Include External Worker info
+                    .ThenInclude(i => i.ExternalWorker)
                 .AsQueryable();
 
-            // 🏬 Branch Filter
             if (filter.BranchId.HasValue && filter.BranchId.Value > 0)
             {
                 query = query.Where(o => o.BranchId == filter.BranchId.Value);
             }
 
-            // 🔍 Filters
             if (!string.IsNullOrWhiteSpace(filter.OrderId))
             {
                 var cleanId = filter.OrderId.Trim().ToLower();
@@ -348,7 +340,6 @@ namespace AbayaSystem.Infrastructure
                 query = query.Where(o => o.Items.Any(i => i.Status == filter.ItemStatus.Value));
             }
 
-            // 🚨 Sorting: Urgent Orders ALWAYS on top first
             IOrderedQueryable<Order> orderedQuery;
 
             if (filter.SortBy == "DeliveryDate")
@@ -424,7 +415,7 @@ namespace AbayaSystem.Infrastructure
                 string workflowKey = "Internal";
                 if (item.ExternalWorkerId.HasValue)
                 {
-                    if (item.HybridProcess != HybridProcessType.None || item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
+                    if (item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
                     {
                         workflowKey = $"Hybrid_{item.ExternalWorkerId}";
                     }
@@ -434,7 +425,6 @@ namespace AbayaSystem.Infrastructure
                     }
                 }
 
-                // Lock item if it has already progressed past initial status
                 bool isLocked = item.Status != ItemStatus.ReadyForFabricProcurement;
 
                 model.Items.Add(new OrderItemFormModel
@@ -446,8 +436,9 @@ namespace AbayaSystem.Infrastructure
                     FabricId = item.FabricId,
                     ColorCode = item.ColorCode,
                     SelectedWorkflowKey = workflowKey,
-                    HybridProcess = item.HybridProcess,
                     BuyFabricForExternal = item.BuyFabricForExternal,
+                    HandEmbRequired = item.HandEmbRequired,
+                    rawFabricEmb = item.rawFabricEmb,
                     SelectedSheilaSize = item.SelectedSheilaSize,
                     IsReadyMadeAlteration = item.IsReadyMadeAlteration,
                     AlterationNotes = item.AlterationNotes,
@@ -474,7 +465,6 @@ namespace AbayaSystem.Infrastructure
 
             var cleanId = model.ManualOrderId.Trim().ToUpper();
 
-            // 1. Fetch Existing Order
             var order = await _context.Orders
                 .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.BranchId == model.OriginalBranchId && o.OrderId == model.OriginalOrderId);
@@ -482,7 +472,6 @@ namespace AbayaSystem.Infrastructure
             if (order == null)
                 return ServiceResult.Failure("Original order not found.");
 
-            // 2. Check if Order Ticket or Branch changed, check collision
             bool isKeyChanged = (model.BranchId != model.OriginalBranchId) || (cleanId != model.OriginalOrderId);
             if (isKeyChanged)
             {
@@ -492,7 +481,6 @@ namespace AbayaSystem.Infrastructure
                     return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
             }
 
-            // 3. Customer Sync / Persistence
             Customer customer;
             if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
             {
@@ -525,7 +513,6 @@ namespace AbayaSystem.Infrastructure
 
             await _context.SaveChangesAsync();
 
-            // 4. Update Order Master Record
             order.CustomerId = customer.CustomerId;
             order.OrderDate = model.OrderDate;
             order.EstimatedDeliveryDate = model.EstimatedDeliveryDate;
@@ -546,10 +533,8 @@ namespace AbayaSystem.Infrastructure
                 }
             }
 
-            // 5. Line Items Sync
             var formItemIds = model.Items.Where(i => i.OrderItemId > 0).Select(i => i.OrderItemId).ToList();
 
-            // Prevent removing items already in workflow
             var itemsToRemove = order.Items.Where(i => !formItemIds.Contains(i.OrderItemId)).ToList();
             foreach (var itemToRemove in itemsToRemove)
             {
@@ -560,7 +545,6 @@ namespace AbayaSystem.Infrastructure
                 _context.OrderItems.Remove(itemToRemove);
             }
 
-            // Update existing items or add new items
             foreach (var itemModel in model.Items)
             {
                 OrderType itemOrderType = OrderType.Internal;
@@ -576,6 +560,8 @@ namespace AbayaSystem.Infrastructure
                     itemOrderType = OrderType.External;
                     workerId = int.Parse(itemModel.SelectedWorkflowKey.Replace("External_", ""));
                 }
+
+                bool isHybrid = itemOrderType == OrderType.Hybrid;
 
                 if (itemModel.OrderItemId > 0)
                 {
@@ -593,9 +579,10 @@ namespace AbayaSystem.Infrastructure
                             existingItem.IsReadyMadeAlteration = itemModel.IsReadyMadeAlteration;
                             existingItem.AlterationNotes = itemModel.AlterationNotes;
                             existingItem.Notes = itemModel.ItemNotes;
-                            existingItem.HybridProcess = itemOrderType == OrderType.Hybrid ? itemModel.HybridProcess : HybridProcessType.None;
                             existingItem.ExternalWorkerId = workerId;
                             existingItem.BuyFabricForExternal = itemModel.BuyFabricForExternal;
+                            existingItem.HandEmbRequired = itemModel.HandEmbRequired;
+                            existingItem.rawFabricEmb = isHybrid && itemModel.rawFabricEmb;
                             existingItem.TargetBranchId = itemModel.TargetBranchId;
                             existingItem.Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
                                 ? ItemStatus.Completed
@@ -603,7 +590,6 @@ namespace AbayaSystem.Infrastructure
                         }
                         else
                         {
-                            // For locked items in workflow, only allow non-workflow descriptions/notes updates
                             existingItem.ModelTextDescription = itemModel.ModelTextDescription;
                             existingItem.Notes = itemModel.ItemNotes;
                             existingItem.AlterationNotes = itemModel.AlterationNotes;
@@ -625,9 +611,10 @@ namespace AbayaSystem.Infrastructure
                         IsReadyMadeAlteration = itemModel.IsReadyMadeAlteration,
                         AlterationNotes = itemModel.AlterationNotes,
                         Notes = itemModel.ItemNotes,
-                        HybridProcess = itemOrderType == OrderType.Hybrid ? itemModel.HybridProcess : HybridProcessType.None,
                         ExternalWorkerId = workerId,
                         BuyFabricForExternal = itemModel.BuyFabricForExternal,
+                        HandEmbRequired = itemModel.HandEmbRequired,
+                        rawFabricEmb = isHybrid && itemModel.rawFabricEmb,
                         TargetBranchId = itemModel.TargetBranchId,
                         Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
                                   ? ItemStatus.Completed

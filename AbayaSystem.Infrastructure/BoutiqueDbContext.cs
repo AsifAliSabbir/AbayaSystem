@@ -83,6 +83,9 @@ namespace AbayaSystem.Infrastructure
                 .HasForeignKey(i => i.FabricId)
                 .IsRequired(false);
 
+            modelBuilder.Entity<OrderItem>().Property(i => i.HandEmbRequired).HasDefaultValue(false);
+            modelBuilder.Entity<OrderItem>().Property(i => i.rawFabricEmb).HasDefaultValue(false);
+
             // Seed External Workers Data
             modelBuilder.Entity<ExternalWorker>().HasData(
                 new ExternalWorker { ExternalWorkerId = 1, Name = "Rubel", Phone = "+971500000001", SupportedType = ExternalWorkerType.FullExternal },

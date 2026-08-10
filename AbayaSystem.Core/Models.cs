@@ -93,13 +93,6 @@ namespace AbayaSystem.Core
         External
     }
 
-    public enum HybridProcessType
-    {
-        None,
-        CutAndHalfStitchFirst,
-        RawFabricFirst
-    }
-
     public enum SheilaSize
     {
         Size_22x81,
@@ -172,8 +165,6 @@ namespace AbayaSystem.Core
         public string ColorCode { get; set; } = string.Empty;
         public bool IsShopProvidingFabric { get; set; } = true;
 
-        public HybridProcessType HybridProcess { get; set; } = HybridProcessType.None;
-
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
         public bool IsReadyMadeAlteration { get; set; } = false;
         public string AlterationNotes { get; set; } = string.Empty;
@@ -197,6 +188,10 @@ namespace AbayaSystem.Core
         public int? ExternalWorkerId { get; set; }
         public ExternalWorker? ExternalWorker { get; set; }
         public bool BuyFabricForExternal { get; set; } = false;
+
+        // 🆕 NEW COLUMNS FOR WORKFLOW CONTROL
+        public bool HandEmbRequired { get; set; } = false;
+        public bool rawFabricEmb { get; set; } = false;
     }
 
     public class FabricProcurementItem

@@ -99,7 +99,6 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
-                        <!-- Showroom Branch -->
                         <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted">Showroom Branch *</label>
                             <select @ref="branchSelectRef" class="form-select shadow-sm" value="@orderModel.BranchId" @onchange="OnBranchChanged" disabled="@isSalesman">
@@ -111,20 +110,17 @@
                             </select>
                         </div>
 
-                        <!-- Order No -->
                         <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted">Order No *</label>
                             <input @ref="manualOrderIdRef" type="text" class="form-control fw-bold text-uppercase shadow-sm"
                                    @bind="orderModel.ManualOrderId" placeholder="e.g. 1001" />
                         </div>
 
-                        <!-- Order Date -->
                         <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted">Order Date *</label>
                             <input @ref="orderDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.OrderDate" />
                         </div>
 
-                        <!-- Customer Name -->
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Name *</label>
                             <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Search or type full name..."
@@ -143,7 +139,6 @@
                             }
                         </div>
 
-                        <!-- Customer Phone -->
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
                             <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp number..."
@@ -233,18 +228,6 @@
                             </div>
                         }
 
-                        @if (currentItem.SelectedWorkflowKey.StartsWith("Hybrid_"))
-                        {
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold small text-muted">Hybrid Cut & Stitch Path *</label>
-                                <select @ref="hybridProcessSelectRef" class="form-select shadow-sm"
-                                        @bind="currentItem.HybridProcess" disabled="@currentItem.IsLocked">
-                                    <option value="@HybridProcessType.CutAndHalfStitchFirst">Cut & Half-Stitch First in Workshop</option>
-                                    <option value="@HybridProcessType.RawFabricFirst">Raw Unstitched Fabric to Embroiderer First</option>
-                                </select>
-                            </div>
-                        }
-
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small text-muted">Fabric Supplier Shop *</label>
                             <select @ref="fabricShopSelectRef" class="form-select shadow-sm"
@@ -288,6 +271,30 @@
                             </div>
                         }
 
+                        <!-- 🆕 WORKFLOW EMBROIDERIES CHECKBOXES -->
+                        <div class="col-md-6">
+                            <div class="p-2 bg-light rounded border form-check ms-3">
+                                <input class="form-check-input" type="checkbox" id="handEmbCheck"
+                                       @bind="currentItem.HandEmbRequired" disabled="@currentItem.IsLocked">
+                                <label class="form-check-label fw-bold text-dark small" for="handEmbCheck">
+                                    🖐️ Hand Embroidery Required?
+                                </label>
+                            </div>
+                        </div>
+
+                        @if (currentItem.SelectedWorkflowKey.StartsWith("Hybrid_"))
+                        {
+                            <div class="col-md-6">
+                                <div class="p-2 bg-light rounded border form-check ms-3">
+                                    <input class="form-check-input" type="checkbox" id="rawFabricEmbCheck"
+                                           @bind="currentItem.rawFabricEmb" disabled="@currentItem.IsLocked">
+                                    <label class="form-check-label fw-bold text-dark small" for="rawFabricEmbCheck">
+                                        🧵 Send Raw Uncut Fabric to External Embroiderer?
+                                    </label>
+                                </div>
+                            </div>
+                        }
+
                         <div class="col-12 text-end mt-3">
                             @if (editingIndex >= 0)
                             {
@@ -325,6 +332,7 @@
                                     <th>Description</th>
                                     <th>Workflow / Tailor</th>
                                     <th>Color</th>
+                                    <th>Embroidery Options</th>
                                     <th>Status</th>
                                     <th class="text-end">Actions</th>
                                 </tr>
@@ -344,6 +352,20 @@
                                         <td><span class="fw-semibold">@item.ModelTextDescription</span></td>
                                         <td><span class="fw-semibold">@GetWorkflowLabel(item)</span></td>
                                         <td><span class="badge bg-secondary">@item.ColorCode</span></td>
+                                        <td>
+                                            @if (item.HandEmbRequired)
+                                            {
+                                                <span class="badge bg-primary me-1">🖐 Hand Emb</span>
+                                            }
+                                            @if (item.rawFabricEmb && item.SelectedWorkflowKey.StartsWith("Hybrid_"))
+                                            {
+                                                <span class="badge bg-purple text-white">🧵 Raw Fabric Emb</span>
+                                            }
+                                            @if (!item.HandEmbRequired && !item.rawFabricEmb)
+                                            {
+                                                <span class="text-muted small">None</span>
+                                            }
+                                        </td>
                                         <td>
                                             @if (item.IsLocked)
                                             {
@@ -544,8 +566,7 @@
     private OrderFormModel orderModel = new();
     private OrderItemFormModel currentItem = new()
     {
-        ColorCode = "Black",
-        HybridProcess = HybridProcessType.CutAndHalfStitchFirst
+        ColorCode = "Black"
     };
 
     private List<Branch> branches = new();
@@ -561,7 +582,6 @@
     private bool isSubmitting = false;
     private bool isSalesman = false;
 
-    // Element References
     private ElementReference branchSelectRef;
     private ElementReference manualOrderIdRef;
     private ElementReference customerNameRef;
@@ -574,7 +594,6 @@
     private ElementReference categorySelectRef;
     private ElementReference modelDescRef;
     private ElementReference workflowSelectRef;
-    private ElementReference hybridProcessSelectRef;
     private ElementReference fabricShopSelectRef;
     private ElementReference fabricSelectRef;
     private ElementReference colorCodeRef;
@@ -593,7 +612,6 @@
             var user = authState.User;
             isSalesman = user.IsInRole("Salesman") && !user.IsInRole("Admin");
 
-            // ✏️ Edit Mode Initialization
             if (BranchId.HasValue && !string.IsNullOrWhiteSpace(OrderId))
             {
                 var existingModel = await OrderService.GetOrderForEditAsync(BranchId.Value, OrderId);
@@ -849,8 +867,9 @@
             FabricId = itemToEdit.FabricId,
             ColorCode = itemToEdit.ColorCode,
             SelectedWorkflowKey = itemToEdit.SelectedWorkflowKey,
-            HybridProcess = itemToEdit.HybridProcess,
             BuyFabricForExternal = itemToEdit.BuyFabricForExternal,
+            HandEmbRequired = itemToEdit.HandEmbRequired,
+            rawFabricEmb = itemToEdit.rawFabricEmb,
             SelectedSheilaSize = itemToEdit.SelectedSheilaSize,
             IsReadyMadeAlteration = itemToEdit.IsReadyMadeAlteration,
             AlterationNotes = itemToEdit.AlterationNotes,
@@ -871,6 +890,8 @@
     {
         if (!await ValidateCurrentItemAsync()) return;
 
+        bool isHybrid = currentItem.SelectedWorkflowKey.StartsWith("Hybrid_");
+
         if (editingIndex >= 0 && editingIndex < orderModel.Items.Count)
         {
             var targetItem = orderModel.Items[editingIndex];
@@ -880,8 +901,9 @@
             targetItem.FabricId = currentItem.FabricId;
             targetItem.ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode;
             targetItem.SelectedWorkflowKey = currentItem.SelectedWorkflowKey;
-            targetItem.HybridProcess = currentItem.HybridProcess;
             targetItem.BuyFabricForExternal = currentItem.BuyFabricForExternal;
+            targetItem.HandEmbRequired = currentItem.HandEmbRequired;
+            targetItem.rawFabricEmb = isHybrid && currentItem.rawFabricEmb;
             targetItem.SelectedSheilaSize = currentItem.SelectedSheilaSize;
             targetItem.IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration;
             targetItem.AlterationNotes = currentItem.AlterationNotes;
@@ -901,8 +923,9 @@
                 FabricId = currentItem.FabricId,
                 ColorCode = string.IsNullOrWhiteSpace(currentItem.ColorCode) ? "Black" : currentItem.ColorCode,
                 SelectedWorkflowKey = currentItem.SelectedWorkflowKey,
-                HybridProcess = currentItem.HybridProcess,
                 BuyFabricForExternal = currentItem.BuyFabricForExternal,
+                HandEmbRequired = currentItem.HandEmbRequired,
+                rawFabricEmb = isHybrid && currentItem.rawFabricEmb,
                 SelectedSheilaSize = currentItem.SelectedSheilaSize,
                 IsReadyMadeAlteration = currentItem.IsReadyMadeAlteration,
                 AlterationNotes = currentItem.AlterationNotes,
@@ -924,8 +947,9 @@
         currentItem = new OrderItemFormModel
         {
             ColorCode = "Black",
-            HybridProcess = HybridProcessType.CutAndHalfStitchFirst,
-            TargetBranchId = preserveTarget
+            TargetBranchId = preserveTarget,
+            HandEmbRequired = false,
+            rawFabricEmb = false
         };
     }
 

@@ -33,8 +33,6 @@
         </div>
         <div class="card-body p-3">
             <div class="row g-2">
-
-                <!-- Branch Filter -->
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-muted mb-1">Showroom Branch</label>
                     <select class="form-select form-select-sm shadow-sm" value="@(filter.BranchId?.ToString() ?? "")" @onchange="OnBranchFilterChanged">
@@ -46,14 +44,12 @@
                     </select>
                 </div>
 
-                <!-- Search Order ID -->
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-muted mb-1">Order No</label>
                     <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Ticket #"
                            @bind="filter.OrderId" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
                 </div>
 
-                <!-- Customer Name Autocomplete -->
                 <div class="col-md-3 position-relative">
                     <label class="form-label small fw-semibold text-muted mb-1">Customer Name</label>
                     <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Customer..."
@@ -72,7 +68,6 @@
                     }
                 </div>
 
-                <!-- Customer Phone Autocomplete -->
                 <div class="col-md-3 position-relative">
                     <label class="form-label small fw-semibold text-muted mb-1">Customer Phone</label>
                     <input type="text" class="form-control form-control-sm shadow-sm" placeholder="Search Phone..."
@@ -91,7 +86,6 @@
                     }
                 </div>
 
-                <!-- Item Status Filter -->
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-muted mb-1">Item State</label>
                     <select class="form-select form-select-sm shadow-sm" value="@(filter.ItemStatus?.ToString() ?? "")" @onchange="OnStatusFilterChanged">
@@ -103,7 +97,6 @@
                     </select>
                 </div>
 
-                <!-- Sort By -->
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-muted mb-1">Sort By (Urgent First)</label>
                     <select class="form-select form-select-sm shadow-sm" @bind="filter.SortBy" @bind:after="ApplySearch">
@@ -112,30 +105,25 @@
                     </select>
                 </div>
 
-                <!-- Order Date Range From -->
                 <div class="col-md-2.5">
                     <label class="form-label small fw-semibold text-muted mb-1">Order Date From</label>
                     <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.OrderDateFrom" @bind:after="ApplySearch" />
                 </div>
 
-                <!-- Order Date Range To -->
                 <div class="col-md-2.5">
                     <label class="form-label small fw-semibold text-muted mb-1">Order Date To</label>
                     <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.OrderDateTo" @bind:after="ApplySearch" />
                 </div>
 
-                <!-- Delivery Date Range From -->
                 <div class="col-md-2.5">
                     <label class="form-label small fw-semibold text-muted mb-1">Delivery Date From</label>
                     <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.DeliveryDateFrom" @bind:after="ApplySearch" />
                 </div>
 
-                <!-- Delivery Date Range To -->
                 <div class="col-md-2.5">
                     <label class="form-label small fw-semibold text-muted mb-1">Delivery Date To</label>
                     <input type="date" class="form-control form-control-sm shadow-sm" @bind="filter.DeliveryDateTo" @bind:after="ApplySearch" />
                 </div>
-
             </div>
         </div>
     </div>
@@ -179,7 +167,6 @@
                             <div class="text-muted small">
                                 <i class="bi bi-truck me-1"></i>Delivery: <strong class="text-primary">@order.EstimatedDeliveryDate.ToString("yyyy-MM-dd")</strong>
                             </div>
-                            <!-- Edit Button Redirects to Order Page -->
                             <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm" @onclick="() => EditOrder(order)">
                                 <i class="bi bi-pencil-square me-1"></i> Edit Order
                             </button>
@@ -188,7 +175,6 @@
 
                     <div class="card-body p-3">
                         <div class="row g-3">
-                            <!-- Customer & Financial Summary -->
                             <div class="col-md-3 border-end">
                                 <h6 class="fw-bold text-dark mb-1">
                                     <i class="bi bi-person-circle me-1 text-primary"></i>@order.Customer?.CustomerName
@@ -211,7 +197,6 @@
                                 </div>
                             </div>
 
-                            <!-- Detailed Order Line Items -->
                             <div class="col-md-9">
                                 <div class="table-responsive">
                                     <table class="table table-sm table-hover align-middle mb-0">
@@ -220,7 +205,8 @@
                                                 <th>Category</th>
                                                 <th>Description</th>
                                                 <th>Workflow</th>
-                                                <th>Fabric Details (Supplier_Type_Color)</th>
+                                                <th>Fabric Details</th>
+                                                <th>Embroidery Options</th>
                                                 <th>Sheila Size</th>
                                                 <th>Current State</th>
                                             </tr>
@@ -240,6 +226,20 @@
                                                     </td>
                                                     <td class="fw-semibold text-dark">
                                                         @GetFabricDetailsDisplay(item)
+                                                    </td>
+                                                    <td>
+                                                        @if (item.HandEmbRequired)
+                                                        {
+                                                            <span class="badge bg-primary me-1">🖐 Hand Emb</span>
+                                                        }
+                                                        @if (item.rawFabricEmb)
+                                                        {
+                                                            <span class="badge bg-purple text-white me-1">🧵 Raw Fabric Emb</span>
+                                                        }
+                                                        @if (!item.HandEmbRequired && !item.rawFabricEmb)
+                                                        {
+                                                            <span class="text-muted small">None</span>
+                                                        }
                                                     </td>
                                                     <td>
                                                         @if (item.Category == ItemCategory.Abaya)
@@ -276,14 +276,12 @@
 
             <nav aria-label="Order pagination">
                 <ul class="pagination pagination-sm m-0">
-                    <!-- Previous Page -->
                     <li class="page-item @(pagedResult.HasPreviousPage ? "" : "disabled")">
                         <button class="page-link" @onclick="() => GoToPage(pagedResult.Page - 1)">
                             <i class="bi bi-chevron-left"></i>
                         </button>
                     </li>
 
-                    <!-- Page Numbers -->
                     @for (int p = 1; p <= pagedResult.TotalPages; p++)
                     {
                         var pageNum = p;
@@ -294,7 +292,6 @@
                         </li>
                     }
 
-                    <!-- Next Page -->
                     <li class="page-item @(pagedResult.HasNextPage ? "" : "disabled")">
                         <button class="page-link" @onclick="() => GoToPage(pagedResult.Page + 1)">
                             <i class="bi bi-chevron-right"></i>
@@ -391,6 +388,19 @@
         await ApplySearch();
     }
 
+    private async Task OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ItemStatus>(e.Value?.ToString(), out var status))
+        {
+            filter.ItemStatus = status;
+        }
+        else
+        {
+            filter.ItemStatus = null;
+        }
+        await ApplySearch();
+    }
+
     private async Task OnCustomerNameInput(ChangeEventArgs e)
     {
         filter.CustomerName = e.Value?.ToString() ?? string.Empty;
@@ -401,9 +411,9 @@
         }
         else
         {
+            nameSearchResults.Clear();
             showNameDropdown = false;
         }
-        await ApplySearch();
     }
 
     private async Task OnCustomerPhoneInput(ChangeEventArgs e)
@@ -416,9 +426,9 @@
         }
         else
         {
+            phoneSearchResults.Clear();
             showPhoneDropdown = false;
         }
-        await ApplySearch();
     }
 
     private async Task SelectCustomerName(string name)
@@ -435,76 +445,44 @@
         await ApplySearch();
     }
 
-    private async Task OnStatusFilterChanged(ChangeEventArgs e)
-    {
-        if (Enum.TryParse<ItemStatus>(e.Value?.ToString(), out var status))
-        {
-            filter.ItemStatus = status;
-        }
-        else
-        {
-            filter.ItemStatus = null;
-        }
-        await ApplySearch();
-    }
-
     private void EditOrder(Order order)
     {
-        Navigation.NavigateTo($"/orders/new?branchId={order.BranchId}&orderId={order.OrderId}");
+        Navigation.NavigateTo($"/orders/new?BranchId={order.BranchId}&OrderId={order.OrderId}");
     }
-
-    private int GetShowingStart() => pagedResult.TotalCount == 0 ? 0 : ((pagedResult.Page - 1) * pagedResult.PageSize) + 1;
-    private int GetShowingEnd() => Math.Min(pagedResult.Page * pagedResult.PageSize, pagedResult.TotalCount);
 
     private string GetWorkflowDisplay(OrderItem item)
     {
-        if (item.ExternalWorkerId.HasValue)
+        if (item.ExternalWorker != null)
         {
-            var workerName = item.ExternalWorker?.Name ?? "Worker";
-
-            if (item.HybridProcess != HybridProcessType.None || item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
-            {
-                return $"🧵 Hybrid ({workerName})";
-            }
-
-            return $"🏬 External ({workerName})";
+            return item.ExternalWorker.SupportedType == ExternalWorkerType.Hybrid
+                ? $"🧵 Hybrid ({item.ExternalWorker.Name})"
+                : $"🏬 External ({item.ExternalWorker.Name})";
         }
-
-        return "🏠 Internal";
+        return "🏠 Internal Workshop";
     }
 
     private string GetFabricDetailsDisplay(OrderItem item)
     {
-        var supplier = item.FabricShop?.FabricShopName ?? "N/A";
-        var type = item.Fabric?.FabricName ?? "N/A";
-        var color = string.IsNullOrWhiteSpace(item.ColorCode) ? "N/A" : item.ColorCode;
-
-        return $"{supplier}_{type}_{color}";
+        var shop = item.FabricShop?.FabricShopName ?? "N/A";
+        var fabric = item.Fabric?.FabricName ?? "N/A";
+        return $"{shop} - {fabric} ({item.ColorCode})";
     }
 
-    private string GetSheilaSizeDisplay(SheilaSize size)
+    private string GetSheilaSizeDisplay(SheilaSize size) => size switch
     {
-        return size switch
-        {
-            SheilaSize.Size_28x81 => "28 x 81 in",
-            SheilaSize.Size_22x81 => "22 x 81 in",
-            SheilaSize.Size_28x90 => "28 x 90 in",
-            _ => size.ToString()
-        };
-    }
+        SheilaSize.Size_28x81 => "Standard (28x81)",
+        SheilaSize.Size_22x81 => "Small (22x81)",
+        SheilaSize.Size_28x90 => "Custom XL (28x90)",
+        _ => size.ToString()
+    };
 
-    private string GetItemStatusBadgeClass(ItemStatus status)
+    private string GetItemStatusBadgeClass(ItemStatus status) => status switch
     {
-        return status switch
-        {
-            ItemStatus.ReadyForFabricProcurement => "bg-warning text-dark",
-            ItemStatus.AssignedToCutter => "bg-info text-dark",
-            // ItemStatus.CutCompleted => "bg-primary",
-            // ItemStatus.AssignedToTailor => "bg-secondary",
-            // ItemStatus.StitchingCompleted => "bg-dark",
-            // ItemStatus.QualityCheckPassed => "bg-success",
-            ItemStatus.Completed => "bg-success",
-            _ => "bg-light text-dark"
-        };
-    }
+        ItemStatus.Completed => "bg-success",
+        ItemStatus.ReadyForFabricProcurement => "bg-warning text-dark",
+        _ => "bg-info text-dark"
+    };
+
+    private int GetShowingStart() => (pagedResult.Page - 1) * pagedResult.PageSize + 1;
+    private int GetShowingEnd() => Math.Min(pagedResult.Page * pagedResult.PageSize, pagedResult.TotalCount);
 }
