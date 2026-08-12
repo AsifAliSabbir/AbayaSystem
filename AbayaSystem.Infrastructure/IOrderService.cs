@@ -201,6 +201,11 @@ namespace AbayaSystem.Infrastructure
 
                 bool isHybrid = itemOrderType == OrderType.Hybrid;
 
+                // 🔄 State determination logic based on Workflow Redesign rules
+                ItemStatus initialStatus = (itemOrderType == OrderType.External && !item.BuyFabricForExternal)
+                    ? ItemStatus.QueueExternalVendor
+                    : ItemStatus.ReadyForFabricProcurement;
+
                 var orderItem = new OrderItem
                 {
                     BranchId = model.BranchId,
@@ -219,9 +224,7 @@ namespace AbayaSystem.Infrastructure
                     HandEmbRequired = item.HandEmbRequired,
                     rawFabricEmb = isHybrid && item.rawFabricEmb,
                     TargetBranchId = item.TargetBranchId,
-                    Status = (itemOrderType == OrderType.External && !item.BuyFabricForExternal)
-                              ? ItemStatus.Completed
-                              : ItemStatus.ReadyForFabricProcurement
+                    Status = initialStatus
                 };
 
                 order.Items.Add(orderItem);
@@ -281,7 +284,7 @@ namespace AbayaSystem.Infrastructure
             var item = await _context.OrderItems.FindAsync(orderItemId);
             if (item == null) return ServiceResult.Failure("Order item not found.");
 
-            item.Status = ItemStatus.AssignedToCutter;
+            item.Status = ItemStatus.QueueCut;
             await _context.SaveChangesAsync();
 
             return ServiceResult.Success();
@@ -425,7 +428,8 @@ namespace AbayaSystem.Infrastructure
                     }
                 }
 
-                bool isLocked = item.Status != ItemStatus.ReadyForFabricProcurement;
+                // Item is considered locked if it has progressed past its initial queue state
+                bool isLocked = item.Status != ItemStatus.ReadyForFabricProcurement && item.Status != ItemStatus.QueueExternalVendor;
 
                 model.Items.Add(new OrderItemFormModel
                 {
@@ -538,9 +542,9 @@ namespace AbayaSystem.Infrastructure
             var itemsToRemove = order.Items.Where(i => !formItemIds.Contains(i.OrderItemId)).ToList();
             foreach (var itemToRemove in itemsToRemove)
             {
-                if (itemToRemove.Status != ItemStatus.ReadyForFabricProcurement)
+                if (itemToRemove.Status != ItemStatus.ReadyForFabricProcurement && itemToRemove.Status != ItemStatus.QueueExternalVendor)
                 {
-                    return ServiceResult.Failure($"Cannot remove item '{itemToRemove.ModelTextDescription}' because it is already in workflow ({itemToRemove.Status}).");
+                    return ServiceResult.Failure($"Cannot remove item '{itemToRemove.ModelTextDescription}' because it is already in active workflow ({itemToRemove.Status}).");
                 }
                 _context.OrderItems.Remove(itemToRemove);
             }
@@ -563,12 +567,16 @@ namespace AbayaSystem.Infrastructure
 
                 bool isHybrid = itemOrderType == OrderType.Hybrid;
 
+                ItemStatus initialStatus = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
+                    ? ItemStatus.QueueExternalVendor
+                    : ItemStatus.ReadyForFabricProcurement;
+
                 if (itemModel.OrderItemId > 0)
                 {
                     var existingItem = order.Items.FirstOrDefault(i => i.OrderItemId == itemModel.OrderItemId);
                     if (existingItem != null)
                     {
-                        if (existingItem.Status == ItemStatus.ReadyForFabricProcurement)
+                        if (existingItem.Status == ItemStatus.ReadyForFabricProcurement || existingItem.Status == ItemStatus.QueueExternalVendor)
                         {
                             existingItem.Category = itemModel.Category;
                             existingItem.ModelTextDescription = itemModel.ModelTextDescription;
@@ -584,9 +592,7 @@ namespace AbayaSystem.Infrastructure
                             existingItem.HandEmbRequired = itemModel.HandEmbRequired;
                             existingItem.rawFabricEmb = isHybrid && itemModel.rawFabricEmb;
                             existingItem.TargetBranchId = itemModel.TargetBranchId;
-                            existingItem.Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
-                                ? ItemStatus.Completed
-                                : ItemStatus.ReadyForFabricProcurement;
+                            existingItem.Status = initialStatus;
                         }
                         else
                         {
@@ -616,9 +622,7 @@ namespace AbayaSystem.Infrastructure
                         HandEmbRequired = itemModel.HandEmbRequired,
                         rawFabricEmb = isHybrid && itemModel.rawFabricEmb,
                         TargetBranchId = itemModel.TargetBranchId,
-                        Status = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
-                                  ? ItemStatus.Completed
-                                  : ItemStatus.ReadyForFabricProcurement
+                        Status = initialStatus
                     };
                     order.Items.Add(newOrderItem);
                 }

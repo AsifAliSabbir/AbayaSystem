@@ -85,6 +85,7 @@ namespace AbayaSystem.Infrastructure
 
             modelBuilder.Entity<OrderItem>().Property(i => i.HandEmbRequired).HasDefaultValue(false);
             modelBuilder.Entity<OrderItem>().Property(i => i.rawFabricEmb).HasDefaultValue(false);
+            modelBuilder.Entity<OrderItem>().Property(i => i.BuyFabricForExternal).HasDefaultValue(false);
 
             // Seed External Workers Data
             modelBuilder.Entity<ExternalWorker>().HasData(
@@ -100,7 +101,6 @@ namespace AbayaSystem.Infrastructure
         {
             await context.Database.EnsureCreatedAsync();
 
-            // 1. Seed Branches
             if (!await context.Branches.AnyAsync())
             {
                 var branches = new[]
@@ -114,7 +114,6 @@ namespace AbayaSystem.Infrastructure
                 await context.SaveChangesAsync();
             }
 
-            // 2. Seed Fabric Shops
             if (!await context.FabricShops.AnyAsync())
             {
                 var shops = new[]
@@ -127,7 +126,6 @@ namespace AbayaSystem.Infrastructure
                 await context.SaveChangesAsync();
             }
 
-            // 3. Seed Fabrics
             if (!await context.Fabrics.AnyAsync())
             {
                 var fabrics = new[]
@@ -144,7 +142,6 @@ namespace AbayaSystem.Infrastructure
                 await context.SaveChangesAsync();
             }
 
-            // 4. Seed Workers with Branch Assignments
             if (!await context.Workers.AnyAsync())
             {
                 var mainBranchId = (await context.Branches.FirstAsync(b => !b.IsWorkshop)).BranchId;

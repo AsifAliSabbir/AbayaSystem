@@ -50,7 +50,7 @@ namespace AbayaSystem.Core
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
 
-        // 📏 Measurements (in inches/cm as per shop standard)
+        // 📏 Measurements
         public decimal LengthAbayaFront { get; set; }
         public decimal LengthAbayaBack { get; set; }
         public decimal LengthSleeve { get; set; }
@@ -102,31 +102,60 @@ namespace AbayaSystem.Core
 
     public enum ItemStatus
     {
-        ReadyForFabricProcurement,
-        OutForRawFabricEmbroidery,
-        AssignedToCutter,
-        InStitchingQueue,
-        HalfStitchedInWorkshop,
-        OutForHalfStitchEmbroidery,
-        HandEmbroideryActive,
-        QualityCheck,
-        OutWithExternalVendor,
-        ReadyAtShop,
-        AlterationActive,
-        Completed,
+        // 🧵 Fabric Procurement & Initial Processing
+        ReadyForFabricProcurement,   
+        // Initial state for Internal/Hybrid jobs, or External when BuyFabricForExternal == true
+        QueueRawFabricEmb,           
+        // Fabric procured; queued for raw fabric embroidery (Hybrid with rawFabricEmb)
+        OutForRawFabricEmb,          
+        // Dispatched for raw fabric embroidery
+
+        // ✂️ Cutting Phase
+        QueueCut,                    
+        // Fabric procured/returned from raw embroidery; queued for cutting
+
+        // 🪡 Half-Stitching Phase
+        QueueHalfStitching,          
+        // Cut completed; queued for half-stitching (if HandEmbRequired or Hybrid)
+        HalfStitchActive,            
+        // Currently undergoing half-stitching
+
+        // 🎨 External Embroidery & Hand Embroidery (Hybrid Workflow)
+        QueueHalfStitchEmb,          
+        // Half-stitched; queued for dispatch to external embroiderer
+        OutForHalfStitchEmb,         
+        // Dispatched to external embroiderer
+        QueueHandEmb,               
+        // Half-stitched / returned from embroidery; queued for hand embroidery
+        HandEmbActive,               
+        // Currently undergoing hand embroidery
+
+        // 🧵 Full-Stitching Phase
+        QueueFullStitching,          
+        // Preparatory stitching/embroidery finished; queued for final full stitching
+        FullStitchActive,            
+        // Currently undergoing full stitching
+
+        // 🏬 Full External Vendor Workflow
+        QueueExternalVendor,  
+        // Queued for dispatch to full external vendor (Initial if BuyFabricForExternal == false, or after fabric procurement)
+        OutWithExternalVendor,       
+        // Dispatched to full external vendor
+
+        // 📦 Final Storage & Customer Handover
+        ReadyAtWorkShop,             // Full stitching completed by central workshop tailor; ready at workshop
+        ReadyAtShop,                 // Received at showroom from workshop, or full stitching completed by showroom tailor
+        Delivered,
     }
 
-    // 🧾 Parent Order Container (Uses Composite Key: BranchId + OrderId)
+    // 🧾 Parent Order Container
     public class Order
     {
-        // 🔑 Composite Primary Key Part 1: Branch where order was created
         public int BranchId { get; set; }
         public Branch? Branch { get; set; }
 
-        // 🔑 Composite Primary Key Part 2: Manual receipt number
         public string OrderId { get; set; } = string.Empty;
 
-        // 👤 Linked Customer Primary Key
         public int CustomerId { get; set; }
         public Customer? Customer { get; set; }
 
@@ -163,7 +192,6 @@ namespace AbayaSystem.Core
         public Fabric? Fabric { get; set; }
 
         public string ColorCode { get; set; } = string.Empty;
-        public bool IsShopProvidingFabric { get; set; } = true;
 
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;
         public bool IsReadyMadeAlteration { get; set; } = false;
@@ -189,7 +217,6 @@ namespace AbayaSystem.Core
         public ExternalWorker? ExternalWorker { get; set; }
         public bool BuyFabricForExternal { get; set; } = false;
 
-        // 🆕 NEW COLUMNS FOR WORKFLOW CONTROL
         public bool HandEmbRequired { get; set; } = false;
         public bool rawFabricEmb { get; set; } = false;
     }

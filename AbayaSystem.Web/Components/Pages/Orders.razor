@@ -478,8 +478,10 @@
 
     private string GetItemStatusBadgeClass(ItemStatus status) => status switch
     {
-        ItemStatus.Completed => "bg-success",
+        ItemStatus.Delivered => "bg-success",
         ItemStatus.ReadyForFabricProcurement => "bg-warning text-dark",
+        ItemStatus.QueueExternalVendor => "bg-secondary text-white",
+        ItemStatus.OutWithExternalVendor => "bg-info text-dark",
         _ => "bg-info text-dark"
     };
 
