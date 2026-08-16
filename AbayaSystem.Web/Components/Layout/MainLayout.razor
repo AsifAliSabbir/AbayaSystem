@@ -1,142 +1,206 @@
 ﻿@inherits LayoutComponentBase
 @using AbayaSystem.Web
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using CurrieTechnologies.Razor.SweetAlert2
+
 @inject BoutiqueAuthStateProvider AuthStateProvider
 @inject NavigationManager Navigation
-@using CurrieTechnologies.Razor.SweetAlert2;
-
-@inject SweetAlertService Swal;
+@inject SweetAlertService Swal
 
 <div class="page-container">
 
-    <!-- 🌫️ Native Bootstrap Styled Backdrop (Closes menu when clicking outside on mobile) -->
-    @if (isMobileMenuOpen)
-    {
-        <div class="offcanvas-backdrop fade show d-lg-none" @onclick="CloseMobileMenu"></div>
-    }
+    <!-- 🧭 Navigation Menu (Visible ONLY when logged in) -->
+    <AuthorizeView>
+        <Authorized>
+            <!-- 🌫️ Native Mobile Backdrop -->
+            @if (isMobileMenuOpen)
+            {
+                <div class="offcanvas-backdrop fade show d-lg-none" @onclick="CloseMobileMenu"></div>
+            }
 
-    <!-- 🧭 Left Sidebar: Native Bootstrap 5.3.3 Responsive Offcanvas -->
-    <aside class="offcanvas-lg offcanvas-start bg-dark text-white shadow border-end border-secondary @(isMobileMenuOpen ? "show" : "")"
-           tabindex="-1"
-           style="visibility: visible;">
+            <aside class="offcanvas-lg offcanvas-start bg-dark text-white shadow border-end border-secondary @(isMobileMenuOpen ? "show" : "")"
+                   tabindex="-1"
+                   style="visibility: visible;">
 
-        <!-- Offcanvas Header / Showroom Branding -->
-        <div class="offcanvas-header p-4 border-bottom border-secondary justify-content-center position-relative w-100">
-            <div class="text-center w-100">
-                <h4 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
-                    ABAYA SYSTEM
-                </h4>
-                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1.5px;">
-                    Showroom Workspace
-                </small>
-            </div>
+                <!-- Offcanvas Header Branding -->
+                <div class="offcanvas-header p-4 border-bottom border-secondary justify-content-center position-relative w-100">
+                    <div class="text-center w-100">
+                        <h4 class="fw-bold text-uppercase tracking-wider m-0" style="color: #d4af37; font-family: 'Playfair Display', serif;">
+                            ABAYA SYSTEM
+                        </h4>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1.5px;">
+                            @GetBranchDisplayName(context.User) WORKSPACE
+                        </small>
+                    </div>
 
-            <!-- Native Close Button (Visible only on mobile) -->
-            <button type="button" class="btn-close btn-close-white position-absolute end-0 top-50 translate-middle-y me-3 d-lg-none"
-                    @onclick="CloseMobileMenu" aria-label="Close"></button>
-        </div>
+                    <button type="button" class="btn-close btn-close-white position-absolute end-0 top-50 translate-middle-y me-3 d-lg-none"
+                            @onclick="CloseMobileMenu" aria-label="Close"></button>
+                </div>
 
-        <!-- Offcanvas Body / Dynamic Context-Driven Navigation -->
-        <div class="offcanvas-body d-flex flex-column flex-grow-1 p-0 overflow-y-auto">
-            <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
-                <AuthorizeView Roles="Admin,Salesman">
-                    <Authorized>
-                        <!-- Order Entry Desk -->
-                        <a href="/orders/new" class="@GetActiveStyle("/orders/new")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-file-earmark-plus-fill me-2"></span>
-                            Order Intake
-                        </a>
+                <!-- Offcanvas Body / Accordion Navigation -->
+                <div class="offcanvas-body d-flex flex-column flex-grow-1 p-0 overflow-y-auto">
+                    <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
 
-                        <!-- Internal workers -->
-                        <a href="/workers" class="@GetActiveStyle("/workers")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-scissors me-2"></span>
-                            Internal Workers entry
-                        </a>
+                        <!-- 📦 ORDERS SECTION (Salesman & Admin) -->
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
+                        {
+                            <div class="nav-accordion-group">
+                                <button type="button"
+                                        class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
+                                        @onclick='() => ToggleSection("orders")'>
+                                    <span class="fw-bold text-uppercase tracking-wider small opacity-75">
+                                        <i class="bi bi-box-seam me-2 text-warning"></i> Orders
+                                    </span>
+                                    <i class="bi @(isOrdersOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
+                                </button>
 
-                        <!-- External workers-->
-                        <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-shop me-2"></span>
-                            External Workers entry
-                        </a>
-
-                        <!-- Fabric Suppliers -->
-                        <a href="/fabric-suppliers" class="@GetActiveStyle("/fabric-suppliers")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-building me-2"></span>
-                            Fabric Suppliers entry
-                        </a>
-
-                        <!-- Fabric Types -->
-                        <a href="/fabric-types" class="@GetActiveStyle("/fabric-types")" @onclick="CloseMobileMenu">
-                            <span class="bi bi-layers me-2"></span>
-                            Fabric Types entry
-                        </a>
-
-                    </Authorized>
-                    <NotAuthorized>
-                        <div class="text-center py-4 text-muted small">
-                            Sign in to access workspace tools
-                        </div>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </nav>
-
-            <!-- Bottom User Panel (Only renders if actively signed in) -->
-            <div class="p-3 border-top border-secondary bg-black-50 mt-auto">
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="d-flex flex-column gap-2">
-                            <div class="d-flex align-items-center gap-2 px-2 text-truncate">
-                                <!-- Circular Avatar with First Letter -->
-                                <div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold"
-                                     style="width: 34px; height: 34px; background-color: #d4af37; min-width: 34px;">
-                                    @(context.User.Identity?.Name?[0].ToString().ToUpper() ?? "W")
-                                </div>
-                                <div class="text-truncate">
-                                    <p class="m-0 fw-bold text-white small text-truncate">@context.User.Identity?.Name</p>
-                                    <p class="m-0 text-muted" style="font-size: 0.72rem;">@context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</p>
-                                </div>
+                                @if (isOrdersOpen)
+                                {
+                                    <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
+                                        <a href="/orders/new" class="@GetActiveStyle("/orders/new")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-file-earmark-plus-fill me-2"></i>
+                                            Order Intake
+                                        </a>
+                                        <a href="/orders" class="@GetActiveStyle("/orders")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-list-task me-2"></i>
+                                            All Orders
+                                        </a>
+                                    </div>
+                                }
                             </div>
+                        }
 
-                            <!-- Safe Logout Action Trigger -->
-                            <button class="btn btn-outline-danger btn-sm w-100 py-2 mt-2 d-flex align-items-center justify-content-center gap-2 rounded-3"
-                                    @onclick="TriggerLogout">
-                                <span class="bi bi-box-arrow-right"></span> Exit Portal
-                            </button>
-                        </div>
-                    </Authorized>
-                    <NotAuthorized>
-                        <a href="/login" class="btn btn-primary w-100 py-2 rounded-3 fw-bold shadow-sm" @onclick="CloseMobileMenu">
-                            🔑 Sign In
-                        </a>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </div>
-        </div>
-    </aside>
+                        <!-- 👥 WORKERS SECTION (Admin Only) -->
+                        @if (context.User.IsInRole("Admin"))
+                        {
+                            <div class="nav-accordion-group">
+                                <button type="button"
+                                        class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
+                                        @onclick='() => ToggleSection("workers")'>
+                                    <span class="fw-bold text-uppercase tracking-wider small opacity-75">
+                                        <i class="bi bi-people me-2 text-warning"></i> Workers
+                                    </span>
+                                    <i class="bi @(isWorkersOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
+                                </button>
+
+                                @if (isWorkersOpen)
+                                {
+                                    <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
+                                        <a href="/workers" class="@GetActiveStyle("/workers")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-scissors me-2"></i>
+                                            Internal Worker Entry
+                                        </a>
+                                        <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-shop me-2"></i>
+                                            External Worker Entry
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <!-- 🧵 FABRICS SECTION (Salesman & Admin) -->
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
+                        {
+                            <div class="nav-accordion-group">
+                                <button type="button"
+                                        class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
+                                        @onclick='() => ToggleSection("fabrics")'>
+                                    <span class="fw-bold text-uppercase tracking-wider small opacity-75">
+                                        <i class="bi bi-layers me-2 text-warning"></i> Fabrics
+                                    </span>
+                                    <i class="bi @(isFabricsOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
+                                </button>
+
+                                @if (isFabricsOpen)
+                                {
+                                    <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
+                                        <a href="/fabric-suppliers" class="@GetActiveStyle("/fabric-suppliers")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-building me-2"></i>
+                                            Fabric Supplier Entry
+                                        </a>
+                                        <a href="/fabric-types" class="@GetActiveStyle("/fabric-types")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-palette me-2"></i>
+                                            Fabric Types Entry
+                                        </a>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                    </nav>
+                </div>
+            </aside>
+        </Authorized>
+    </AuthorizeView>
 
     <!-- Right Workspace Area -->
     <main class="workspace-panel bg-light d-flex flex-column">
 
-        <!-- Showroom Top Terminal Header -->
+        <!-- Top Header Panel -->
         <header class="navbar navbar-light bg-white border-bottom px-3 py-2 shadow-sm d-flex justify-content-between align-items-center flex-shrink-0" style="min-height: 60px;">
             <div class="d-flex align-items-center">
-                <!-- ☰ Hamburger Toggle Button: Visible ONLY on mobile/tablet (< lg) -->
-                <button type="button" class="btn btn-link text-dark p-0 d-lg-none me-3 border-0 shadow-none text-decoration-none"
-                        @onclick="ToggleMobileMenu"
-                        style="display: inline-flex; align-items: center; line-height: 1;">
-                    <i class="bi bi-list" style="font-size: 2rem; color: #111111 !important;"></i>
-                </button>
+                <AuthorizeView>
+                    <Authorized>
+                        <!-- Hamburger Toggle Button -->
+                        <button type="button" class="btn btn-link text-dark p-0 d-lg-none me-3 border-0 shadow-none text-decoration-none"
+                                @onclick="ToggleMobileMenu"
+                                style="display: inline-flex; align-items: center; line-height: 1;">
+                            <i class="bi bi-list" style="font-size: 2rem; color: #111111 !important;"></i>
+                        </button>
 
-                <span class="navbar-brand m-0 h5 fw-bold text-dark">
-                    Showroom
-                </span>
+                        <!-- Dynamic Logged-In User Branch Name -->
+                        <span class="navbar-brand m-0 h5 fw-bold text-dark text-uppercase">
+                            @GetBranchDisplayName(context.User)
+                        </span>
+                    </Authorized>
+                    <NotAuthorized>
+                        <span class="navbar-brand m-0 h5 fw-bold text-dark text-uppercase">
+                            ABAYA SYSTEM
+                        </span>
+                    </NotAuthorized>
+                </AuthorizeView>
             </div>
 
-            <span class="text-muted small d-none d-sm-inline font-monospace">
-                Terminal
-            </span>
+            <!-- Worker Profile Button & Exit Portal Popup Menu -->
+            <AuthorizeView>
+                <Authorized>
+                    <div class="position-relative">
+                        <button type="button"
+                                class="btn btn-outline-dark btn-sm rounded-pill px-3 py-1 fw-bold d-flex align-items-center gap-2 shadow-sm"
+                                @onclick="ToggleUserMenu">
+                            <i class="bi bi-person-circle text-warning fs-6"></i>
+                            <span class="fw-bold">@(context.User.Identity?.Name ?? "Worker")</span>
+                            <i class="bi bi-chevron-down small text-muted"></i>
+                        </button>
+
+                        <!-- Exit Portal Dropdown Popup -->
+                        @if (isUserMenuOpen)
+                        {
+                            <div class="dropdown-menu dropdown-menu-end show shadow-lg border-0 rounded-3 mt-2 p-2 position-absolute end-0"
+                                 style="z-index: 1050; min-width: 210px; background-color: #ffffff;">
+                                <div class="px-3 py-2 border-bottom mb-2 bg-light rounded-2">
+                                    <p class="m-0 fw-bold text-dark small text-truncate">@context.User.Identity?.Name</p>
+                                    <p class="m-0 text-muted extra-small">@context.User.FindFirst(ClaimTypes.Role)?.Value</p>
+                                </div>
+                                <button class="dropdown-item text-danger fw-bold rounded-2 d-flex align-items-center gap-2 py-2"
+                                        @onclick="TriggerLogout">
+                                    <i class="bi bi-box-arrow-right"></i> Exit Portal
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login" class="btn btn-primary btn-sm rounded-pill px-3 py-1 fw-bold shadow-sm">
+                        🔑 Sign In
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
         </header>
-        <!-- Page Context Body Wrapper -->
+
+        <!-- Main Page Content Body -->
         <div class="container-fluid p-4 flex-grow-1 overflow-auto">
             @Body
         </div>
@@ -145,6 +209,68 @@
 
 @code {
     private bool isMobileMenuOpen = false;
+    private bool isUserMenuOpen = false;
+
+    // Accordion Expansion States
+    private bool isOrdersOpen = true;
+    private bool isWorkersOpen = false;
+    private bool isFabricsOpen = false;
+
+    protected override void OnInitialized()
+    {
+        AutoExpandActiveSection();
+    }
+
+    private void ToggleSection(string sectionName)
+    {
+        switch (sectionName.ToLower())
+        {
+            case "orders":
+                isOrdersOpen = !isOrdersOpen;
+                break;
+            case "workers":
+                isWorkersOpen = !isWorkersOpen;
+                break;
+            case "fabrics":
+                isFabricsOpen = !isFabricsOpen;
+                break;
+        }
+    }
+
+    private void AutoExpandActiveSection()
+    {
+        var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
+
+        if (currentUrl.StartsWith("orders"))
+        {
+            isOrdersOpen = true;
+        }
+        else if (currentUrl.StartsWith("workers") || currentUrl.StartsWith("external-workers"))
+        {
+            isWorkersOpen = true;
+        }
+        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types"))
+        {
+            isFabricsOpen = true;
+        }
+    }
+
+    private string GetBranchDisplayName(ClaimsPrincipal user)
+    {
+        if (user.IsInRole("Admin"))
+        {
+            return "ADMIN";
+        }
+
+        var branchClaim = user.FindFirst("BranchName")?.Value;
+
+        if (!string.IsNullOrWhiteSpace(branchClaim))
+        {
+            return branchClaim.ToUpper();
+        }
+
+        return "BRANCH";
+    }
 
     private void ToggleMobileMenu()
     {
@@ -154,6 +280,12 @@
     private void CloseMobileMenu()
     {
         isMobileMenuOpen = false;
+        isUserMenuOpen = false;
+    }
+
+    private void ToggleUserMenu()
+    {
+        isUserMenuOpen = !isUserMenuOpen;
     }
 
     private string GetActiveStyle(string relativePath)
@@ -162,12 +294,13 @@
         var isActive = currentUrl.Equals(relativePath.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
 
         return isActive
-                    ? "nav-item nav-item-active text-decoration-none d-flex align-items-center p-3 rounded-3"
-                    : "nav-item nav-item-inactive text-decoration-none d-flex align-items-center p-3 rounded-3";
+            ? "nav-item nav-item-active text-decoration-none d-flex align-items-center p-2 rounded-3"
+            : "nav-item nav-item-inactive text-decoration-none d-flex align-items-center p-2 rounded-3";
     }
 
     private void TriggerLogout()
     {
+        isUserMenuOpen = false;
         CloseMobileMenu();
         AuthStateProvider.MarkUserAsLoggedOut();
         Navigation.NavigateTo("/login");
@@ -214,9 +347,17 @@
         background-color: rgba(0, 0, 0, 0.2);
     }
 
+    .accordion-header-btn {
+        transition: background-color 0.2s ease-in-out;
+    }
+
+        .accordion-header-btn:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+        }
+
     .nav-item {
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.95rem;
+        font-size: 0.9rem;
     }
 
     .nav-item-inactive {
@@ -235,14 +376,7 @@
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
     }
 
-    .d-lg-none i.bi-list {
-        display: inline-block !important;
-        line-height: 1 !important;
-        visibility: visible !important;
-    }
-
-    button.d-lg-none {
-        min-width: 32px;
-        min-height: 32px;
+    .extra-small {
+        font-size: 0.72rem;
     }
 </style>

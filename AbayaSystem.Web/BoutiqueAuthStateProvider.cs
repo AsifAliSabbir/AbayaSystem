@@ -10,6 +10,7 @@ namespace AbayaSystem.Web
         public string Name { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public int BranchId { get; set; }
+        public string BranchName { get; set; }
     }
 
     public class BoutiqueAuthStateProvider : AuthenticationStateProvider
@@ -37,7 +38,8 @@ namespace AbayaSystem.Web
                 new Claim(ClaimTypes.Name, userSession.Name),
                 new Claim("Username", userSession.Username),
                 new Claim("UserID", userSession.UserID),
-                new Claim("BranchId", userSession.BranchId.ToString())
+                new Claim("BranchId", userSession.BranchId.ToString()),
+                new Claim("BranchName", userSession.BranchName)
             };
 
             // 🔑 Split combined roles into individual role claims

@@ -195,6 +195,7 @@
             IsProcessing = true;
 
             var worker = await DbContext.Workers
+                .Include(w => w.Branch) 
                 .FirstOrDefaultAsync(w => w.Username.ToLower() == Username.ToLower().Trim());
 
             if (worker == null || worker.PasswordHash != Password)
@@ -218,7 +219,8 @@
                 Username = worker.Username,
                 Name = worker.Name,
                 Role = worker.AssignedRoles.ToString(),
-                BranchId = worker.BranchId
+                BranchId = worker.BranchId,
+                BranchName = worker.Branch?.BranchName?.ToString()
             };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
@@ -279,6 +281,7 @@
             ErrorMessage = string.Empty;
 
             var worker = await DbContext.Workers
+                .Include(w => w.Branch)
                 .FirstOrDefaultAsync(w => w.PasswordHash == PinCode);
 
             if (worker == null)
@@ -306,7 +309,7 @@
                 UserID = worker.WorkerId.ToString(),
                 Name = worker.Name,
                 Role = worker.AssignedRoles.ToString(),
-                BranchId = worker.BranchId            };
+                BranchName = worker.Branch?.BranchName?.ToString(),            };
 
             AuthStateProvider.MarkUserAsAuthenticated(session);
             Navigation.NavigateTo("/");
