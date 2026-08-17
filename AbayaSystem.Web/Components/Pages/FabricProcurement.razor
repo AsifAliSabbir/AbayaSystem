@@ -1,0 +1,352 @@
+﻿@page "/fabric-procurement"
+@attribute [Authorize(Roles = "Admin, Salesman")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject BoutiqueDbContext DbContext
+@inject SweetAlertService Swal
+
+<PageTitle>Fabric Procurement - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+
+    <!-- 🏷️ Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">🧵 Fabric Procurement</h3>
+            <p class="text-muted small m-0">Procure main garment fabrics and custom/oversized Sheila fabrics independently.</p>
+        </div>
+    </div>
+
+    <!-- 📑 Navigation Tabs -->
+    <ul class="nav nav-tabs nav-fill mb-3 border-bottom-0">
+        <li class="nav-item">
+            <button class="nav-link fw-bold p-3 @(activeTab == "abaya" ? "active bg-white border-bottom-0 text-dark" : "bg-light text-muted")"
+                    @onclick='() => SwitchTab("abaya")'>
+                <i class="bi bi-layers-fill me-2 text-warning"></i>
+                Abaya / Dress Fabrics
+                <span class="badge bg-warning text-dark ms-2">@pendingAbayaCount</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold p-3 @(activeTab == "sheila" ? "active bg-white border-bottom-0 text-dark" : "bg-light text-muted")"
+                    @onclick='() => SwitchTab("sheila")'>
+                <i class="bi bi-scissors me-2 text-info"></i>
+                Sheila Fabrics (Custom / Large Size)
+                <span class="badge bg-info text-dark ms-2">@pendingSheilaCount</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- 🔍 Filter Options Panel -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body bg-white rounded-3 p-3">
+            <div class="row g-3 align-items-end">
+                <!-- Order ID Filter -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-dark extra-small text-uppercase mb-1">Filter by Order ID</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash text-muted"></i></span>
+                        <input type="text"
+                               class="form-control border-start-0 bg-light"
+                               placeholder="e.g. 1001"
+                               @bind="searchOrderId"
+                               @bind:event="oninput"
+                               @onkeyup="ApplyFilters" />
+                    </div>
+                </div>
+
+                <!-- Fabric Shop Name Filter -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-dark extra-small text-uppercase mb-1">Filter by Fabric Shop Name</label>
+                    <select class="form-select bg-light" @bind="selectedShopId" @bind:after="ApplyFilters">
+                        <option value="0">All Fabric Shops</option>
+                        @foreach (var shop in fabricShops)
+                        {
+                            <option value="@shop.FabricShopId">@shop.FabricShopName</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="col-md-4 d-flex gap-2">
+                    <button class="btn btn-warning fw-bold flex-grow-1 shadow-sm" @onclick="ApplyFilters">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filter
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📦 Procurement Grouped List -->
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted fw-bold">Loading pending fabric procurements...</p>
+        </div>
+    }
+    else if (groupedProcurements == null || !groupedProcurements.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center my-4 bg-white">
+            <div class="text-muted">
+                <i class="bi bi-check-circle-fill display-4 text-success opacity-75"></i>
+                <h5 class="mt-3 text-dark fw-bold">No Pending @(activeTab == "sheila" ? "Sheila" : "Abaya") Fabric Procurements</h5>
+                <p class="mb-0 text-muted">All required fabrics are procured or no orders match your filter criteria.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in groupedProcurements)
+        {
+            <div class="card border-0 shadow-sm mb-4">
+                <!-- Group Header: Order ID -->
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-box-seam-fill text-warning fs-5"></i>
+                        <span class="fw-bold fs-6">ORDER ID: #@group.Key</span>
+                    </div>
+                    <span class="badge bg-secondary fw-bold px-3 py-2">
+                        @group.Count() Item(s) Pending
+                    </span>
+                </div>
+
+                <!-- Group Table Items -->
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3" style="width: 130px;">OrderItem ID</th>
+                                    <th>Fabric Name</th>
+                                    <th>Fabric Shop Name</th>
+                                    <th>Color Code</th>
+                                    @if (activeTab == "sheila")
+                                    {
+                                        <th>Sheila Size</th>
+                                    }
+                                    <th class="text-end pe-3" style="width: 220px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in group)
+                                {
+                                    <tr>
+                                        <!-- OrderItemID -->
+                                        <td class="ps-3 fw-bold text-dark">
+                                            #@item.OrderItemId
+                                        </td>
+
+                                        <!-- Fabric Name -->
+                                        <td>
+                                            <span class="fw-bold text-dark">@(item.Fabric?.FabricName ?? "N/A")</span>
+                                            @if (!string.IsNullOrWhiteSpace(item.ModelTextDescription))
+                                            {
+                                                <div class="extra-small text-muted">@item.ModelTextDescription</div>
+                                            }
+                                        </td>
+
+                                        <!-- Fabric Shop Name -->
+                                        <td>
+                                            <span class="badge bg-light text-dark border px-2 py-1">
+                                                <i class="bi bi-shop me-1 text-warning"></i>
+                                                @(item.FabricShop?.FabricShopName ?? "N/A")
+                                            </span>
+                                        </td>
+
+                                        <!-- Color Code -->
+                                        <td>
+                                            <span class="badge bg-secondary px-2 py-1">
+                                                <i class="bi bi-palette me-1"></i>
+                                                @(string.IsNullOrWhiteSpace(item.ColorCode) ? "N/A" : item.ColorCode)
+                                            </span>
+                                        </td>
+
+                                        @if (activeTab == "sheila")
+                                        {
+                                            <td>
+                                                <span class="badge bg-info text-dark px-2 py-1 fw-bold">
+                                                    @item.SelectedSheilaSize
+                                                </span>
+                                            </td>
+                                        }
+
+                                        <!-- Action Button -->
+                                        <td class="text-end pe-3">
+                                            @if (activeTab == "abaya")
+                                            {
+                                                <button class="btn btn-sm btn-success fw-bold shadow-sm px-3"
+                                                        @onclick="() => MarkAbayaFabricAsProcured(item)">
+                                                    <i class="bi bi-check2-circle me-1"></i> Procure Abaya Fabric
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-info text-dark fw-bold shadow-sm px-3"
+                                                        @onclick="() => MarkSheilaFabricAsProcured(item)">
+                                                    <i class="bi bi-check2-circle me-1"></i> Procure Sheila Fabric
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string activeTab = "abaya";
+    private string searchOrderId = string.Empty;
+    private int selectedShopId = 0;
+
+    private int pendingAbayaCount = 0;
+    private int pendingSheilaCount = 0;
+
+    private List<FabricShop> fabricShops = new();
+    private List<OrderItem> abayaPendingItems = new();
+    private List<OrderItem> sheilaPendingItems = new();
+    private IEnumerable<IGrouping<string, OrderItem>>? groupedProcurements;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFabricShopsAsync();
+        await LoadProcurementDataAsync();
+    }
+
+    private async Task LoadFabricShopsAsync()
+    {
+        fabricShops = await DbContext.FabricShops
+            .AsNoTracking()
+            .OrderBy(s => s.FabricShopName)
+            .ToListAsync();
+    }
+
+    private async Task LoadProcurementDataAsync()
+    {
+        isLoading = true;
+
+        // Abaya items needing fabric procurement
+        abayaPendingItems = await DbContext.OrderItems
+            .Include(i => i.Fabric)
+            .Include(i => i.FabricShop)
+            .Where(i => i.Status == ItemStatus.ReadyForFabricProcurement && !i.IsAbayaFabricBought)
+            .OrderBy(i => i.OrderId)
+            .ThenBy(i => i.OrderItemId)
+            .ToListAsync();
+
+        // Sheila items requiring separate fabric purchase (custom/large size: Size_28x90)
+        sheilaPendingItems = await DbContext.OrderItems
+            .Include(i => i.Fabric)
+            .Include(i => i.FabricShop)
+            .Where(i => i.SelectedSheilaSize == SheilaSize.Size_28x90 && !i.IsSheilaFabricBought)
+            .OrderBy(i => i.OrderId)
+            .ThenBy(i => i.OrderItemId)
+            .ToListAsync();
+
+        pendingAbayaCount = abayaPendingItems.Count;
+        pendingSheilaCount = sheilaPendingItems.Count;
+
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        var sourceList = activeTab == "abaya" ? abayaPendingItems : sheilaPendingItems;
+        var query = sourceList.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchOrderId))
+        {
+            var cleanQuery = searchOrderId.Trim().ToLower();
+            query = query.Where(i => i.OrderId.ToLower().Contains(cleanQuery));
+        }
+
+        if (selectedShopId > 0)
+        {
+            query = query.Where(i => i.FabricShopId == selectedShopId);
+        }
+
+        groupedProcurements = query.GroupBy(i => i.OrderId);
+    }
+
+    private void ResetFilters()
+    {
+        searchOrderId = string.Empty;
+        selectedShopId = 0;
+        ApplyFilters();
+    }
+
+    private async Task MarkAbayaFabricAsProcured(OrderItem item)
+    {
+        var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+        if (targetItem == null) return;
+
+        targetItem.IsAbayaFabricBought = true;
+        targetItem.Status = targetItem.rawFabricEmb
+            ? ItemStatus.QueueRawFabricEmb
+            : ItemStatus.QueueCut;
+
+        await DbContext.SaveChangesAsync();
+
+        await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Abaya Fabric Procured!",
+            Text = $"OrderItem #{item.OrderItemId} moved to '{targetItem.Status}'.",
+            Icon = SweetAlertIcon.Success,
+            Timer = 2000,
+            ShowConfirmButton = false
+        });
+
+        await LoadProcurementDataAsync();
+    }
+
+    private async Task MarkSheilaFabricAsProcured(OrderItem item)
+    {
+        var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+        if (targetItem == null) return;
+
+        // Mark Sheila fabric completed without altering main garment workflow Status
+        targetItem.IsSheilaFabricBought = true;
+
+        await DbContext.SaveChangesAsync();
+
+        await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Sheila Fabric Procured!",
+            Text = $"Sheila procurement completed for OrderItem #{item.OrderItemId}. Garment workflow status remains unchanged ({targetItem.Status}).",
+            Icon = SweetAlertIcon.Success,
+            Timer = 2200,
+            ShowConfirmButton = false
+        });
+
+        await LoadProcurementDataAsync();
+    }
+}
+
+<style>
+    .extra-small {
+        font-size: 0.75rem;
+    }
+</style>

@@ -116,6 +116,11 @@
                                 @if (isFabricsOpen)
                                 {
                                     <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
+                                        <a href="/fabric-procurement" class="@GetActiveStyle("/fabric-procurement")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-cart-check me-2"></i>
+                                            Fabric Procurement
+                                        </a>
+
                                         <a href="/fabric-suppliers" class="@GetActiveStyle("/fabric-suppliers")" @onclick="CloseMobileMenu">
                                             <i class="bi bi-building me-2"></i>
                                             Fabric Supplier Entry
@@ -249,7 +254,7 @@
         {
             isWorkersOpen = true;
         }
-        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types"))
+        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types")|| currentUrl.StartsWith("fabric-procurement"))
         {
             isFabricsOpen = true;
         }

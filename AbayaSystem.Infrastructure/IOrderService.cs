@@ -216,6 +216,7 @@ namespace AbayaSystem.Infrastructure
                     FabricId = item.FabricId,
                     ColorCode = item.ColorCode,
                     SelectedSheilaSize = item.SelectedSheilaSize,
+                    //IsSheilaFabricBought=(item.SelectedSheilaSize==SheilaSize.Size_28x90)?false:true,
                     IsReadyMadeAlteration = item.IsReadyMadeAlteration,
                     AlterationNotes = item.AlterationNotes,
                     Notes = item.ItemNotes,
@@ -584,6 +585,8 @@ namespace AbayaSystem.Infrastructure
                             existingItem.FabricId = itemModel.FabricId;
                             existingItem.ColorCode = itemModel.ColorCode;
                             existingItem.SelectedSheilaSize = itemModel.SelectedSheilaSize;
+                            //existingItem.IsSheilaFabricBought = (itemModel.SelectedSheilaSize == SheilaSize.Size_28x90) ? false : true;
+
                             existingItem.IsReadyMadeAlteration = itemModel.IsReadyMadeAlteration;
                             existingItem.AlterationNotes = itemModel.AlterationNotes;
                             existingItem.Notes = itemModel.ItemNotes;
