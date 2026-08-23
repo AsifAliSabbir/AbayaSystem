@@ -28,10 +28,12 @@ namespace AbayaSystem.Infrastructure
     public class OrderService : IOrderService
     {
         private readonly BoutiqueDbContext _context;
+        private readonly IWorkflowService _workflowService;
 
-        public OrderService(BoutiqueDbContext context)
+        public OrderService(BoutiqueDbContext context, IWorkflowService workflowService)
         {
             _context = context;
+            _workflowService = workflowService;
         }
 
         public async Task<List<FabricShop>> GetFabricShopsAsync() =>
@@ -174,7 +176,6 @@ namespace AbayaSystem.Infrastructure
                 OrderId = cleanId,
                 CustomerId = customer.CustomerId,
                 OrderDate = model.OrderDate,
-                TypeOfOrder = OrderType.Internal,
                 EstimatedDeliveryDate = model.EstimatedDeliveryDate,
                 IsUrgent = model.IsUrgent,
                 Notes = model.OrderNotes,
@@ -234,6 +235,22 @@ namespace AbayaSystem.Infrastructure
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
 
+            foreach (var orderItem in order.Items)
+            {
+                _context.StatusLogs.Add(new AbayaSystem.Core.AbayaSystem.Core.StatusLog
+                {
+                    OrderId = orderItem.OrderId,
+                    OrderItemId = orderItem.OrderItemId,
+                    PreviousState = null,
+                    CurrentState = orderItem.Status,
+                    CurrentWorkerId = orderItem.StitchedByWorkerId,
+                    TimeOfEvent = DateTime.UtcNow,
+                    Notes = "Initial workflow status assigned when the order was created."
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
             return ServiceResult.Success();
         }
 
@@ -285,8 +302,11 @@ namespace AbayaSystem.Infrastructure
             var item = await _context.OrderItems.FindAsync(orderItemId);
             if (item == null) return ServiceResult.Failure("Order item not found.");
 
-            item.Status = ItemStatus.QueueCut;
-            await _context.SaveChangesAsync();
+            var nextStatus = _workflowService.DetermineNextStatusAfterFabricProcurement(item);
+            await _workflowService.TransitionStatusAsync(
+                item.OrderItemId,
+                nextStatus,
+                notes: "Fabric procurement completed.");
 
             return ServiceResult.Success();
         }
@@ -539,6 +559,7 @@ namespace AbayaSystem.Infrastructure
             }
 
             var formItemIds = model.Items.Where(i => i.OrderItemId > 0).Select(i => i.OrderItemId).ToList();
+            var statusEvents = new List<(OrderItem Item, ItemStatus? PreviousState, ItemStatus CurrentState)>();
 
             var itemsToRemove = order.Items.Where(i => !formItemIds.Contains(i.OrderItemId)).ToList();
             foreach (var itemToRemove in itemsToRemove)
@@ -595,7 +616,11 @@ namespace AbayaSystem.Infrastructure
                             existingItem.HandEmbRequired = itemModel.HandEmbRequired;
                             existingItem.rawFabricEmb = isHybrid && itemModel.rawFabricEmb;
                             existingItem.TargetBranchId = itemModel.TargetBranchId;
-                            existingItem.Status = initialStatus;
+                            if (existingItem.Status != initialStatus)
+                            {
+                                statusEvents.Add((existingItem, existingItem.Status, initialStatus));
+                                existingItem.Status = initialStatus;
+                            }
                         }
                         else
                         {
@@ -628,7 +653,25 @@ namespace AbayaSystem.Infrastructure
                         Status = initialStatus
                     };
                     order.Items.Add(newOrderItem);
+                    statusEvents.Add((newOrderItem, null, initialStatus));
                 }
+            }
+
+            await _context.SaveChangesAsync();
+
+            foreach (var statusEvent in statusEvents)
+            {
+                _context.StatusLogs.Add(new AbayaSystem.Core.AbayaSystem.Core.StatusLog
+                {
+                    OrderId = statusEvent.Item.OrderId,
+                    OrderItemId = statusEvent.Item.OrderItemId,
+                    PreviousState = statusEvent.PreviousState,
+                    CurrentState = statusEvent.CurrentState,
+                    PreviousWorkerId = statusEvent.Item.StitchedByWorkerId,
+                    CurrentWorkerId = statusEvent.Item.StitchedByWorkerId,
+                    TimeOfEvent = DateTime.UtcNow,
+                    Notes = "Workflow status assigned while the order was updated."
+                });
             }
 
             await _context.SaveChangesAsync();

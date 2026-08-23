@@ -1,0 +1,638 @@
+﻿@page "/tailor-dashboard"
+@attribute [Authorize(Roles = "Admin, Salesman, Tailor, CuttingMaster")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
+@inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Tailors Dashboard - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">🧵 Tailors Dashboard</h3>
+            <p class="text-muted small m-0">Track assigned garment stitching tasks, execute active work, and advance items in the workflow.</p>
+        </div>
+        <div>
+            <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
+                Assigned Items: <strong>@filteredAssignedItemsCount</strong>
+            </span>
+        </div>
+    </div>
+
+    <!-- ⚡ CURRENTLY WORKING SECTION -->
+    @if (activeItem != null)
+    {
+        <div class="card border-0 shadow-sm mb-4 bg-primary text-white overflow-hidden">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2 px-3">
+                <span class="fw-bold text-warning small text-uppercase">
+                    <i class="bi bi-activity me-1 spinner-grow spinner-grow-sm text-warning" role="status"></i>
+                    Currently Working Task
+                </span>
+                <span class="badge bg-warning text-dark fw-bold">
+                    @activeItem.Status
+                </span>
+            </div>
+            <div class="card-body p-4 bg-primary text-white">
+                <div class="row align-items-center g-3">
+                    <div class="col-lg-8">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge bg-light text-dark fw-bold fs-6">Order #@activeItem.OrderId</span>
+                            <span class="badge bg-warning text-dark fw-bold">Item #@activeItem.OrderItemId</span>
+                            <span class="badge bg-info text-dark fw-bold">@activeItem.Category</span>
+                            @if (activeItem.Order != null)
+                            {
+                                <span class="badge bg-secondary">@activeItem.TypeOfOrder</span>
+                            }
+                        </div>
+                        <h4 class="fw-bold mb-1">@activeItem.ModelTextDescription</h4>
+                        <div class="d-flex flex-wrap gap-3 small opacity-90 mt-2">
+                            <span><i class="bi bi-palette me-1"></i> Color: <strong>@(string.IsNullOrWhiteSpace(activeItem.ColorCode) ? "N/A" : activeItem.ColorCode)</strong></span>
+                            <span><i class="bi bi-layers me-1"></i> Fabric: <strong>@(activeItem.Fabric?.FabricName ?? "N/A")</strong></span>
+                            <span><i class="bi bi-shop me-1"></i> Shop: <strong>@(activeItem.FabricShop?.FabricShopName ?? "N/A")</strong></span>
+                            <span><i class="bi bi-person me-1"></i> Customer: <strong>@(activeItem.Order?.Customer?.CustomerName ?? "N/A")</strong></span>
+                            <span><i class="bi bi-calendar-event me-1"></i> Delivery: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</strong></span>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 text-lg-end d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
+                        <button class="btn btn-light text-dark fw-bold btn-sm shadow-sm"
+                                @onclick="() => ShowCustomerMeasurements(activeItem.Order?.Customer)">
+                            <i class="bi bi-ruler me-1"></i> View Measurements
+                        </button>
+
+                        @if (canControlTasks && (!isTailorUser || activeItem.StitchedByWorkerId == currentUserId))
+                        {
+                            <button class="btn btn-success fw-bold shadow" @onclick="CompleteCurrentTask">
+                                <i class="bi bi-check-circle-fill me-1"></i> Complete Stitching
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- 🔍 FILTERS PANEL -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body bg-white rounded-3 p-3">
+            <div class="row g-3 align-items-end">
+                <!-- Order No Filter -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">Order No</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash text-muted"></i></span>
+                        <input type="text"
+                               class="form-control border-start-0 bg-light"
+                               placeholder="Search order no..."
+                               @bind="filterOrderId"
+                               @bind:event="oninput"
+                               @onkeyup="ApplyFilters" />
+                    </div>
+                </div>
+
+                <!-- Order Date Filter -->
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">Order Date</label>
+                    <input type="date" class="form-control bg-light" @bind="filterOrderDate" @bind:after="ApplyFilters" />
+                </div>
+
+                <!-- Delivery Date Filter -->
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">Delivery Date</label>
+                    <input type="date" class="form-control bg-light" @bind="filterDeliveryDate" @bind:after="ApplyFilters" />
+                </div>
+
+                <!-- Tailor Dropdown Filter -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-dark small text-uppercase mb-1">Assigned Tailor</label>
+                    <select class="form-select bg-light"
+                            disabled="@isTailorUser"
+                            value="@selectedTailorId"
+                            @onchange="OnTailorSelectChanged">
+                        <option value="0">-- All Tailors --</option>
+                        @foreach (var tailor in availableTailors)
+                        {
+                            <option value="@tailor.WorkerId">@tailor.Name (@tailor.Username)</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Reset Button -->
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary w-100 fw-bold" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📦 GROUPED TASK LIST -->
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted fw-bold">Loading tailor tasks...</p>
+        </div>
+    }
+    else if (groupedOrders == null || !groupedOrders.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center my-4 bg-white">
+            <div class="text-muted">
+                <i class="bi bi-journal-check display-4 text-success opacity-75"></i>
+                <h5 class="mt-3 text-dark fw-bold">No Assigned Tasks Found</h5>
+                <p class="mb-0 text-muted">There are no pending stitching tasks assigned for the selected filters.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in groupedOrders)
+        {
+            var firstItem = group.First();
+            var parentOrder = firstItem.Order;
+            bool isUrgent = parentOrder?.IsUrgent ?? false;
+
+            <div class="card border-0 shadow-sm mb-4 @(isUrgent ? "border-start border-4 border-danger" : "")">
+
+                <!-- Order Header -->
+                <div class="card-header @(isUrgent ? "bg-danger text-white" : "bg-dark text-white") d-flex justify-content-between align-items-center py-3 px-3">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="fw-bold fs-6">
+                            <i class="bi bi-receipt me-1"></i> ORDER NO: #@group.Key
+                        </span>
+
+                        @if (isUrgent)
+                        {
+                            <span class="badge bg-warning text-dark fw-bold text-uppercase px-2 py-1">
+                                🚨 URGENT
+                            </span>
+                        }
+
+                        <span class="small opacity-85">
+                            <i class="bi bi-person me-1"></i> Customer: <strong>@(parentOrder?.Customer?.CustomerName ?? "N/A")</strong>
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="small opacity-85">
+                            <i class="bi bi-calendar-event me-1"></i> Order Date: @(parentOrder?.OrderDate.ToString("dd MMM yyyy") ?? "N/A")
+                        </span>
+                        <span class="badge bg-light text-dark fw-bold px-3 py-2">
+                            <i class="bi bi-truck me-1 text-primary"></i> Due: @(parentOrder?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Items Table -->
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase">
+                                <tr>
+                                    <th class="ps-3" style="width: 100px;">Item ID</th>
+                                    <th>Category & Model</th>
+                                    <th>Fabric & Color</th>
+                                    <th>Flags</th>
+                                    <th>Status</th>
+                                    <th>Assigned Tailor</th>
+                                    <th>Measurements</th>
+                                         @if (canControlTasks)
+                                    {
+                                        <th class="text-end pe-3" style="width: 160px;">Action</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in group)
+                                {
+                                    bool isWorkingOnThis = activeItem?.OrderItemId == item.OrderItemId;
+
+                                    <tr class="@(isWorkingOnThis ? "table-primary" : "")">
+                                        <!-- Item ID -->
+                                        <td class="ps-3 fw-bold text-dark">
+                                            #@item.OrderItemId
+                                        </td>
+
+                                        <!-- Model Description -->
+                                        <td>
+                                            <span class="badge bg-info text-dark me-1">@item.Category</span>
+                                            <span class="fw-bold text-dark">@item.ModelTextDescription</span>
+                                            @if (item.Category == ItemCategory.Abaya && item.SelectedSheilaSize != SheilaSize.Size_28x81)
+                                            {
+                                                <div class="small text-muted">Sheila: @item.SelectedSheilaSize</div>
+                                            }
+                                        </td>
+
+                                        <!-- Fabric & Color -->
+                                        <td>
+                                            <div class="fw-semibold text-dark">@(item.Fabric?.FabricName ?? "N/A")</div>
+                                            <span class="badge bg-secondary extra-small">
+                                                Color: @(string.IsNullOrWhiteSpace(item.ColorCode) ? "N/A" : item.ColorCode)
+                                            </span>
+                                        </td>
+
+                                        <!-- Workflow Flags -->
+                                        <td>
+                                            @if (item.HandEmbRequired)
+                                            {
+                                                <span class="badge bg-primary extra-small me-1">Hand Emb</span>
+                                            }
+                                            @if (item.rawFabricEmb)
+                                            {
+                                                <span class="badge bg-dark extra-small me-1">Raw Fabric Emb</span>
+                                            }
+                                            @if (item.Order != null)
+                                            {
+                                                <span class="badge bg-outline-secondary extra-small text-dark border">@item.TypeOfOrder</span>
+                                            }
+                                        </td>
+
+                                        <!-- Status -->
+                                        <td>
+                                            @if (item.Status == ItemStatus.HalfStitchActive || item.Status == ItemStatus.FullStitchActive)
+                                            {
+                                                <span class="badge bg-warning text-dark fw-bold">
+                                                    <i class="bi bi-gear-wide-connected me-1 spinner-border spinner-border-sm"></i>@item.Status
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@item.Status</span>
+                                            }
+                                        </td>
+
+                                        <!-- Assigned Tailor -->
+                                        <td>
+                                            <span class="small fw-bold text-dark">
+                                                <i class="bi bi-person-circle me-1 text-primary"></i>
+                                                @(item.StitchedByWorkerId?.ToString() ?? "Unassigned")
+                                            </span>
+                                        </td>
+
+                                        <!-- View Specs Button -->
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-dark extra-small fw-bold"
+                                                    @onclick="() => ShowCustomerMeasurements(item.Order?.Customer)">
+                                                <i class="bi bi-ruler me-1"></i> Specs
+                                            </button>
+                                        </td>
+
+                                        <!-- Action Column (Hidden for Salesman & Cutting Master) -->
+                                        @if (isTailorUser)
+                                        {
+                                            <td class="text-end pe-3">
+                                                @if (isWorkingOnThis)
+                                                {
+                                                    <span class="badge bg-success px-3 py-2 fw-bold">
+                                                        <i class="bi bi-play-circle-fill me-1"></i> Active
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-primary fw-bold shadow-sm px-3"
+                                                             disabled="@(activeItem != null || (isTailorUser && item.StitchedByWorkerId != currentUserId))"
+                                                            @onclick="() => ConfirmAndStartTask(item)">
+                                                        <i class="bi bi-play-fill me-1"></i> Start
+                                                    </button>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- 📏 CUSTOMER MEASUREMENTS MODAL -->
+@if (isMeasurementModalOpen && currentCustomer != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-ruler text-warning me-2"></i>@currentCustomer.CustomerName's Measurements
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseMeasurementModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 text-center">
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Abaya Front Length</small><strong>@currentCustomer.LengthAbayaFront in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Abaya Back Length</small><strong>@currentCustomer.LengthAbayaBack in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Sleeve Length</small><strong>@currentCustomer.LengthSleeve in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Shoulder Width</small><strong>@currentCustomer.WidthShoulder in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Arm Hole</small><strong>@currentCustomer.WidthArmHole in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Body Width</small><strong>@currentCustomer.WidthBody in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Sleeve Opening</small><strong>@currentCustomer.WidthSleeveOpening in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Bottom Flare</small><strong>@currentCustomer.WidthBottom in</strong></div></div>
+                        <div class="col-12"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Buttons</small><strong>@currentCustomer.ButtonType (@currentCustomer.NumberOfButtons buttons)</strong></div></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" @onclick="CloseMeasurementModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private int currentUserId = 0;
+    private bool isTailorUser = false;
+    private bool isAdminUser = false;
+    private bool canControlTasks => isTailorUser || isAdminUser;
+    private int filteredAssignedItemsCount = 0;
+
+    // Filters
+    private string filterOrderId = string.Empty;
+    private DateTime? filterOrderDate;
+    private DateTime? filterDeliveryDate;
+    private int selectedTailorId = 0;
+
+    // Data Containers
+    private OrderItem? activeItem;
+    private List<OrderItem> allTailorItems = new();
+    private List<Worker> availableTailors = new();
+    private IEnumerable<IGrouping<string, OrderItem>>? groupedOrders;
+
+    // Modal
+    private bool isMeasurementModalOpen = false;
+    private Customer? currentCustomer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await IdentifyUserAndRoleAsync();
+        await LoadAvailableTailorsAsync();
+        await LoadTailorTaskDataAsync();
+    }
+
+    private async Task IdentifyUserAndRoleAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var username = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
+            if (worker != null)
+            {
+                currentUserId = worker.WorkerId;
+                // Check bitwise WorkerRole flags for Tailor
+                isTailorUser = (worker.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor;
+                isAdminUser = (worker.AssignedRoles & WorkerRole.Admin) == WorkerRole.Admin;
+
+                if (isTailorUser)
+                {
+                    selectedTailorId = currentUserId;
+                }
+            }
+        }
+    }
+
+    private async Task LoadAvailableTailorsAsync()
+    {
+        var workers = await DbContext.Workers.AsNoTracking().ToListAsync();
+        availableTailors = workers.Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor).ToList();
+    }
+
+    private async Task LoadTailorTaskDataAsync()
+    {
+        isLoading = true;
+
+        var stitchingStatuses = new[]
+        {
+            ItemStatus.QueueHalfStitching,
+            ItemStatus.HalfStitchActive,
+            ItemStatus.QueueFullStitching,
+            ItemStatus.FullStitchActive
+        };
+
+        allTailorItems = await DbContext.OrderItems
+            .Include(i => i.Order)
+                .ThenInclude(o => o.Customer)
+            .Include(i => i.Fabric)
+            .Include(i => i.FabricShop)
+            .Where(i => stitchingStatuses.Contains(i.Status))
+            .ToListAsync();
+
+        // Identify currently active stitching task
+        activeItem = allTailorItems.FirstOrDefault(i =>
+            (i.Status == ItemStatus.HalfStitchActive || i.Status == ItemStatus.FullStitchActive) &&
+            i.StitchedByWorkerId == (isTailorUser ? currentUserId : (selectedTailorId > 0 ? selectedTailorId : i.StitchedByWorkerId)));
+
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private void OnTailorSelectChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            selectedTailorId = id;
+            ApplyFilters();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var query = allTailorItems.AsEnumerable();
+
+        if (selectedTailorId > 0)
+        {
+            query = query.Where(i => i.StitchedByWorkerId == selectedTailorId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterOrderId))
+        {
+            var cleanQuery = filterOrderId.Trim().ToLower();
+            query = query.Where(i => i.OrderId.ToLower().Contains(cleanQuery));
+        }
+
+        if (filterOrderDate.HasValue)
+        {
+            query = query.Where(i => i.Order != null && i.Order.OrderDate.Date == filterOrderDate.Value.Date);
+        }
+
+        if (filterDeliveryDate.HasValue)
+        {
+            query = query.Where(i => i.Order != null && i.Order.EstimatedDeliveryDate.Date == filterDeliveryDate.Value.Date);
+        }
+
+        var filteredList = query.ToList();
+        filteredAssignedItemsCount = filteredList.Count;
+
+        // Group by OrderId and sort by delivery date descending
+        groupedOrders = filteredList
+            .GroupBy(i => i.OrderId)
+            .OrderByDescending(g => g.First().Order?.IsUrgent ?? false)
+            .ThenByDescending(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MinValue);
+    }
+
+    private void ResetFilters()
+    {
+        filterOrderId = string.Empty;
+        filterOrderDate = null;
+        filterDeliveryDate = null;
+        if (!isTailorUser)
+        {
+            selectedTailorId = 0;
+        }
+        ApplyFilters();
+    }
+
+    private async Task ConfirmAndStartTask(OrderItem item)
+    {
+        if (activeItem != null)
+        {
+            await Swal.FireAsync("Active Task In Progress", "You already have an active stitching task. Complete it before starting a new one.", SweetAlertIcon.Warning);
+            return;
+        }
+
+        var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Start Stitching Task?",
+            Text = $"Start working on Order #{item.OrderId} - Item #{item.OrderItemId} ({item.ModelTextDescription})?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Start Task",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#0d6efd"
+        });
+
+        if (confirmResult.IsConfirmed)
+        {
+            var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+            if (targetItem != null)
+            {
+                ItemStatus? nextStatus = null;
+                if (targetItem.Status == ItemStatus.QueueHalfStitching)
+                {
+                    nextStatus = ItemStatus.HalfStitchActive;
+                }
+                else if (targetItem.Status == ItemStatus.QueueFullStitching)
+                {
+                    nextStatus = ItemStatus.FullStitchActive;
+                }
+
+                if (nextStatus.HasValue)
+                {
+                    var workerId = isTailorUser ? currentUserId : targetItem.StitchedByWorkerId;
+                    await WorkflowService.TransitionStatusAsync(
+                        targetItem.OrderItemId,
+                        nextStatus.Value,
+                        workerId,
+                        "Tailor started the stitching task.");
+                }
+
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Task Started",
+                    Text = $"Item #{item.OrderItemId} is now active.",
+                    Icon = SweetAlertIcon.Success,
+                    Timer = 1500,
+                    ShowConfirmButton = false
+                });
+
+                await LoadTailorTaskDataAsync();
+            }
+        }
+    }
+
+    private async Task CompleteCurrentTask()
+    {
+        if (activeItem == null) return;
+
+        var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Complete Stitching Task?",
+            Text = $"Mark stitching for Item #{activeItem.OrderItemId} as complete and move to the next stage?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Complete Task",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#198754"
+        });
+
+        if (confirmResult.IsConfirmed)
+        {
+            var targetItem = await DbContext.OrderItems
+                .Include(i => i.Order)
+                .FirstOrDefaultAsync(i => i.OrderItemId == activeItem.OrderItemId);
+
+            if (targetItem != null)
+            {
+                ItemStatus nextStatus;
+                OrderType orderType = targetItem.TypeOfOrder;
+
+                if (targetItem.Status == ItemStatus.HalfStitchActive)
+                {
+                    nextStatus = WorkflowService.DetermineNextStatusAfterHalfStitching(
+                        orderType,
+                        targetItem.HandEmbRequired,
+                        targetItem.rawFabricEmb);
+                }
+                else // FullStitchActive
+                {
+                    nextStatus = WorkflowService.DetermineNextStatusAfterFullStitching();
+                }
+
+                await WorkflowService.TransitionStatusAsync(
+                    targetItem.OrderItemId,
+                    nextStatus,
+                    currentUserId,
+                    "Tailor completed the stitching task.");
+
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Task Completed!",
+                    Text = $"Item #{targetItem.OrderItemId} moved to '{nextStatus}'.",
+                    Icon = SweetAlertIcon.Success,
+                    Timer = 2000,
+                    ShowConfirmButton = false
+                });
+
+                await LoadTailorTaskDataAsync();
+            }
+        }
+    }
+
+    private void ShowCustomerMeasurements(Customer? customer)
+    {
+        if (customer != null)
+        {
+            currentCustomer = customer;
+            isMeasurementModalOpen = true;
+        }
+    }
+
+    private void CloseMeasurementModal()
+    {
+        isMeasurementModalOpen = false;
+        currentCustomer = null;
+    }
+}
+
+<style>
+    .extra-small {
+        font-size: 0.75rem;
+    }
+</style>

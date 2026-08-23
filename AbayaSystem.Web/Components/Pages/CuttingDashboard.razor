@@ -1,0 +1,542 @@
+﻿@page "/cutting-dashboard"
+@attribute [Authorize(Roles = "Admin, Salesman, CuttingMaster")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
+@inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+
+<PageTitle>Cutting Dashboard - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+
+    <!-- 🏷️ Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">✂️ Cutting Dashboard</h3>
+            <p class="text-muted small m-0">Manage orders pending fabric cutting and assign completed cut garments to tailors.</p>
+        </div>
+        <div>
+            <span class="badge bg-warning text-dark fs-6 px-3 py-2 shadow-sm">
+                <i class="bi bi-scissors me-1"></i> Pending Cut: <strong>@totalPendingCutCount</strong> Items
+            </span>
+        </div>
+    </div>
+
+    <!-- 🔍 Filter Options Panel -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body bg-white rounded-3 p-3">
+            <div class="row g-3 align-items-end">
+                <!-- Order ID Filter -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-dark extra-small text-uppercase mb-1">Order No / Ticket</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-hash text-muted"></i></span>
+                        <input type="text"
+                               class="form-control border-start-0 bg-light"
+                               placeholder="Search order no..."
+                               @bind="filterOrderId"
+                               @bind:event="oninput"
+                               @onkeyup="ApplyFilters" />
+                    </div>
+                </div>
+
+                <!-- Order Date Filter -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-dark extra-small text-uppercase mb-1">Order Date</label>
+                    <input type="date" class="form-control bg-light" @bind="filterOrderDate" @bind:after="ApplyFilters" />
+                </div>
+
+                <!-- Delivery Date Filter -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold text-dark extra-small text-uppercase mb-1">Delivery Date</label>
+                    <input type="date" class="form-control bg-light" @bind="filterDeliveryDate" @bind:after="ApplyFilters" />
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-warning fw-bold flex-grow-1 shadow-sm" @onclick="ApplyFilters">
+                        <i class="bi bi-funnel-fill me-1"></i> Filter
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📦 Grouped Cutting Queue List -->
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted fw-bold">Loading cutting queue orders...</p>
+        </div>
+    }
+    else if (groupedOrders == null || !groupedOrders.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center my-4 bg-white">
+            <div class="text-muted">
+                <i class="bi bi-check-circle-fill display-4 text-success opacity-75"></i>
+                <h5 class="mt-3 text-dark fw-bold">No Pending Items in Cutting Queue</h5>
+                <p class="mb-0 text-muted">All cut tasks have been processed or no orders match your filter criteria.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in groupedOrders)
+        {
+            var firstItem = group.First();
+            var parentOrder = firstItem.Order;
+            bool isUrgent = parentOrder?.IsUrgent ?? false;
+
+            <div class="card border-0 shadow-sm mb-4 @(isUrgent ? "border-start border-4 border-danger" : "")">
+
+                <!-- Group Header: Order Summary -->
+                <div class="card-header @(isUrgent ? "bg-danger text-white" : "bg-dark text-white") d-flex justify-content-between align-items-center py-3 px-3">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="fw-bold fs-6">
+                            <i class="bi bi-receipt me-1"></i> ORDER NO: #@group.Key
+                        </span>
+
+                        @if (isUrgent)
+                        {
+                            <span class="badge bg-warning text-dark fw-bold text-uppercase px-2 py-1">
+                                🚨 URGENT PRIORITY
+                            </span>
+                        }
+
+                        <span class="extra-small opacity-85">
+                            <i class="bi bi-person me-1"></i> Customer: <strong>@(parentOrder?.Customer?.CustomerName ?? "N/A")</strong> (@(parentOrder?.Customer?.CustomerPhone ?? "N/A"))
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="extra-small opacity-85">
+                            <i class="bi bi-calendar-event me-1"></i> Order: @(parentOrder?.OrderDate.ToString("dd MMM yyyy") ?? "N/A")
+                        </span>
+                        <span class="badge bg-light text-dark fw-bold px-3 py-2">
+                            <i class="bi bi-truck me-1 text-primary"></i> Due: @(parentOrder?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")
+                        </span>
+                        <span class="badge bg-secondary fw-bold px-2 py-1">
+                            @group.Count() Garment(s)
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Group Items Table -->
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light extra-small text-uppercase">
+                                <tr>
+                                    <th class="ps-3" style="width: 120px;">Item ID</th>
+                                    <th>Category & Model</th>
+                                    <th>Fabric & Shop</th>
+                                    <th>Color</th>
+                                    <th>Embroidery & Workflow Specs</th>
+                                    <th>Customer Measurements</th>
+                                    <th class="text-end pe-3" style="width: 210px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in group)
+                                {
+                                    <tr>
+                                        <!-- Item ID -->
+                                        <td class="ps-3 fw-bold text-dark">
+                                            #@item.OrderItemId
+                                        </td>
+
+                                        <!-- Model Description -->
+                                        <td>
+                                            <span class="badge bg-info text-dark me-1">@item.Category</span>
+                                            <span class="fw-bold text-dark">@item.ModelTextDescription</span>
+                                            @if (item.Category == ItemCategory.Abaya)
+                                            {
+                                                <div class="extra-small text-muted">Sheila: @item.SelectedSheilaSize</div>
+                                            }
+                                        </td>
+
+                                        <!-- Fabric Specs -->
+                                        <td>
+                                            <div class="fw-semibold text-dark">@(item.Fabric?.FabricName ?? "N/A")</div>
+                                            <span class="badge bg-light text-dark border extra-small">
+                                                <i class="bi bi-shop text-warning me-1"></i>@(item.FabricShop?.FabricShopName ?? "N/A")
+                                            </span>
+                                        </td>
+
+                                        <!-- Color Code -->
+                                        <td>
+                                            <span class="badge bg-secondary px-2 py-1">
+                                                <i class="bi bi-palette me-1"></i>@(string.IsNullOrWhiteSpace(item.ColorCode) ? "N/A" : item.ColorCode)
+                                            </span>
+                                        </td>
+
+                                        <!-- Workflow / Embroidery Requirements -->
+                                        <td>
+                                            @if (item.HandEmbRequired)
+                                            {
+                                                <span class="badge bg-primary me-1"><i class="bi bi-hand-index-thumb me-1"></i>Hand Emb</span>
+                                            }
+                                            @if (item.rawFabricEmb)
+                                            {
+                                                <span class="badge bg-purple text-white me-1"><i class="bi bi-scissors me-1"></i>Raw Fabric Emb</span>
+                                            }
+                                            @if (item.ExternalWorker != null)
+                                            {
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-building me-1"></i>@item.ExternalWorker.Name</span>
+                                            }
+                                            @if (!item.HandEmbRequired && !item.rawFabricEmb && item.ExternalWorker == null)
+                                            {
+                                                <span class="text-muted extra-small">Standard Stitching</span>
+                                            }
+                                        </td>
+
+                                        <!-- Customer Measurements Preview Modal Trigger -->
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-dark extra-small fw-bold"
+                                                    @onclick="() => ShowCustomerMeasurements(item.Order?.Customer)">
+                                                <i class="bi bi-ruler me-1"></i> View Specs
+                                            </button>
+                                        </td>
+
+                                        <!-- Action Column -->
+                                        <td class="text-end pe-3">
+                                            <button class="btn btn-sm btn-warning text-dark fw-bold shadow-sm px-3"
+                                                    @onclick="() => OpenTailorAssignModal(item)">
+                                                <i class="bi bi-scissors me-1"></i> Cut & Assign Tailor
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- 🪡 TAILOR ASSIGNMENT MODAL -->
+@if (isTailorModalOpen && selectedItem != null)
+{
+    <div class="modal fade show d-block tab-index-modal" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+
+                <div class="modal-header bg-dark text-white py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-scissors text-warning me-2"></i>Assign Tailor for Item #@selectedItem.OrderItemId
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseTailorModal"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <!-- Item Overview -->
+                    <div class="alert alert-light border rounded-3 mb-3 p-3">
+                        <div class="row g-2 extra-small">
+                            <div class="col-md-4"><strong>Order Ticket:</strong> #@selectedItem.OrderId</div>
+                            <div class="col-md-4"><strong>Garment:</strong> @selectedItem.ModelTextDescription</div>
+                            <div class="col-md-4"><strong>Fabric:</strong> @(selectedItem.Fabric?.FabricName ?? "N/A") (@selectedItem.ColorCode)</div>
+                            <div class="col-12 mt-2">
+                                <strong>Next Target Stage:</strong>
+                                @if (WillRequireHalfStitching(selectedItem))
+                                {
+                                    <span class="badge bg-info text-dark ms-1">🪡 Queue Half-Stitching (Requires Embroidery)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success ms-1">🧵 Queue Full-Stitching</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-3">Select Available Tailor:</h6>
+
+                    @if (availableTailors == null || !availableTailors.Any())
+                    {
+                        <div class="alert alert-warning text-center">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>No registered Tailors found in the system. Please add tailors under Worker Management.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group shadow-sm border-0">
+                            @foreach (var tailor in availableTailors)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-bottom"
+                                        @onclick="() => ConfirmAndAssignTailor(tailor)">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="bg-warning text-dark rounded-circle p-2 fw-bold d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="bi bi-person-fill fs-5"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0 fw-bold text-dark">@tailor.Name</h6>
+                                            <small class="text-muted">Username: @tailor.Username</small>
+                                        </div>
+                                    </div>
+                                    <span class="btn btn-sm btn-outline-primary fw-bold px-3">
+                                        Select & Assign <i class="bi bi-chevron-right ms-1"></i>
+                                    </span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" @onclick="CloseTailorModal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- 📏 CUSTOMER MEASUREMENTS MODAL -->
+@if (isMeasurementModalOpen && currentCustomer != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-ruler text-warning me-2"></i>@currentCustomer.CustomerName's Specs
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseMeasurementModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3 text-center">
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Abaya Front</small><strong>@currentCustomer.LengthAbayaFront in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Abaya Back</small><strong>@currentCustomer.LengthAbayaBack in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Sleeve Length</small><strong>@currentCustomer.LengthSleeve in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Shoulder Width</small><strong>@currentCustomer.WidthShoulder in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Arm Hole</small><strong>@currentCustomer.WidthArmHole in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Body Chest</small><strong>@currentCustomer.WidthBody in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Sleeve Opening</small><strong>@currentCustomer.WidthSleeveOpening in</strong></div></div>
+                        <div class="col-6"><div class="p-2 border rounded bg-light"><small class="text-muted d-block">Bottom Flare</small><strong>@currentCustomer.WidthBottom in</strong></div></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" @onclick="CloseMeasurementModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private int totalPendingCutCount = 0;
+    private int currentUserId = 0;
+
+    // Filters
+    private string filterOrderId = string.Empty;
+    private DateTime? filterOrderDate;
+    private DateTime? filterDeliveryDate;
+
+    // Data lists
+    private List<OrderItem> allPendingCutItems = new();
+    private List<Worker> availableTailors = new();
+    private IEnumerable<IGrouping<string, OrderItem>>? groupedOrders;
+
+    // Modals
+    private bool isTailorModalOpen = false;
+    private bool isMeasurementModalOpen = false;
+    private OrderItem? selectedItem;
+    private Customer? currentCustomer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetLoggedInUserIdAsync();
+        await LoadTailorsAsync();
+        await LoadCuttingQueueDataAsync();
+    }
+
+    private async Task GetLoggedInUserIdAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var username = user.Identity?.Name;
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
+            if (worker != null) currentUserId = worker.WorkerId;
+        }
+    }
+
+    private async Task LoadTailorsAsync()
+    {
+        var workers = await DbContext.Workers.AsNoTracking().ToListAsync();
+        // Filter workers who have the Tailor role assigned
+        availableTailors = workers.Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor).ToList();
+    }
+
+    private async Task LoadCuttingQueueDataAsync()
+    {
+        isLoading = true;
+
+        allPendingCutItems = await DbContext.OrderItems
+            .Include(i => i.Order)
+                .ThenInclude(o => o.Customer)
+            .Include(i => i.Fabric)
+            .Include(i => i.FabricShop)
+            .Include(i => i.ExternalWorker)
+            .Where(i => i.Status == ItemStatus.QueueCut)
+            .ToListAsync();
+
+        totalPendingCutCount = allPendingCutItems.Count;
+
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    private void ApplyFilters()
+    {
+        var query = allPendingCutItems.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(filterOrderId))
+        {
+            var cleanQuery = filterOrderId.Trim().ToLower();
+            query = query.Where(i => i.OrderId.ToLower().Contains(cleanQuery));
+        }
+
+        if (filterOrderDate.HasValue)
+        {
+            query = query.Where(i => i.Order != null && i.Order.OrderDate.Date == filterOrderDate.Value.Date);
+        }
+
+        if (filterDeliveryDate.HasValue)
+        {
+            query = query.Where(i => i.Order != null && i.Order.EstimatedDeliveryDate.Date == filterDeliveryDate.Value.Date);
+        }
+
+        // Priority sorting:
+        // 1. Urgent tagged orders placed on top (IsUrgent == true)
+        // 2. Sorted by Delivery Date Descending
+        groupedOrders = query
+            .GroupBy(i => i.OrderId)
+            .OrderByDescending(g => g.First().Order?.IsUrgent ?? false)
+            .ThenByDescending(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MinValue);
+    }
+
+    private void ResetFilters()
+    {
+        filterOrderId = string.Empty;
+        filterOrderDate = null;
+        filterDeliveryDate = null;
+        ApplyFilters();
+    }
+
+    private void OpenTailorAssignModal(OrderItem item)
+    {
+        selectedItem = item;
+        isTailorModalOpen = true;
+    }
+
+    private void CloseTailorModal()
+    {
+        isTailorModalOpen = false;
+        selectedItem = null;
+    }
+
+    private void ShowCustomerMeasurements(Customer? customer)
+    {
+        if (customer != null)
+        {
+            currentCustomer = customer;
+            isMeasurementModalOpen = true;
+        }
+    }
+
+    private void CloseMeasurementModal()
+    {
+        isMeasurementModalOpen = false;
+        currentCustomer = null;
+    }
+
+    private bool WillRequireHalfStitching(OrderItem item)
+    {
+        // Items requiring hand embroidery or external hybrid embroidery move to Half-Stitching first
+        return item.HandEmbRequired || item.ExternalWorkerId.HasValue;
+    }
+
+    private async Task ConfirmAndAssignTailor(Worker tailor)
+    {
+        if (selectedItem == null) return;
+
+        var confirmResult = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Confirm Tailor Assignment?",
+            Text = $"Mark OrderItem #{selectedItem.OrderItemId} as Cut and assign to Tailor '{tailor.Name}'?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Cut & Assign",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#ffc107"
+        });
+
+        if (confirmResult.IsConfirmed)
+        {
+            var targetItem = await DbContext.OrderItems.FindAsync(selectedItem.OrderItemId);
+            if (targetItem != null)
+            {
+                // Record cutting master and assigned tailor
+                if (currentUserId > 0) targetItem.CutByWorkerId = currentUserId;
+                targetItem.StitchedByWorkerId = tailor.WorkerId;
+
+                // Status transition logic based on workflow requirements
+                ItemStatus nextStatus = WorkflowService.DetermineNextStatusAfterCutting(
+                    targetItem.TypeOfOrder,
+                    targetItem.HandEmbRequired);
+
+                await WorkflowService.TransitionStatusAsync(
+                    targetItem.OrderItemId,
+                    nextStatus,
+                    notes: $"Cutting completed by worker {currentUserId}.");
+
+                CloseTailorModal();
+
+                await Swal.FireAsync(new SweetAlertOptions
+                {
+                    Title = "Item Assigned Successfully!",
+                    Text = $"OrderItem #{targetItem.OrderItemId} has been cut and queued for '{nextStatus}' on {tailor.Name}'s dashboard.",
+                    Icon = SweetAlertIcon.Success,
+                    Timer = 2200,
+                    ShowConfirmButton = false
+                });
+
+                await LoadCuttingQueueDataAsync();
+            }
+        }
+    }
+}
+
+<style>
+    .extra-small {
+        font-size: 0.75rem;
+    }
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+    .tab-index-modal {
+        z-index: 1055;
+    }
+</style>

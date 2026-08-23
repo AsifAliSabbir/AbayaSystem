@@ -8,6 +8,7 @@
 @using CurrieTechnologies.Razor.SweetAlert2
 
 @inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
 @inject SweetAlertService Swal
 
 <PageTitle>Fabric Procurement - Abaya System</PageTitle>
@@ -304,11 +305,11 @@
         if (targetItem == null) return;
 
         targetItem.IsAbayaFabricBought = true;
-        targetItem.Status = targetItem.rawFabricEmb
-            ? ItemStatus.QueueRawFabricEmb
-            : ItemStatus.QueueCut;
-
-        await DbContext.SaveChangesAsync();
+        var nextStatus = WorkflowService.DetermineNextStatusAfterFabricProcurement(targetItem);
+        await WorkflowService.TransitionStatusAsync(
+            targetItem.OrderItemId,
+            nextStatus,
+            notes: "Abaya fabric procured.");
 
         await Swal.FireAsync(new SweetAlertOptions
         {

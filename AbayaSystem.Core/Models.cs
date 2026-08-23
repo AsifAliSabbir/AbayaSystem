@@ -3,6 +3,25 @@ using System.Collections.Generic;
 
 namespace AbayaSystem.Core
 {
+    namespace AbayaSystem.Core
+    {
+        public class StatusLog
+        {
+            public int StatusLogId { get; set; }
+            public string OrderId { get; set; } = string.Empty;
+            public int OrderItemId { get; set; }
+
+            public ItemStatus? PreviousState { get; set; }
+            public ItemStatus CurrentState { get; set; }
+
+            public int? PreviousWorkerId { get; set; }
+            public int? CurrentWorkerId { get; set; }
+
+            public DateTime TimeOfEvent { get; set; } = DateTime.UtcNow;
+            public string? Notes { get; set; }
+        }
+    }
+
     // 🏢 Branch / Workshop Locations
     public class Branch
     {
@@ -166,7 +185,6 @@ namespace AbayaSystem.Core
         public bool IsUrgent { get; set; } = false;
         public string Notes { get; set; } = string.Empty;
 
-        public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
 
         public decimal TotalAmount { get; set; }
         public decimal DepositPaid { get; set; }
@@ -206,6 +224,9 @@ namespace AbayaSystem.Core
         public int? CutByWorkerId { get; set; }
         public int? StitchedByWorkerId { get; set; }
         public int? HandEmbroideredByWorkerId { get; set; }
+
+        public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
+
 
         public ItemStatus Status { get; set; } = ItemStatus.ReadyForFabricProcurement;
 

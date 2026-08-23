@@ -1,5 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using AbayaSystem.Core;
+﻿using AbayaSystem.Core;
+using AbayaSystem.Core.AbayaSystem.Core;
+using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 
 namespace AbayaSystem.Infrastructure
@@ -15,6 +16,8 @@ namespace AbayaSystem.Infrastructure
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<Worker> Workers => Set<Worker>();
         public DbSet<ExternalWorker> ExternalWorkers { get; set; }
+
+        public DbSet<StatusLog> StatusLogs { get; set; }
 
         public BoutiqueDbContext(DbContextOptions<BoutiqueDbContext> options) : base(options)
         {

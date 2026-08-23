@@ -134,6 +134,28 @@
                             </div>
                         }
 
+                        <!-- ✂️ WORKSHOP / CUTTING SECTION (Admin, Salesman, Cutting Master) -->
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
+                        {
+                            <div class="nav-accordion-group">
+                                <a href="/cutting-dashboard" class="@GetActiveStyle("/cutting-dashboard")" @onclick="CloseMobileMenu">
+                                    <i class="bi bi-scissors me-2 text-warning"></i>
+                                    Cutting Dashboard
+                                </a>
+                            </div>
+                        }
+
+                        <!-- ✂️ WORKSHOP / CUTTING SECTION (Admin, Salesman, Cutting Master) -->
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Tailor"))
+                        {
+                            <div class="nav-accordion-group">
+                                <a href="/tailor-dashboard" class="@GetActiveStyle("/tailor-dashboard")" @onclick="CloseMobileMenu">
+                                    <i class="bi bi-scissors me-2 text-warning"></i>
+                                    Tailor Dashboard
+                                </a>
+                            </div>
+                        }
+
                     </nav>
                 </div>
             </aside>
