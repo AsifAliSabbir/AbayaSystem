@@ -202,10 +202,9 @@ namespace AbayaSystem.Infrastructure
 
                 bool isHybrid = itemOrderType == OrderType.Hybrid;
 
-                // 🔄 State determination logic based on Workflow Redesign rules
-                ItemStatus initialStatus = (itemOrderType == OrderType.External && !item.BuyFabricForExternal)
-                    ? ItemStatus.QueueExternalVendor
-                    : ItemStatus.ReadyForFabricProcurement;
+                ItemStatus initialStatus = _workflowService.DetermineInitialStatus(
+                    itemOrderType,
+                    item.BuyFabricForExternal);
 
                 var orderItem = new OrderItem
                 {
@@ -589,9 +588,9 @@ namespace AbayaSystem.Infrastructure
 
                 bool isHybrid = itemOrderType == OrderType.Hybrid;
 
-                ItemStatus initialStatus = (itemOrderType == OrderType.External && !itemModel.BuyFabricForExternal)
-                    ? ItemStatus.QueueExternalVendor
-                    : ItemStatus.ReadyForFabricProcurement;
+                ItemStatus initialStatus = _workflowService.DetermineInitialStatus(
+                    itemOrderType,
+                    itemModel.BuyFabricForExternal);
 
                 if (itemModel.OrderItemId > 0)
                 {

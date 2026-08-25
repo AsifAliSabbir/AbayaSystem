@@ -1,5 +1,6 @@
 ﻿@page "/orders/new"
 @attribute [Authorize(Roles = "Admin,Salesman")]
+@implements IDisposable
 @using AbayaSystem.Core
 @using AbayaSystem.Infrastructure
 @using CurrieTechnologies.Razor.SweetAlert2
@@ -577,6 +578,8 @@
     private List<CustomerSearchResultDto> searchResults = new();
     private bool showDropdown = false;
     private string activeSearchField = string.Empty;
+    private CancellationTokenSource? customerSearchCancellation;
+    private int customerSearchVersion;
 
     private bool isLoading = true;
     private bool isSubmitting = false;
@@ -708,20 +711,38 @@
 
     private async Task PerformCustomerSearch(string query)
     {
+        customerSearchCancellation?.Cancel();
+        customerSearchCancellation?.Dispose();
+        customerSearchCancellation = new CancellationTokenSource();
+
+        var cancellationToken = customerSearchCancellation.Token;
+        var searchVersion = ++customerSearchVersion;
+
+        searchResults.Clear();
+        showDropdown = false;
+
         if (!string.IsNullOrWhiteSpace(query) && query.Trim().Length >= 3)
         {
-            searchResults = await OrderService.SearchCustomersAsync(query);
-            showDropdown = searchResults.Count > 0;
-        }
-        else
-        {
-            searchResults.Clear();
-            showDropdown = false;
+            try
+            {
+                await Task.Delay(250, cancellationToken);
+                var results = await OrderService.SearchCustomersAsync(query, cancellationToken);
+
+                if (!cancellationToken.IsCancellationRequested && searchVersion == customerSearchVersion)
+                {
+                    searchResults = results;
+                    showDropdown = searchResults.Count > 0;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
         }
     }
 
     private void SelectCustomer(CustomerSearchResultDto customer)
     {
+        customerSearchCancellation?.Cancel();
         orderModel.CustomerId = customer.CustomerId;
         orderModel.CustomerName = customer.CustomerName;
         orderModel.CustomerPhone = customer.CustomerPhone;
@@ -739,6 +760,12 @@
 
         showDropdown = false;
         searchResults.Clear();
+    }
+
+    public void Dispose()
+    {
+        customerSearchCancellation?.Cancel();
+        customerSearchCancellation?.Dispose();
     }
 
     private void OnCategoryChanged(ChangeEventArgs e)
