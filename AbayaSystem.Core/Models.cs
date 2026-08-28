@@ -165,6 +165,7 @@ namespace AbayaSystem.Core
         ReadyAtWorkShop,             // Full stitching completed by central workshop tailor; ready at workshop
         ReadyAtShop,                 // Received at showroom from workshop, or full stitching completed by showroom tailor
         Delivered,
+        QueueHandEmbAssignment,      // Waiting for an administrator, salesman, or cutting master to assign a hand embroiderer
     }
 
     // 🧾 Parent Order Container

@@ -18,7 +18,8 @@ namespace AbayaSystem.Infrastructure
             int orderItemId,
             ItemStatus newStatus,
             int? assignedWorkerId = null,
-            string? notes = null);
+            string? notes = null,
+            int? assignedHandEmbroidererId = null);
     }
 
     public class WorkflowService : IWorkflowService
@@ -76,14 +77,14 @@ namespace AbayaSystem.Infrastructure
 
             if (handEmbRequired)
             {
-                return ItemStatus.QueueHandEmb;
+                return ItemStatus.QueueHandEmbAssignment;
             }
 
             return ItemStatus.QueueFullStitching;
         }
 
         public ItemStatus DetermineNextStatusAfterHalfStitchEmb(bool handEmbRequired) =>
-            handEmbRequired ? ItemStatus.QueueHandEmb : ItemStatus.QueueFullStitching;
+            handEmbRequired ? ItemStatus.QueueHandEmbAssignment : ItemStatus.QueueFullStitching;
 
         // --- Core Status Transition & Logging Execution ---
 
@@ -91,7 +92,8 @@ namespace AbayaSystem.Infrastructure
             int orderItemId,
             ItemStatus newStatus,
             int? assignedWorkerId = null,
-            string? notes = null)
+            string? notes = null,
+            int? assignedHandEmbroidererId = null)
         {
             var item = await _db.OrderItems.FindAsync(orderItemId);
             if (item == null) return false;
@@ -114,6 +116,11 @@ namespace AbayaSystem.Infrastructure
                 item.StitchedByWorkerId = assignedWorkerId.Value;
             }
 
+            if (assignedHandEmbroidererId.HasValue)
+            {
+                item.HandEmbroideredByWorkerId = assignedHandEmbroidererId.Value;
+            }
+
             // Create status log entry
             var log = new StatusLog
             {
@@ -122,7 +129,7 @@ namespace AbayaSystem.Infrastructure
                 PreviousState = previousState,
                 CurrentState = newStatus,
                 PreviousWorkerId = previousWorkerId,
-                CurrentWorkerId = assignedWorkerId ?? previousWorkerId,
+                CurrentWorkerId = assignedHandEmbroidererId ?? assignedWorkerId ?? previousWorkerId,
                 TimeOfEvent = DateTime.UtcNow,
                 Notes = notes
             };

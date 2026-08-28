@@ -1,0 +1,275 @@
+@page "/hand-embroidery-assignment"
+@attribute [Authorize(Roles = "Admin,CuttingMaster,Salesman")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
+@inject SweetAlertService Swal
+
+<PageTitle>Hand Embroidery Assignment - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">🪡 Hand Embroidery Assignment</h3>
+            <p class="text-muted small m-0">Assign queued hand-embroidery items to an embroiderer.</p>
+        </div>
+        <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
+            Waiting for Assignment: <strong>@filteredItems.Count</strong>
+        </span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        @foreach (var embroiderer in embroiderers)
+        {
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">@embroiderer.Name</div>
+                            <small class="text-muted">Hand embroiderer</small>
+                        </div>
+                        <span class="badge bg-warning text-dark fs-6">@GetWorkload(embroiderer.WorkerId)</span>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 small text-muted">Assigned unfinished tasks</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
+                    <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Delivery Date</label>
+                    <input type="date" class="form-control" @bind="deliveryDate" @bind:after="ApplyFilter" />
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-outline-secondary fw-bold" @onclick="ResetFilter">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted fw-bold">Loading hand-embroidery assignments...</p>
+        </div>
+    }
+    else if (!filteredItems.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center">
+            <i class="bi bi-check-circle-fill display-4 text-success"></i>
+            <h5 class="mt-3 fw-bold">No Hand-Embroidery Assignments Pending</h5>
+            <p class="text-muted mb-0">There are no items waiting for assignment with the selected filters.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Order No</th>
+                            <th>Item</th>
+                            <th>Customer</th>
+                            <th>Delivery Date</th>
+                            <th>Assign To</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in filteredItems)
+                        {
+                            <tr>
+                                <td class="fw-bold">#@item.OrderId</td>
+                                <td>
+                                    <div class="fw-semibold">#@item.OrderItemId</div>
+                                    <small class="text-muted">@item.ModelTextDescription</small>
+                                </td>
+                                <td>@(item.Order?.Customer?.CustomerName ?? "N/A")</td>
+                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td style="min-width: 210px;">
+                                    <select class="form-select form-select-sm" value="@GetSelectedEmbroiderer(item.OrderItemId)" @onchange="e => SetSelectedEmbroiderer(item.OrderItemId, e)">
+                                        <option value="0">-- Select embroiderer --</option>
+                                        @foreach (var embroiderer in embroiderers)
+                                        {
+                                            <option value="@embroiderer.WorkerId">@embroiderer.Name (@GetWorkload(embroiderer.WorkerId) assigned)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-primary fw-bold"
+                                            disabled="@(GetSelectedEmbroiderer(item.OrderItemId) == 0)"
+                                            @onclick="() => ConfirmAssignment(item)">
+                                        <i class="bi bi-person-check me-1"></i> Assign
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string orderSearch = string.Empty;
+    private DateTime? deliveryDate;
+    private List<Worker> embroiderers = new();
+    private List<OrderItem> allItems = new();
+    private List<OrderItem> filteredItems = new();
+    private Dictionary<int, int> workloads = new();
+    private Dictionary<int, int> selectedEmbroiderers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+
+        embroiderers = await DbContext.Workers
+            .AsNoTracking()
+            .Where(w => (w.AssignedRoles & WorkerRole.HandEmbroiderer) == WorkerRole.HandEmbroiderer)
+            .OrderBy(w => w.Name)
+            .ToListAsync();
+
+        var unfinishedStatuses = new[]
+        {
+            ItemStatus.QueueHandEmbAssignment,
+            ItemStatus.QueueHandEmb,
+            ItemStatus.HandEmbActive
+        };
+
+        workloads = await DbContext.OrderItems
+            .Where(i => i.HandEmbroideredByWorkerId.HasValue && unfinishedStatuses.Contains(i.Status))
+            .GroupBy(i => i.HandEmbroideredByWorkerId!.Value)
+            .Select(g => new { WorkerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.WorkerId, x => x.Count);
+
+        allItems = await DbContext.OrderItems
+            .Include(i => i.Order)
+                .ThenInclude(o => o.Customer)
+            .Where(i => i.Status == ItemStatus.QueueHandEmbAssignment)
+            .ToListAsync();
+
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<OrderItem> query = allItems;
+
+        if (!string.IsNullOrWhiteSpace(orderSearch))
+        {
+            var search = orderSearch.Trim();
+            query = query.Where(i => i.OrderId.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (deliveryDate.HasValue)
+        {
+            query = query.Where(i => i.Order?.EstimatedDeliveryDate.Date == deliveryDate.Value.Date);
+        }
+
+        filteredItems = query
+            .OrderByDescending(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MinValue)
+            .ThenBy(i => i.OrderId)
+            .ThenBy(i => i.OrderItemId)
+            .ToList();
+    }
+
+    private void ResetFilter()
+    {
+        orderSearch = string.Empty;
+        deliveryDate = null;
+        ApplyFilter();
+    }
+
+    private int GetSelectedEmbroiderer(int orderItemId) =>
+        selectedEmbroiderers.TryGetValue(orderItemId, out var workerId) ? workerId : 0;
+
+    private void SetSelectedEmbroiderer(int orderItemId, ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var workerId))
+        {
+            selectedEmbroiderers[orderItemId] = workerId;
+        }
+    }
+
+    private int GetWorkload(int workerId) => workloads.GetValueOrDefault(workerId);
+
+    private async Task ConfirmAssignment(OrderItem item)
+    {
+        var workerId = GetSelectedEmbroiderer(item.OrderItemId);
+        var embroiderer = embroiderers.FirstOrDefault(w => w.WorkerId == workerId);
+        if (embroiderer == null)
+        {
+            return;
+        }
+
+        var currentWorkload = GetWorkload(workerId);
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Confirm Hand Embroidery Assignment",
+            Text = $"Assign Order #{item.OrderId}, Item #{item.OrderItemId} to {embroiderer.Name}? They currently have {currentWorkload} unfinished task(s).",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Assign",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#0d6efd"
+        });
+
+        if (!result.IsConfirmed)
+        {
+            return;
+        }
+
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+        if (targetItem == null || targetItem.Status != ItemStatus.QueueHandEmbAssignment)
+        {
+            await Swal.FireAsync("Assignment unavailable", "The item has already changed status.", SweetAlertIcon.Warning);
+            await LoadDataAsync();
+            return;
+        }
+
+        var assigned = await WorkflowService.TransitionStatusAsync(
+            targetItem.OrderItemId,
+            ItemStatus.QueueHandEmb,
+            assignedHandEmbroidererId: workerId,
+            notes: $"Assigned to hand embroiderer '{embroiderer.Name}'.");
+
+        if (assigned)
+        {
+            await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Assignment Saved",
+                Text = $"Item #{targetItem.OrderItemId} is queued for {embroiderer.Name}.",
+                Icon = SweetAlertIcon.Success,
+                Timer = 1800,
+                ShowConfirmButton = false
+            });
+        }
+
+        await LoadDataAsync();
+    }
+}
