@@ -41,9 +41,13 @@
                     <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
                     <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Expected Return</label>
+                    <input type="date" class="form-control" @bind="expectedReturnDate" />
+                </div>
+                <div class="col-md-1">
                     <button class="btn btn-outline-secondary fw-bold" @onclick="ResetFilter">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                        <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
                 </div>
             </div>
@@ -121,6 +125,7 @@
     private bool isLoading = true;
     private int selectedVendorId;
     private string orderSearch = string.Empty;
+    private DateTime? expectedReturnDate;
     private List<ExternalWorker> vendors = new();
     private List<OrderItem> allItems = new();
     private List<OrderItem> filteredItems = new();
@@ -183,6 +188,7 @@
     {
         selectedVendorId = 0;
         orderSearch = string.Empty;
+        expectedReturnDate = null;
         ApplyFilter();
     }
 
@@ -216,18 +222,10 @@
             return;
         }
 
-        var nextStatus = targetItem.Status switch
-        {
-            ItemStatus.QueueExternalVendor => ItemStatus.OutWithExternalVendor,
-            ItemStatus.QueueRawFabricEmb => ItemStatus.OutForRawFabricEmb,
-            ItemStatus.QueueHalfStitchEmb => ItemStatus.OutForHalfStitchEmb,
-            _ => targetItem.Status
-        };
-
-        var dispatched = await WorkflowService.TransitionStatusAsync(
+        var dispatched = await WorkflowService.DispatchToExternalVendorAsync(
             targetItem.OrderItemId,
-            nextStatus,
-            notes: $"Dispatched to external vendor '{targetItem.ExternalWorker.Name}'.");
+            expectedReturnDate,
+            $"Dispatched to external vendor '{targetItem.ExternalWorker.Name}'.");
 
         if (dispatched)
         {

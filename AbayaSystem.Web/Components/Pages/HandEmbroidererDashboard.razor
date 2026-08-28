@@ -1,0 +1,271 @@
+@page "/hand-embroiderer-dashboard"
+@attribute [Authorize(Roles = "Admin,Salesman,CuttingMaster,HandEmbroiderer")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
+@inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Hand Embroiderer Dashboard - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">🪡 Hand Embroiderer Dashboard</h3>
+            <p class="text-muted small m-0">Manage assigned hand-embroidery tasks and advance completed work.</p>
+        </div>
+        <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
+            Assigned Items: <strong>@filteredItems.Count</strong>
+        </span>
+    </div>
+
+    @if (activeItem != null)
+    {
+        <div class="card border-0 shadow-sm mb-4 bg-primary text-white">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-activity me-1"></i> Currently Working</span>
+                <span class="badge bg-warning text-dark">@activeItem.Status</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                    <div>
+                        <div class="mb-2">
+                            <span class="badge bg-light text-dark me-2">Order #@activeItem.OrderId</span>
+                            <span class="badge bg-warning text-dark">Item #@activeItem.OrderItemId</span>
+                        </div>
+                        <h4 class="fw-bold mb-1">@activeItem.ModelTextDescription</h4>
+                        <div class="small opacity-90">
+                            Customer: <strong>@(activeItem.Order?.Customer?.CustomerName ?? "N/A")</strong>
+                            <span class="ms-3">Delivery: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</strong></span>
+                        </div>
+                    </div>
+                    @if (canControlTasks && (!isHandEmbroiderer || activeItem.HandEmbroideredByWorkerId == currentUserId))
+                    {
+                        <button class="btn btn-success fw-bold" @onclick="CompleteCurrentTask">
+                            <i class="bi bi-check-circle-fill me-1"></i> Complete Embroidery
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
+                    <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Order Date</label>
+                    <input type="date" class="form-control" @bind="orderDate" @bind:after="ApplyFilter" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Delivery Date</label>
+                    <input type="date" class="form-control" @bind="deliveryDate" @bind:after="ApplyFilter" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary fw-bold" @onclick="ResetFilter">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted fw-bold">Loading hand-embroidery tasks...</p></div>
+    }
+    else if (!filteredItems.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center">
+            <i class="bi bi-check-circle-fill display-4 text-success"></i>
+            <h5 class="mt-3 fw-bold">No Assigned Hand-Embroidery Tasks</h5>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Order / Item</th>
+                            <th>Customer</th>
+                            <th>Fabric / Color</th>
+                            <th>Assigned Embroiderer</th>
+                            <th>Status</th>
+                            <th>Delivery Date</th>
+                            @if (canControlTasks)
+                            {
+                                <th class="text-end">Action</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in filteredItems)
+                        {
+                            var isActive = item.Status == ItemStatus.HandEmbActive;
+                            var isThisWorker = item.HandEmbroideredByWorkerId == currentUserId;
+                            <tr class="@(isActive ? "table-primary" : "")">
+                                <td class="fw-bold">#@item.OrderId / #@item.OrderItemId<br /><small class="text-muted">@item.ModelTextDescription</small></td>
+                                <td>@(item.Order?.Customer?.CustomerName ?? "N/A")</td>
+                                <td>@(item.Fabric?.FabricName ?? "N/A")<br /><small>@item.ColorCode</small></td>
+                                <td>@(item.HandEmbroideredByWorkerId?.ToString() ?? "Unassigned")</td>
+                                <td><span class="badge @(isActive ? "bg-warning text-dark" : "bg-secondary")">@item.Status</span></td>
+                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                @if (canControlTasks)
+                                {
+                                    <td class="text-end">
+                                        @if (isActive && isThisWorker)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-primary fw-bold"
+                                                    disabled="@(activeItem != null || (isHandEmbroiderer && !isThisWorker))"
+                                                    @onclick="() => ConfirmStartTask(item)">
+                                                <i class="bi bi-play-fill me-1"></i> Start
+                                            </button>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isHandEmbroiderer;
+    private bool isAdmin;
+    private bool canControlTasks => isHandEmbroiderer || isAdmin;
+    private int currentUserId;
+    private string orderSearch = string.Empty;
+    private DateTime? orderDate;
+    private DateTime? deliveryDate;
+    private List<OrderItem> allItems = new();
+    private List<OrderItem> filteredItems = new();
+    private OrderItem? activeItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await IdentifyUserAsync();
+        await LoadTasksAsync();
+    }
+
+    private async Task IdentifyUserAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isHandEmbroiderer = user.IsInRole("HandEmbroiderer");
+        isAdmin = user.IsInRole("Admin");
+
+        var username = user.Identity?.Name;
+        if (!string.IsNullOrWhiteSpace(username))
+        {
+            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
+            if (worker != null) currentUserId = worker.WorkerId;
+        }
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        isLoading = true;
+        allItems = await DbContext.OrderItems
+            .Include(i => i.Order).ThenInclude(o => o.Customer)
+            .Include(i => i.Fabric)
+            .Where(i => i.Status == ItemStatus.QueueHandEmb || i.Status == ItemStatus.HandEmbActive)
+            .ToListAsync();
+
+        activeItem = allItems.FirstOrDefault(i => i.Status == ItemStatus.HandEmbActive &&
+            (!isHandEmbroiderer || i.HandEmbroideredByWorkerId == currentUserId));
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<OrderItem> query = allItems;
+        if (isHandEmbroiderer) query = query.Where(i => i.HandEmbroideredByWorkerId == currentUserId);
+        if (!string.IsNullOrWhiteSpace(orderSearch)) query = query.Where(i => i.OrderId.Contains(orderSearch.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (orderDate.HasValue) query = query.Where(i => i.Order?.OrderDate.Date == orderDate.Value.Date);
+        if (deliveryDate.HasValue) query = query.Where(i => i.Order?.EstimatedDeliveryDate.Date == deliveryDate.Value.Date);
+        filteredItems = query.OrderByDescending(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MinValue).ThenBy(i => i.OrderId).ThenBy(i => i.OrderItemId).ToList();
+    }
+
+    private void ResetFilter()
+    {
+        orderSearch = string.Empty;
+        orderDate = null;
+        deliveryDate = null;
+        ApplyFilter();
+    }
+
+    private async Task ConfirmStartTask(OrderItem item)
+    {
+        if (activeItem != null) return;
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Start Hand Embroidery?",
+            Text = $"Start working on Order #{item.OrderId}, Item #{item.OrderItemId}?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Start Task",
+            CancelButtonText = "Cancel"
+        });
+        if (!result.IsConfirmed) return;
+
+        var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+        if (target == null || target.Status != ItemStatus.QueueHandEmb || (isHandEmbroiderer && target.HandEmbroideredByWorkerId != currentUserId))
+        {
+            await Swal.FireAsync("Task unavailable", "The task has already changed or is assigned to another embroiderer.", SweetAlertIcon.Warning);
+            await LoadTasksAsync();
+            return;
+        }
+
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.HandEmbActive, notes: "Hand embroiderer started the task.");
+        await LoadTasksAsync();
+    }
+
+    private async Task CompleteCurrentTask()
+    {
+        if (activeItem == null) return;
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Complete Hand Embroidery?",
+            Text = $"Complete hand embroidery for Item #{activeItem.OrderItemId} and move it to full stitching?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Complete",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#198754"
+        });
+        if (!result.IsConfirmed) return;
+
+        var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == activeItem.OrderItemId);
+        if (target == null || target.Status != ItemStatus.HandEmbActive)
+        {
+            await LoadTasksAsync();
+            return;
+        }
+
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.QueueFullStitching, notes: "Hand embroidery completed.");
+        await Swal.FireAsync(new SweetAlertOptions { Title = "Task Completed", Text = "The item is queued for full stitching.", Icon = SweetAlertIcon.Success, Timer = 1800, ShowConfirmButton = false });
+        await LoadTasksAsync();
+    }
+}

@@ -68,7 +68,7 @@
                         }
 
                         <!-- 🔄 WORKFLOW SECTION (Admin, Salesman, Cutting Master, Tailor) -->
-                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master") || context.User.IsInRole("Tailor"))
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master") || context.User.IsInRole("Tailor") || context.User.IsInRole("HandEmbroiderer"))
                         {
                             <div class="nav-accordion-group">
                                 <button type="button"
@@ -97,6 +97,14 @@
                                                 <i class="bi bi-truck me-2"></i>
                                                 External Dispatch
                                             </a>
+                                            <a href="/external-vendor-tracking" class="@GetActiveStyle("/external-vendor-tracking")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-binoculars me-2"></i>
+                                                External Vendor Tracking
+                                            </a>
+                                            <a href="/external-vendor-returns" class="@GetActiveStyle("/external-vendor-returns")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-box-arrow-in-left me-2"></i>
+                                                External Vendor Returns
+                                            </a>
                                         }
 
                                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
@@ -104,6 +112,11 @@
                                             <a href="/hand-embroidery-assignment" class="@GetActiveStyle("/hand-embroidery-assignment")" @onclick="CloseMobileMenu">
                                                 <i class="bi bi-person-check me-2"></i>
                                                 Hand Embroidery Assignment
+                                            </a>
+
+                                            <a href="/tailor-assignment" class="@GetActiveStyle("/tailor-assignment")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-person-workspace me-2"></i>
+                                                Tailor Assignment
                                             </a>
                                         }
 
@@ -120,6 +133,14 @@
                                             <a href="/tailor-dashboard" class="@GetActiveStyle("/tailor-dashboard")" @onclick="CloseMobileMenu">
                                                 <i class="bi bi-scissors me-2"></i>
                                                 Tailors Dashboard
+                                            </a>
+                                        }
+
+                                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master") || context.User.IsInRole("HandEmbroiderer"))
+                                        {
+                                            <a href="/hand-embroiderer-dashboard" class="@GetActiveStyle("/hand-embroiderer-dashboard")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-brush me-2"></i>
+                                                Hand Embroiderer Dashboard
                                             </a>
                                         }
                                     </div>
@@ -301,7 +322,7 @@
     {
         var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
 
-        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("external-dispatch"))
+        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("hand-embroiderer-dashboard") || currentUrl.StartsWith("external-dispatch") || currentUrl.StartsWith("external-vendor-tracking") || currentUrl.StartsWith("external-vendor-returns") || currentUrl.StartsWith("hand-embroidery-assignment") || currentUrl.StartsWith("tailor-assignment"))
         {
             isWorkflowOpen = true;
         }

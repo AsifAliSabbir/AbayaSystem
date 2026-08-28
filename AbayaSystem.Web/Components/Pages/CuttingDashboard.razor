@@ -217,8 +217,8 @@
                                         <!-- Action Column -->
                                         <td class="text-end pe-3">
                                             <button class="btn btn-sm btn-warning text-dark fw-bold shadow-sm px-3"
-                                                    @onclick="() => OpenTailorAssignModal(item)">
-                                                <i class="bi bi-scissors me-1"></i> Cut & Assign Tailor
+                                                     @onclick="() => OpenTailorAssignModal(item)">
+                                                <i class="bi bi-scissors me-1"></i> @(item.Status == ItemStatus.QueueTailorAssignment ? "Assign Tailor" : "Cut & Assign Tailor")
                                             </button>
                                         </td>
                                     </tr>
@@ -292,9 +292,12 @@
                                             <small class="text-muted">Username: @tailor.Username</small>
                                         </div>
                                     </div>
-                                    <span class="btn btn-sm btn-outline-primary fw-bold px-3">
-                                        Select & Assign <i class="bi bi-chevron-right ms-1"></i>
-                                    </span>
+                                    <div class="text-end">
+                                        <div class="small fw-bold text-primary">@GetTailorWorkload(tailor.WorkerId) assigned</div>
+                                        <span class="btn btn-sm btn-outline-primary fw-bold px-3">
+                                            Select & Assign <i class="bi bi-chevron-right ms-1"></i>
+                                        </span>
+                                    </div>
                                 </button>
                             }
                         </div>
@@ -302,6 +305,9 @@
                 </div>
 
                 <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-warning text-dark fw-bold" @onclick="ConfirmMarkAsCut">
+                        <i class="bi bi-scissors me-1"></i> Mark as Cut Only
+                    </button>
                     <button type="button" class="btn btn-secondary fw-bold" @onclick="CloseTailorModal">Cancel</button>
                 </div>
             </div>
@@ -354,6 +360,7 @@
     // Data lists
     private List<OrderItem> allPendingCutItems = new();
     private List<Worker> availableTailors = new();
+    private Dictionary<int, int> tailorWorkloads = new();
     private IEnumerable<IGrouping<string, OrderItem>>? groupedOrders;
 
     // Modals
@@ -365,7 +372,6 @@
     protected override async Task OnInitializedAsync()
     {
         await GetLoggedInUserIdAsync();
-        await LoadTailorsAsync();
         await LoadCuttingQueueDataAsync();
     }
 
@@ -387,11 +393,29 @@
         var workers = await DbContext.Workers.AsNoTracking().ToListAsync();
         // Filter workers who have the Tailor role assigned
         availableTailors = workers.Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor).ToList();
+
+        var unfinishedStatuses = new[]
+        {
+            ItemStatus.QueueTailorAssignment,
+            ItemStatus.QueueHalfStitching,
+            ItemStatus.HalfStitchActive,
+            ItemStatus.QueueFullStitching,
+            ItemStatus.FullStitchActive
+        };
+
+        tailorWorkloads = await DbContext.OrderItems
+            .Where(i => i.StitchedByWorkerId.HasValue && unfinishedStatuses.Contains(i.Status))
+            .GroupBy(i => i.StitchedByWorkerId!.Value)
+            .Select(g => new { WorkerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.WorkerId, x => x.Count);
     }
+
+    private int GetTailorWorkload(int workerId) => tailorWorkloads.GetValueOrDefault(workerId);
 
     private async Task LoadCuttingQueueDataAsync()
     {
         isLoading = true;
+        await LoadTailorsAsync();
 
         allPendingCutItems = await DbContext.OrderItems
             .Include(i => i.Order)
@@ -498,26 +522,25 @@
             var targetItem = await DbContext.OrderItems.FindAsync(selectedItem.OrderItemId);
             if (targetItem != null)
             {
-                // Record cutting master and assigned tailor
-                if (currentUserId > 0) targetItem.CutByWorkerId = currentUserId;
-                targetItem.StitchedByWorkerId = tailor.WorkerId;
-
-                // Status transition logic based on workflow requirements
-                ItemStatus nextStatus = WorkflowService.DetermineNextStatusAfterCutting(
-                    targetItem.TypeOfOrder,
-                    targetItem.HandEmbRequired);
-
-                await WorkflowService.TransitionStatusAsync(
-                    targetItem.OrderItemId,
-                    nextStatus,
-                    notes: $"Cutting completed by worker {currentUserId}.");
+                if (targetItem.Status == ItemStatus.QueueTailorAssignment)
+                {
+                    await WorkflowService.TransitionStatusAsync(
+                        targetItem.OrderItemId,
+                        WorkflowService.DetermineNextStatusAfterCutting(targetItem.TypeOfOrder, targetItem.HandEmbRequired),
+                        assignedWorkerId: tailor.WorkerId,
+                        notes: "Tailor assigned after cutting was completed.");
+                }
+                else
+                {
+                    await CompleteCuttingAsync(targetItem, tailor.WorkerId);
+                }
 
                 CloseTailorModal();
 
                 await Swal.FireAsync(new SweetAlertOptions
                 {
-                    Title = "Item Assigned Successfully!",
-                    Text = $"OrderItem #{targetItem.OrderItemId} has been cut and queued for '{nextStatus}' on {tailor.Name}'s dashboard.",
+                    Title = "Item Cut and Assigned Successfully!",
+                    Text = $"OrderItem #{targetItem.OrderItemId} has been assigned to {tailor.Name}'s dashboard.",
                     Icon = SweetAlertIcon.Success,
                     Timer = 2200,
                     ShowConfirmButton = false
@@ -525,6 +548,65 @@
 
                 await LoadCuttingQueueDataAsync();
             }
+        }
+    }
+
+    private async Task ConfirmMarkAsCut()
+    {
+        if (selectedItem == null) return;
+
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Mark Item as Cut?",
+            Text = $"Mark OrderItem #{selectedItem.OrderItemId} as cut without assigning a tailor?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Mark as Cut",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#ffc107"
+        });
+
+        if (!result.IsConfirmed) return;
+
+        var targetItem = await DbContext.OrderItems.FindAsync(selectedItem.OrderItemId);
+        if (targetItem == null) return;
+
+        await CompleteCuttingAsync(targetItem);
+        CloseTailorModal();
+
+        await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Item Marked as Cut",
+            Text = $"OrderItem #{targetItem.OrderItemId} is waiting for tailor assignment.",
+            Icon = SweetAlertIcon.Success,
+            Timer = 2000,
+            ShowConfirmButton = false
+        });
+
+        await LoadCuttingQueueDataAsync();
+    }
+
+    private async Task CompleteCuttingAsync(OrderItem targetItem, int? tailorId = null)
+    {
+        if (currentUserId > 0) targetItem.CutByWorkerId = currentUserId;
+
+        await WorkflowService.TransitionStatusAsync(
+            targetItem.OrderItemId,
+            ItemStatus.QueueTailorAssignment,
+            notes: $"Cutting completed by worker {currentUserId}.");
+
+        if (tailorId.HasValue)
+        {
+            targetItem.StitchedByWorkerId = tailorId.Value;
+            var nextStatus = WorkflowService.DetermineNextStatusAfterCutting(
+                targetItem.TypeOfOrder,
+                targetItem.HandEmbRequired);
+
+            await WorkflowService.TransitionStatusAsync(
+                targetItem.OrderItemId,
+                nextStatus,
+                assignedWorkerId: tailorId.Value,
+                notes: "Tailor assigned at the time of cutting.");
         }
     }
 }

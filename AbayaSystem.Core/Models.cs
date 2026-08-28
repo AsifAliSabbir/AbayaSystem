@@ -166,6 +166,7 @@ namespace AbayaSystem.Core
         ReadyAtShop,                 // Received at showroom from workshop, or full stitching completed by showroom tailor
         Delivered,
         QueueHandEmbAssignment,      // Waiting for an administrator, salesman, or cutting master to assign a hand embroiderer
+        QueueTailorAssignment,       // Cut completed; waiting for a tailor assignment
     }
 
     // 🧾 Parent Order Container
@@ -241,6 +242,8 @@ namespace AbayaSystem.Core
 
         public bool HandEmbRequired { get; set; } = false;
         public bool rawFabricEmb { get; set; } = false;
+
+        public List<ExternalVendorJob> ExternalVendorJobs { get; set; } = new();
     }
 
     public class FabricProcurementItem

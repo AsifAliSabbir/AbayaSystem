@@ -14,6 +14,17 @@ namespace AbayaSystem.Infrastructure
         ItemStatus DetermineNextStatusAfterHalfStitchEmb(bool handEmbRequired);
         ItemStatus DetermineNextStatusAfterFullStitching();
 
+        Task<bool> DispatchToExternalVendorAsync(
+            int orderItemId,
+            DateTime? expectedReturnDate = null,
+            string? notes = null,
+            int? dispatchedByWorkerId = null);
+
+        Task<bool> MarkExternalVendorReturnedAsync(
+            int externalVendorJobId,
+            string? notes = null,
+            int? receivedByWorkerId = null);
+
         Task<bool> TransitionStatusAsync(
             int orderItemId,
             ItemStatus newStatus,
@@ -86,6 +97,94 @@ namespace AbayaSystem.Infrastructure
         public ItemStatus DetermineNextStatusAfterHalfStitchEmb(bool handEmbRequired) =>
             handEmbRequired ? ItemStatus.QueueHandEmbAssignment : ItemStatus.QueueFullStitching;
 
+        public async Task<bool> DispatchToExternalVendorAsync(
+            int orderItemId,
+            DateTime? expectedReturnDate = null,
+            string? notes = null,
+            int? dispatchedByWorkerId = null)
+        {
+            var item = await _db.OrderItems.FindAsync(orderItemId);
+            if (item == null || !item.ExternalWorkerId.HasValue)
+            {
+                return false;
+            }
+
+            var stage = item.Status switch
+            {
+                ItemStatus.QueueExternalVendor => ExternalVendorJobStage.FullExternalProduction,
+                ItemStatus.QueueRawFabricEmb => ExternalVendorJobStage.RawFabricEmbroidery,
+                ItemStatus.QueueHalfStitchEmb => ExternalVendorJobStage.HalfStitchEmbroidery,
+                _ => (ExternalVendorJobStage?)null
+            };
+
+            if (!stage.HasValue)
+            {
+                return false;
+            }
+
+            var nextStatus = stage.Value switch
+            {
+                ExternalVendorJobStage.FullExternalProduction => ItemStatus.OutWithExternalVendor,
+                ExternalVendorJobStage.RawFabricEmbroidery => ItemStatus.OutForRawFabricEmb,
+                _ => ItemStatus.OutForHalfStitchEmb
+            };
+
+            var previousStatus = item.Status;
+            item.Status = nextStatus;
+            _db.ExternalVendorJobs.Add(new ExternalVendorJob
+            {
+                OrderItemId = item.OrderItemId,
+                ExternalWorkerId = item.ExternalWorkerId.Value,
+                Stage = stage.Value,
+                Status = ExternalVendorJobStatus.Dispatched,
+                DispatchedAt = DateTime.UtcNow,
+                ExpectedReturnDate = expectedReturnDate,
+                DispatchNotes = notes ?? string.Empty,
+                DispatchedByWorkerId = dispatchedByWorkerId
+            });
+
+            AddStatusLog(item, previousStatus, nextStatus, item.ExternalWorkerId, notes);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkExternalVendorReturnedAsync(
+            int externalVendorJobId,
+            string? notes = null,
+            int? receivedByWorkerId = null)
+        {
+            var job = await _db.ExternalVendorJobs
+                .Include(j => j.OrderItem)
+                .FirstOrDefaultAsync(j => j.ExternalVendorJobId == externalVendorJobId);
+
+            if (job?.OrderItem == null || job.Status != ExternalVendorJobStatus.Dispatched)
+            {
+                return false;
+            }
+
+            var item = job.OrderItem;
+            var nextStatus = job.Stage switch
+            {
+                ExternalVendorJobStage.RawFabricEmbroidery => ItemStatus.QueueCut,
+                ExternalVendorJobStage.HalfStitchEmbroidery => item.HandEmbRequired
+                    ? ItemStatus.QueueHandEmbAssignment
+                    : ItemStatus.QueueFullStitching,
+                ExternalVendorJobStage.FullExternalProduction => ItemStatus.ReadyAtShop,
+                _ => item.Status
+            };
+
+            var previousStatus = item.Status;
+            item.Status = nextStatus;
+            job.Status = ExternalVendorJobStatus.Returned;
+            job.ReturnedAt = DateTime.UtcNow;
+            job.ReturnNotes = notes ?? string.Empty;
+            job.ReceivedByWorkerId = receivedByWorkerId;
+
+            AddStatusLog(item, previousStatus, nextStatus, null, notes);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
         // --- Core Status Transition & Logging Execution ---
 
         public async Task<bool> TransitionStatusAsync(
@@ -138,6 +237,26 @@ namespace AbayaSystem.Infrastructure
             await _db.SaveChangesAsync();
 
             return true;
+        }
+
+        private void AddStatusLog(
+            OrderItem item,
+            ItemStatus previousState,
+            ItemStatus currentState,
+            int? currentWorkerId,
+            string? notes)
+        {
+            _db.StatusLogs.Add(new StatusLog
+            {
+                OrderId = item.OrderId,
+                OrderItemId = item.OrderItemId,
+                PreviousState = previousState,
+                CurrentState = currentState,
+                PreviousWorkerId = item.ExternalWorkerId,
+                CurrentWorkerId = currentWorkerId,
+                TimeOfEvent = DateTime.UtcNow,
+                Notes = notes
+            });
         }
     }
 }

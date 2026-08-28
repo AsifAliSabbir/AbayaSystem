@@ -16,6 +16,7 @@ namespace AbayaSystem.Infrastructure
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<Worker> Workers => Set<Worker>();
         public DbSet<ExternalWorker> ExternalWorkers { get; set; }
+        public DbSet<ExternalVendorJob> ExternalVendorJobs { get; set; }
 
         public DbSet<StatusLog> StatusLogs { get; set; }
 
@@ -90,6 +91,18 @@ namespace AbayaSystem.Infrastructure
             modelBuilder.Entity<OrderItem>().Property(i => i.rawFabricEmb).HasDefaultValue(false);
             modelBuilder.Entity<OrderItem>().Property(i => i.BuyFabricForExternal).HasDefaultValue(false);
 
+            modelBuilder.Entity<ExternalVendorJob>()
+                .HasOne(j => j.OrderItem)
+                .WithMany(i => i.ExternalVendorJobs)
+                .HasForeignKey(j => j.OrderItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ExternalVendorJob>()
+                .HasOne(j => j.ExternalWorker)
+                .WithMany()
+                .HasForeignKey(j => j.ExternalWorkerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Seed External Workers Data
             modelBuilder.Entity<ExternalWorker>().HasData(
                 new ExternalWorker { ExternalWorkerId = 1, Name = "Rubel", Phone = "+971500000001", SupportedType = ExternalWorkerType.FullExternal },
@@ -102,7 +115,14 @@ namespace AbayaSystem.Infrastructure
 
         public static async Task SeedDatabaseAsync(BoutiqueDbContext context)
         {
-            await context.Database.EnsureCreatedAsync();
+            if (context.Database.IsRelational())
+            {
+                await context.Database.MigrateAsync();
+            }
+            else
+            {
+                await context.Database.EnsureCreatedAsync();
+            }
 
             if (!await context.Branches.AnyAsync())
             {

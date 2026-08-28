@@ -1,0 +1,277 @@
+@page "/tailor-assignment"
+@attribute [Authorize(Roles = "Admin,CuttingMaster,Salesman")]
+
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject BoutiqueDbContext DbContext
+@inject IWorkflowService WorkflowService
+@inject SweetAlertService Swal
+
+<PageTitle>Tailor Assignment - Abaya System</PageTitle>
+
+<div class="container-fluid p-0">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h3 class="fw-bold text-dark m-0">🧵 Tailor Assignment</h3>
+            <p class="text-muted small m-0">Assign cut items that are waiting for a tailor.</p>
+        </div>
+        <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
+            Waiting for Assignment: <strong>@filteredItems.Count</strong>
+        </span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        @foreach (var tailor in availableTailors)
+        {
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">@tailor.Name</div>
+                            <small class="text-muted">@tailor.Username</small>
+                        </div>
+                        <span class="badge bg-warning text-dark fs-6">@GetTailorWorkload(tailor.WorkerId)</span>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 small text-muted">Unfinished assigned tasks</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
+                    <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Delivery Date</label>
+                    <input type="date" class="form-control" @bind="deliveryDate" @bind:after="ApplyFilter" />
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-outline-secondary fw-bold" @onclick="ResetFilter">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted fw-bold">Loading tailor assignment queue...</p>
+        </div>
+    }
+    else if (!filteredItems.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center">
+            <i class="bi bi-check-circle-fill display-4 text-success"></i>
+            <h5 class="mt-3 fw-bold">No Tailor Assignments Pending</h5>
+            <p class="text-muted mb-0">All cut items have been assigned or no items match the selected filters.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Order No</th>
+                            <th>Item</th>
+                            <th>Customer</th>
+                            <th>Cut By</th>
+                            <th>Delivery Date</th>
+                            <th>Assign Tailor</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in filteredItems)
+                        {
+                            <tr>
+                                <td class="fw-bold">#@item.OrderId</td>
+                                <td>
+                                    <div class="fw-semibold">#@item.OrderItemId</div>
+                                    <small class="text-muted">@item.ModelTextDescription</small>
+                                </td>
+                                <td>@(item.Order?.Customer?.CustomerName ?? "N/A")</td>
+                                <td>@(item.CutByWorkerId?.ToString() ?? "N/A")</td>
+                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td style="min-width: 220px;">
+                                    <select class="form-select form-select-sm" value="@GetSelectedTailor(item.OrderItemId)" @onchange="e => SetSelectedTailor(item.OrderItemId, e)">
+                                        <option value="0">-- Select tailor --</option>
+                                        @foreach (var tailor in availableTailors)
+                                        {
+                                            <option value="@tailor.WorkerId">@tailor.Name (@GetTailorWorkload(tailor.WorkerId) assigned)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-primary fw-bold"
+                                            disabled="@(GetSelectedTailor(item.OrderItemId) == 0)"
+                                            @onclick="() => ConfirmAssignment(item)">
+                                        <i class="bi bi-person-check me-1"></i> Assign
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string orderSearch = string.Empty;
+    private DateTime? deliveryDate;
+    private List<Worker> availableTailors = new();
+    private List<OrderItem> allItems = new();
+    private List<OrderItem> filteredItems = new();
+    private Dictionary<int, int> tailorWorkloads = new();
+    private Dictionary<int, int> selectedTailors = new();
+
+    private static readonly ItemStatus[] UnfinishedTailorStatuses =
+    {
+        ItemStatus.QueueTailorAssignment,
+        ItemStatus.QueueHalfStitching,
+        ItemStatus.HalfStitchActive,
+        ItemStatus.QueueFullStitching,
+        ItemStatus.FullStitchActive
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+
+        availableTailors = await DbContext.Workers
+            .AsNoTracking()
+            .Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor)
+            .OrderBy(w => w.Name)
+            .ToListAsync();
+
+        tailorWorkloads = await DbContext.OrderItems
+            .Where(i => i.StitchedByWorkerId.HasValue && UnfinishedTailorStatuses.Contains(i.Status))
+            .GroupBy(i => i.StitchedByWorkerId!.Value)
+            .Select(g => new { WorkerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.WorkerId, x => x.Count);
+
+        allItems = await DbContext.OrderItems
+            .Include(i => i.Order)
+                .ThenInclude(o => o.Customer)
+            .Where(i => i.Status == ItemStatus.QueueTailorAssignment)
+            .ToListAsync();
+
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<OrderItem> query = allItems;
+
+        if (!string.IsNullOrWhiteSpace(orderSearch))
+        {
+            var search = orderSearch.Trim();
+            query = query.Where(i => i.OrderId.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (deliveryDate.HasValue)
+        {
+            query = query.Where(i => i.Order?.EstimatedDeliveryDate.Date == deliveryDate.Value.Date);
+        }
+
+        filteredItems = query
+            .OrderByDescending(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MinValue)
+            .ThenBy(i => i.OrderId)
+            .ThenBy(i => i.OrderItemId)
+            .ToList();
+    }
+
+    private void ResetFilter()
+    {
+        orderSearch = string.Empty;
+        deliveryDate = null;
+        ApplyFilter();
+    }
+
+    private int GetSelectedTailor(int orderItemId) =>
+        selectedTailors.TryGetValue(orderItemId, out var workerId) ? workerId : 0;
+
+    private void SetSelectedTailor(int orderItemId, ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var workerId))
+        {
+            selectedTailors[orderItemId] = workerId;
+        }
+    }
+
+    private int GetTailorWorkload(int workerId) => tailorWorkloads.GetValueOrDefault(workerId);
+
+    private async Task ConfirmAssignment(OrderItem item)
+    {
+        var tailorId = GetSelectedTailor(item.OrderItemId);
+        var tailor = availableTailors.FirstOrDefault(w => w.WorkerId == tailorId);
+        if (tailor == null) return;
+
+        var currentWorkload = GetTailorWorkload(tailorId);
+        var result = await Swal.FireAsync(new SweetAlertOptions
+        {
+            Title = "Confirm Tailor Assignment",
+            Text = $"Assign Order #{item.OrderId}, Item #{item.OrderItemId} to {tailor.Name}? They currently have {currentWorkload} unfinished task(s).",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Yes, Assign",
+            CancelButtonText = "Cancel",
+            ConfirmButtonColor = "#0d6efd"
+        });
+
+        if (!result.IsConfirmed) return;
+
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+        if (targetItem == null || targetItem.Status != ItemStatus.QueueTailorAssignment)
+        {
+            await Swal.FireAsync("Assignment unavailable", "The item has already changed status.", SweetAlertIcon.Warning);
+            await LoadDataAsync();
+            return;
+        }
+
+        var nextStatus = WorkflowService.DetermineNextStatusAfterCutting(
+            targetItem.TypeOfOrder,
+            targetItem.HandEmbRequired);
+
+        var assigned = await WorkflowService.TransitionStatusAsync(
+            targetItem.OrderItemId,
+            nextStatus,
+            assignedWorkerId: tailor.WorkerId,
+            notes: "Tailor assigned after cutting was completed.");
+
+        if (assigned)
+        {
+            await Swal.FireAsync(new SweetAlertOptions
+            {
+                Title = "Assignment Saved",
+                Text = $"Item #{targetItem.OrderItemId} is queued for {tailor.Name}.",
+                Icon = SweetAlertIcon.Success,
+                Timer = 1800,
+                ShowConfirmButton = false
+            });
+        }
+
+        await LoadDataAsync();
+    }
+}
