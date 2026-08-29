@@ -435,18 +435,12 @@ namespace AbayaSystem.Infrastructure
 
             foreach (var item in order.Items)
             {
-                string workflowKey = "Internal";
-                if (item.ExternalWorkerId.HasValue)
+                string workflowKey = item.TypeOfOrder switch
                 {
-                    if (item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid)
-                    {
-                        workflowKey = $"Hybrid_{item.ExternalWorkerId}";
-                    }
-                    else
-                    {
-                        workflowKey = $"External_{item.ExternalWorkerId}";
-                    }
-                }
+                    OrderType.Hybrid when item.ExternalWorkerId.HasValue => $"Hybrid_{item.ExternalWorkerId}",
+                    OrderType.External when item.ExternalWorkerId.HasValue => $"External_{item.ExternalWorkerId}",
+                    _ => "Internal"
+                };
 
                 // Item is considered locked if it has progressed past its initial queue state
                 bool isLocked = item.Status != ItemStatus.ReadyForFabricProcurement && item.Status != ItemStatus.QueueExternalVendor;

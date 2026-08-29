@@ -105,6 +105,10 @@
                                                 <i class="bi bi-box-arrow-in-left me-2"></i>
                                                 External Vendor Returns
                                             </a>
+                                            <a href="/ready-items" class="@GetActiveStyle("/ready-items")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-box-seam me-2"></i>
+                                                Ready Items
+                                            </a>
                                         }
 
                                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
@@ -322,7 +326,7 @@
     {
         var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
 
-        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("hand-embroiderer-dashboard") || currentUrl.StartsWith("external-dispatch") || currentUrl.StartsWith("external-vendor-tracking") || currentUrl.StartsWith("external-vendor-returns") || currentUrl.StartsWith("hand-embroidery-assignment") || currentUrl.StartsWith("tailor-assignment"))
+        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("hand-embroiderer-dashboard") || currentUrl.StartsWith("external-dispatch") || currentUrl.StartsWith("external-vendor-tracking") || currentUrl.StartsWith("external-vendor-returns") || currentUrl.StartsWith("hand-embroidery-assignment") || currentUrl.StartsWith("tailor-assignment") || currentUrl.StartsWith("ready-items"))
         {
             isWorkflowOpen = true;
         }

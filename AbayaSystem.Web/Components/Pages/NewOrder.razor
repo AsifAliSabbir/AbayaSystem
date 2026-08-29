@@ -124,8 +124,8 @@
 
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Name *</label>
-                            <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Search or type full name..."
-                                   value="@orderModel.CustomerName" @oninput="OnCustomerNameInput" />
+                             <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Search or type full name..."
+                                    @bind="orderModel.CustomerName" @bind:event="oninput" @bind:after="OnCustomerNameChanged" />
 
                             @if (showDropdown && activeSearchField == "name" && searchResults.Count > 0)
                             {
@@ -142,8 +142,8 @@
 
                         <div class="col-md-6 position-relative">
                             <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
-                            <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp number..."
-                                   value="@orderModel.CustomerPhone" @oninput="OnCustomerPhoneInput" />
+                             <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp number..."
+                                    @bind="orderModel.CustomerPhone" @bind:event="oninput" @bind:after="OnCustomerPhoneChanged" />
 
                             @if (showDropdown && activeSearchField == "phone" && searchResults.Count > 0)
                             {
@@ -693,18 +693,16 @@
         }
     }
 
-    private async Task OnCustomerNameInput(ChangeEventArgs e)
+    private async Task OnCustomerNameChanged()
     {
         activeSearchField = "name";
-        orderModel.CustomerName = e.Value?.ToString() ?? string.Empty;
         orderModel.CustomerId = null;
         await PerformCustomerSearch(orderModel.CustomerName);
     }
 
-    private async Task OnCustomerPhoneInput(ChangeEventArgs e)
+    private async Task OnCustomerPhoneChanged()
     {
         activeSearchField = "phone";
-        orderModel.CustomerPhone = e.Value?.ToString() ?? string.Empty;
         orderModel.CustomerId = null;
         await PerformCustomerSearch(orderModel.CustomerPhone);
     }

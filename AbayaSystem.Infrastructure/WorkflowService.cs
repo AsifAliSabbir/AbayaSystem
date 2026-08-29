@@ -55,7 +55,8 @@ namespace AbayaSystem.Infrastructure
 
         public ItemStatus DetermineNextStatusAfterFabricProcurement(OrderItem item)
         {
-            if (item.TypeOfOrder == OrderType.External)
+            if (item.TypeOfOrder == OrderType.External ||
+                (item.TypeOfOrder == OrderType.Internal && item.ExternalWorkerId.HasValue))
             {
                 return ItemStatus.QueueExternalVendor;
             }
@@ -81,7 +82,7 @@ namespace AbayaSystem.Infrastructure
 
         public ItemStatus DetermineNextStatusAfterHalfStitching(OrderType orderType, bool handEmbRequired, bool rawFabricEmb)
         {
-            if (orderType == OrderType.Hybrid && !rawFabricEmb)
+            if (orderType == OrderType.Hybrid)
             {
                 return ItemStatus.QueueHalfStitchEmb;
             }
@@ -208,6 +209,11 @@ namespace AbayaSystem.Infrastructure
 
             // Update item state
             item.Status = newStatus;
+
+            if (newStatus == ItemStatus.Delivered)
+            {
+                item.ActualDeliveryDate = DateTime.UtcNow;
+            }
 
             // Update worker assignment if supplied
             if (assignedWorkerId.HasValue)

@@ -234,6 +234,7 @@ namespace AbayaSystem.Core
 
         public bool IsAbayaFabricBought { get; set; } = false;
         public bool IsSheilaFabricBought { get; set; } = false;
+        public DateTime? ActualDeliveryDate { get; set; }
 
         public ItemCategory Category { get; set; } = ItemCategory.Abaya;
         public int? ExternalWorkerId { get; set; }
