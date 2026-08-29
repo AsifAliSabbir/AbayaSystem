@@ -42,32 +42,7 @@
                 <div class="offcanvas-body d-flex flex-column flex-grow-1 p-0 overflow-y-auto">
                     <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
 
-                        <!-- 📦 ORDERS SECTION (Salesman & Admin) -->
-                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
-                        {
-                            <div class="nav-accordion-group">
-                                <button type="button"
-                                        class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
-                                        @onclick='() => ToggleSection("orders")'>
-                                    <span class="fw-bold text-uppercase tracking-wider small opacity-75">
-                                        <i class="bi bi-box-seam me-2 text-warning"></i> Orders
-                                    </span>
-                                    <i class="bi @(isOrdersOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
-                                </button>
-
-                                @if (isOrdersOpen)
-                                {
-                                    <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
-                                        <a href="/orders" class="@GetActiveStyle("/orders")" @onclick="CloseMobileMenu">
-                                            <i class="bi bi-list-task me-2"></i>
-                                            All Orders
-                                        </a>
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        <!-- 🔄 WORKFLOW SECTION (Admin, Salesman, Cutting Master, Tailor) -->
+                        <!-- 🔄 WORKFLOW SECTION -->
                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master") || context.User.IsInRole("Tailor") || context.User.IsInRole("HandEmbroiderer"))
                         {
                             <div class="nav-accordion-group">
@@ -93,35 +68,6 @@
                                                 <i class="bi bi-cart-check me-2"></i>
                                                 Fabric Procurement
                                             </a>
-                                            <a href="/external-dispatch" class="@GetActiveStyle("/external-dispatch")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-truck me-2"></i>
-                                                External Dispatch
-                                            </a>
-                                            <a href="/external-vendor-tracking" class="@GetActiveStyle("/external-vendor-tracking")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-binoculars me-2"></i>
-                                                External Vendor Tracking
-                                            </a>
-                                            <a href="/external-vendor-returns" class="@GetActiveStyle("/external-vendor-returns")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-box-arrow-in-left me-2"></i>
-                                                External Vendor Returns
-                                            </a>
-                                            <a href="/ready-items" class="@GetActiveStyle("/ready-items")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-box-seam me-2"></i>
-                                                Ready Items
-                                            </a>
-                                        }
-
-                                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
-                                        {
-                                            <a href="/hand-embroidery-assignment" class="@GetActiveStyle("/hand-embroidery-assignment")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-person-check me-2"></i>
-                                                Hand Embroidery Assignment
-                                            </a>
-
-                                            <a href="/tailor-assignment" class="@GetActiveStyle("/tailor-assignment")" @onclick="CloseMobileMenu">
-                                                <i class="bi bi-person-workspace me-2"></i>
-                                                Tailor Assignment
-                                            </a>
                                         }
 
                                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
@@ -132,11 +78,39 @@
                                             </a>
                                         }
 
+                                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
+                                        {
+                                            <a href="/tailor-assignment" class="@GetActiveStyle("/tailor-assignment")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-person-workspace me-2"></i>
+                                                Tailors Assignment
+                                            </a>
+                                        }
+
                                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master") || context.User.IsInRole("Tailor"))
                                         {
                                             <a href="/tailor-dashboard" class="@GetActiveStyle("/tailor-dashboard")" @onclick="CloseMobileMenu">
                                                 <i class="bi bi-scissors me-2"></i>
                                                 Tailors Dashboard
+                                            </a>
+                                        }
+
+                                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
+                                        {
+                                            <a href="/external-dispatch" class="@GetActiveStyle("/external-dispatch")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-truck me-2"></i>
+                                                External Dispatch
+                                            </a>
+                                            <a href="/external-vendor-returns" class="@GetActiveStyle("/external-vendor-returns")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-box-arrow-in-left me-2"></i>
+                                                External Vendor Returns
+                                            </a>
+                                        }
+
+                                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman") || context.User.IsInRole("CuttingMaster") || context.User.IsInRole("Cutting Master"))
+                                        {
+                                            <a href="/hand-embroidery-assignment" class="@GetActiveStyle("/hand-embroidery-assignment")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-person-check me-2"></i>
+                                                Hand Embroidery Assignment
                                             </a>
                                         }
 
@@ -152,51 +126,70 @@
                             </div>
                         }
 
-                        <!-- 👥 WORKERS SECTION (Admin Only) -->
-                        @if (context.User.IsInRole("Admin"))
+                        <!-- 📦 OVERVIEW SECTION -->
+                        @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
                         {
                             <div class="nav-accordion-group">
                                 <button type="button"
                                         class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
-                                        @onclick='() => ToggleSection("workers")'>
+                                        @onclick='() => ToggleSection("overview")'>
                                     <span class="fw-bold text-uppercase tracking-wider small opacity-75">
-                                        <i class="bi bi-people me-2 text-warning"></i> Workers
+                                        <i class="bi bi-box-seam me-2 text-warning"></i> Overview
                                     </span>
-                                    <i class="bi @(isWorkersOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
+                                    <i class="bi @(isOverviewOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
                                 </button>
 
-                                @if (isWorkersOpen)
+                                @if (isOverviewOpen)
                                 {
                                     <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
-                                        <a href="/workers" class="@GetActiveStyle("/workers")" @onclick="CloseMobileMenu">
-                                            <i class="bi bi-scissors me-2"></i>
-                                            Internal Worker Entry
+                                        <a href="/dashboard" class="@GetActiveStyle("/dashboard")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-speedometer2 me-2"></i>
+                                            Dashboard
                                         </a>
-                                        <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
-                                            <i class="bi bi-shop me-2"></i>
-                                            External Worker Entry
+                                        <a href="/orders" class="@GetActiveStyle("/orders")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-list-task me-2"></i>
+                                            All orders
+                                        </a>
+                                        <a href="/external-vendor-tracking" class="@GetActiveStyle("/external-vendor-tracking")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-binoculars me-2"></i>
+                                            External Vendor Tracking
+                                        </a>
+                                        <a href="/ready-items" class="@GetActiveStyle("/ready-items")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-box-seam me-2"></i>
+                                            Ready Items
                                         </a>
                                     </div>
                                 }
                             </div>
                         }
 
-                        <!-- 🧵 FABRICS SECTION (Salesman & Admin) -->
+                        <!-- 📝 DATA ENTRY SECTION -->
                         @if (context.User.IsInRole("Admin") || context.User.IsInRole("Salesman"))
                         {
                             <div class="nav-accordion-group">
                                 <button type="button"
                                         class="accordion-header-btn w-100 d-flex justify-content-between align-items-center p-2 rounded-3 text-white border-0 bg-transparent"
-                                        @onclick='() => ToggleSection("fabrics")'>
+                                        @onclick='() => ToggleSection("dataEntry")'>
                                     <span class="fw-bold text-uppercase tracking-wider small opacity-75">
-                                        <i class="bi bi-layers me-2 text-warning"></i> Fabrics
+                                        <i class="bi bi-pencil-square me-2 text-warning"></i> DataEntry
                                     </span>
-                                    <i class="bi @(isFabricsOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
+                                    <i class="bi @(isDataEntryOpen ? "bi-chevron-down" : "bi-chevron-right") small text-muted"></i>
                                 </button>
 
-                                @if (isFabricsOpen)
+                                @if (isDataEntryOpen)
                                 {
                                     <div class="nav-children-container ps-3 d-flex flex-column gap-1 mt-1">
+                                        @if (context.User.IsInRole("Admin"))
+                                        {
+                                            <a href="/workers" class="@GetActiveStyle("/workers")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-scissors me-2"></i>
+                                                Internal Worker Entry
+                                            </a>
+                                            <a href="/external-workers" class="@GetActiveStyle("/external-workers")" @onclick="CloseMobileMenu">
+                                                <i class="bi bi-shop me-2"></i>
+                                                External Worker Entry
+                                            </a>
+                                        }
                                         <a href="/fabric-suppliers" class="@GetActiveStyle("/fabric-suppliers")" @onclick="CloseMobileMenu">
                                             <i class="bi bi-building me-2"></i>
                                             Fabric Supplier Entry
@@ -293,10 +286,9 @@
     private bool isUserMenuOpen = false;
 
     // Accordion Expansion States
-    private bool isOrdersOpen = true;
     private bool isWorkflowOpen = true;
-    private bool isWorkersOpen = false;
-    private bool isFabricsOpen = false;
+    private bool isOverviewOpen = true;
+    private bool isDataEntryOpen = false;
 
     protected override void OnInitialized()
     {
@@ -307,17 +299,14 @@
     {
         switch (sectionName.ToLower())
         {
-            case "orders":
-                isOrdersOpen = !isOrdersOpen;
-                break;
             case "workflow":
                 isWorkflowOpen = !isWorkflowOpen;
                 break;
-            case "workers":
-                isWorkersOpen = !isWorkersOpen;
+            case "overview":
+                isOverviewOpen = !isOverviewOpen;
                 break;
-            case "fabrics":
-                isFabricsOpen = !isFabricsOpen;
+            case "dataentry":
+                isDataEntryOpen = !isDataEntryOpen;
                 break;
         }
     }
@@ -326,21 +315,21 @@
     {
         var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
 
-        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("hand-embroiderer-dashboard") || currentUrl.StartsWith("external-dispatch") || currentUrl.StartsWith("external-vendor-tracking") || currentUrl.StartsWith("external-vendor-returns") || currentUrl.StartsWith("hand-embroidery-assignment") || currentUrl.StartsWith("tailor-assignment") || currentUrl.StartsWith("ready-items"))
+        if (currentUrl.Equals("orders/new") || currentUrl.StartsWith("fabric-procurement") || currentUrl.StartsWith("cutting-dashboard") || currentUrl.StartsWith("tailor-dashboard") || currentUrl.StartsWith("hand-embroiderer-dashboard") || currentUrl.StartsWith("external-dispatch") || currentUrl.StartsWith("external-vendor-returns") || currentUrl.StartsWith("hand-embroidery-assignment") || currentUrl.StartsWith("tailor-assignment"))
         {
             isWorkflowOpen = true;
         }
-        else if (currentUrl.StartsWith("orders"))
+        else if (currentUrl.StartsWith("orders") || currentUrl.StartsWith("external-vendor-tracking") || currentUrl.StartsWith("ready-items"))
         {
-            isOrdersOpen = true;
+            isOverviewOpen = true;
         }
         else if (currentUrl.StartsWith("workers") || currentUrl.StartsWith("external-workers"))
         {
-            isWorkersOpen = true;
+            isDataEntryOpen = true;
         }
         else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types"))
         {
-            isFabricsOpen = true;
+            isDataEntryOpen = true;
         }
     }
 

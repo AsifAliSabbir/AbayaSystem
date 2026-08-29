@@ -1,0 +1,309 @@
+@page "/dashboard"
+@attribute [Authorize(Roles = "Admin,Salesman")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+
+@inject IOrderService OrderService
+<PageTitle>Dashboard</PageTitle>
+
+<div class="container-fluid max-w-1200 py-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold mb-1" style="color: #1a1a1a;">System Dashboard</h3>
+            <p class="text-muted small mb-0">A live overview of orders, production, delivery, and collections</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label for="dashboard-branch" class="small fw-semibold text-muted">Branch</label>
+            <select id="dashboard-branch" class="form-select shadow-sm" style="min-width: 180px;" value="@SelectedBranchId" @onchange="OnBranchChanged">
+                <option value="0">All Branches</option>
+                @foreach (var branch in branches.Where(b => !b.IsWorkshop))
+                {
+                    <option value="@branch.BranchId">@branch.BranchName</option>
+                }
+            </select>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label for="dashboard-date-from" class="small fw-semibold text-muted">Order dates</label>
+            <input id="dashboard-date-from" type="date" class="form-control shadow-sm" @bind="OrderDateFrom" @bind:after="LoadDashboardAsync" />
+            <span class="text-muted">to</span>
+            <input id="dashboard-date-to" type="date" class="form-control shadow-sm" @bind="OrderDateTo" @bind:after="LoadDashboardAsync" />
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3">Loading dashboard...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <SummaryCard Title="Total Orders" Value="@summary.TotalOrders.ToString("N0")" Icon="bi-box-seam" Color="primary" />
+            <SummaryCard Title="Active Items" Value="@summary.ActiveItems.ToString("N0")" Icon="bi-arrow-repeat" Color="warning" />
+            <SummaryCard Title="Delivered Items" Value="@summary.DeliveredItems.ToString("N0")" Icon="bi-check2-circle" Color="success" />
+            <SummaryCard Title="Overdue Orders" Value="@summary.OverdueOrders.ToString("N0")" Icon="bi-exclamation-triangle" Color="danger" />
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-xl-8">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-header bg-white border-0 pt-3 px-4">
+                        <h6 class="fw-bold mb-1"><i class="bi bi-bar-chart-line text-warning me-2"></i>Production Pipeline</h6>
+                        <p class="text-muted small mb-0">Current item distribution by workflow status</p>
+                    </div>
+                    <div class="card-body px-4">
+                        @if (summary.StatusCounts.Count == 0)
+                        {
+                            <p class="text-muted text-center py-4 mb-0">No production items found.</p>
+                        }
+                        else
+                        {
+                            @foreach (var status in summary.StatusCounts)
+                            {
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-semibold">@FormatStatus(status.Status)</span>
+                                        <span class="text-muted">@status.Count</span>
+                                    </div>
+                                    <div class="progress" style="height: 9px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: @GetStatusWidth(status.Count)%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-header bg-white border-0 pt-3 px-4">
+                        <h6 class="fw-bold mb-1"><i class="bi bi-wallet2 text-warning me-2"></i>Financial Overview</h6>
+                        <p class="text-muted small mb-0">Totals for the selected scope</p>
+                    </div>
+                    <div class="card-body px-4">
+                        <div class="financial-row"><span>Total Amount</span><strong>@summary.TotalAmount.ToString("N2")</strong></div>
+                        <div class="financial-row"><span>Deposits Received</span><strong class="text-success">@summary.DepositsReceived.ToString("N2")</strong></div>
+                        <div class="financial-row"><span>Balance Due</span><strong class="text-danger">@summary.BalanceDue.ToString("N2")</strong></div>
+                        <hr />
+                        <div class="financial-row"><span>Urgent Orders</span><strong>@summary.UrgentOrders</strong></div>
+                        <div class="financial-row"><span>Fabric Procurement</span><strong>@summary.PendingFabricProcurement</strong></div>
+                        <div class="financial-row"><span>External Work in Progress</span><strong>@summary.ExternalItemsInProgress</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3 mb-4">
+            <div class="card-header bg-white border-0 pt-3 px-4">
+                <h6 class="fw-bold mb-1"><i class="bi bi-people text-warning me-2"></i>Workers' Current Tasks</h6>
+                <p class="text-muted small mb-0">Active internal worker assignments and task start times</p>
+            </div>
+            <div class="card-body p-0">
+                @if (summary.WorkerTasks.Count == 0)
+                {
+                    <p class="text-muted text-center py-4 mb-0">No active worker tasks found.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted">
+                                <tr>
+                                    <th class="ps-4">Worker</th>
+                                    <th>Role</th>
+                                    <th>Order</th>
+                                    <th>Customer</th>
+                                    <th>Item</th>
+                                    <th>Current Task</th>
+                                    <th>Started At</th>
+                                    <th>Delivery Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var task in summary.WorkerTasks)
+                                {
+                                    <tr>
+                                        <td class="ps-4 fw-bold">@task.WorkerName</td>
+                                        <td><span class="badge bg-light text-dark border">@task.WorkerRole</span></td>
+                                        <td><a href="@($"/orders?orderId={Uri.EscapeDataString(task.OrderId)}")" class="text-decoration-none fw-semibold">@task.OrderId</a></td>
+                                        <td>@task.CustomerName</td>
+                                        <td>@task.ModelDescription</td>
+                                        <td><span class="badge bg-primary">@FormatStatus(task.Status)</span></td>
+                                        <td class="fw-semibold">@task.TaskStartedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                                        <td>@task.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white border-0 pt-3 px-4">
+                <h6 class="fw-bold mb-1"><i class="bi bi-clock-history text-warning me-2"></i>Recent Orders</h6>
+                <p class="text-muted small mb-0">The latest orders in the selected scope</p>
+            </div>
+            <div class="card-body p-0">
+                @if (summary.RecentOrders.Count == 0)
+                {
+                    <p class="text-muted text-center py-4 mb-0">No orders found.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted">
+                                <tr>
+                                    <th class="ps-4">Order</th>
+                                    <th>Customer</th>
+                                    <th>Branch</th>
+                                    <th>Order Date</th>
+                                    <th>Delivery Date</th>
+                                    <th>Items</th>
+                                    <th>Status</th>
+                                    <th class="text-end pe-4">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var order in summary.RecentOrders)
+                                {
+                                    <tr>
+                                        <td class="ps-4 fw-bold">
+                                            <a href="@($"/orders?orderId={Uri.EscapeDataString(order.OrderId)}")" class="text-decoration-none">@order.OrderId</a>
+                                            @if (order.IsUrgent)
+                                            {
+                                                <span class="badge bg-danger ms-1">Urgent</span>
+                                            }
+                                        </td>
+                                        <td>@order.CustomerName</td>
+                                        <td>@order.BranchName</td>
+                                        <td>@order.OrderDate.ToString("dd MMM yyyy")</td>
+                                        <td>@order.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                        <td>@order.ItemCount</td>
+                                        <td><span class="badge bg-light text-dark border">@FormatStatus(order.PrimaryStatus)</span></td>
+                                        <td class="text-end pe-4 fw-semibold">@order.TotalAmount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3 mt-4">
+            <div class="card-header bg-white border-0 pt-3 px-4">
+                <h6 class="fw-bold mb-1"><i class="bi bi-hourglass-split text-warning me-2"></i>Undelivered Items</h6>
+                <p class="text-muted small mb-0">All outstanding items, sorted by delivery date</p>
+            </div>
+            <div class="card-body p-0">
+                @if (summary.UndeliveredItems.Count == 0)
+                {
+                    <p class="text-success text-center py-4 mb-0"><i class="bi bi-check-circle me-1"></i>All items have been delivered.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-muted">
+                                <tr>
+                                    <th class="ps-4">Order</th>
+                                    <th>Customer</th>
+                                    <th>Branch</th>
+                                    <th>Item</th>
+                                    <th>Status</th>
+                                    <th>Order Date</th>
+                                    <th>Delivery Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in summary.UndeliveredItems)
+                                {
+                                    <tr class="@(IsOverdue(item) ? "table-danger" : "")">
+                                        <td class="ps-4 fw-bold">
+                                            <a href="@($"/orders?orderId={Uri.EscapeDataString(item.OrderId)}")" class="text-decoration-none">@item.OrderId</a>
+                                            @if (item.IsUrgent)
+                                            {
+                                                <span class="badge bg-danger ms-1">Urgent</span>
+                                            }
+                                        </td>
+                                        <td>@item.CustomerName</td>
+                                        <td>@item.BranchName</td>
+                                        <td>@item.ModelDescription</td>
+                                        <td><span class="badge bg-light text-dark border">@FormatStatus(item.Status)</span></td>
+                                        <td>@item.OrderDate.ToString("dd MMM yyyy")</td>
+                                        <td class="fw-bold">@item.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardSummary summary = new();
+    private List<Branch> branches = new();
+    private int SelectedBranchId { get; set; }
+    private DateTime? OrderDateFrom { get; set; } = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime? OrderDateTo { get; set; } = new(DateTime.Today.Year, DateTime.Today.Month, DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month));
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        branches = await OrderService.GetBranchesAsync();
+        await LoadDashboardAsync();
+    }
+
+    private async Task OnBranchChanged(ChangeEventArgs args)
+    {
+        SelectedBranchId = int.TryParse(args.Value?.ToString(), out var branchId) ? branchId : 0;
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        isLoading = true;
+        summary = await OrderService.GetDashboardSummaryAsync(
+            SelectedBranchId > 0 ? SelectedBranchId : null,
+            OrderDateFrom,
+            OrderDateTo);
+        isLoading = false;
+    }
+
+    private int GetStatusWidth(int count)
+    {
+        var max = summary.StatusCounts.Count == 0 ? 1 : summary.StatusCounts.Max(x => x.Count);
+        return Math.Max(4, (int)Math.Round(count * 100.0 / max));
+    }
+
+    private static string FormatStatus(ItemStatus? status) =>
+        status?.ToString() is { } value
+            ? string.Concat(value.Select((character, index) => index > 0 && char.IsUpper(character) ? $" {character}" : character.ToString()))
+            : "No status";
+
+    private static bool IsOverdue(DashboardUndeliveredItem item) =>
+        item.EstimatedDeliveryDate.Date < DateTime.Today;
+}
+
+<style>
+    .financial-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: .55rem 0;
+        color: #6c757d;
+    }
+
+    .financial-row strong {
+        color: #212529;
+    }
+
+</style>

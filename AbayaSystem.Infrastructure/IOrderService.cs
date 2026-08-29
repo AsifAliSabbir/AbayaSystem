@@ -21,6 +21,7 @@ namespace AbayaSystem.Infrastructure
         Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync();
         Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId);
         Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
+        Task<DashboardSummary> GetDashboardSummaryAsync(int? branchId = null, DateTime? orderDateFrom = null, DateTime? orderDateTo = null);
         Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
         Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
     }
@@ -391,6 +392,179 @@ namespace AbayaSystem.Infrastructure
                 TotalCount = totalCount,
                 Page = filter.Page,
                 PageSize = filter.PageSize
+            };
+        }
+
+        public async Task<DashboardSummary> GetDashboardSummaryAsync(int? branchId = null, DateTime? orderDateFrom = null, DateTime? orderDateTo = null)
+        {
+            var ordersQuery = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Branch)
+                .Include(o => o.Customer)
+                .Include(o => o.Items)
+                .AsQueryable();
+
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                ordersQuery = ordersQuery.Where(o => o.BranchId == branchId.Value);
+            }
+
+            if (orderDateFrom.HasValue)
+            {
+                ordersQuery = ordersQuery.Where(o => o.OrderDate >= orderDateFrom.Value.Date);
+            }
+
+            if (orderDateTo.HasValue)
+            {
+                ordersQuery = ordersQuery.Where(o => o.OrderDate <= orderDateTo.Value.Date.AddDays(1).AddTicks(-1));
+            }
+
+            var orders = await ordersQuery.ToListAsync();
+            var items = orders.SelectMany(o => o.Items).ToList();
+
+            var undeliveredOrdersQuery = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Branch)
+                .Include(o => o.Customer)
+                .Include(o => o.Items)
+                .Where(o => o.Items.Any(i => i.Status != ItemStatus.Delivered));
+
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                undeliveredOrdersQuery = undeliveredOrdersQuery.Where(o => o.BranchId == branchId.Value);
+            }
+
+            var undeliveredOrders = await undeliveredOrdersQuery.ToListAsync();
+
+            var currentTaskStatuses = new[]
+            {
+                ItemStatus.QueueHalfStitching,
+                ItemStatus.HalfStitchActive,
+                ItemStatus.QueueFullStitching,
+                ItemStatus.FullStitchActive,
+                ItemStatus.QueueHandEmb,
+                ItemStatus.HandEmbActive
+            };
+
+            var workerTasksQuery = _context.OrderItems
+                .AsNoTracking()
+                .Include(i => i.Order)
+                    .ThenInclude(o => o.Customer)
+                .Where(i => currentTaskStatuses.Contains(i.Status) &&
+                    (i.StitchedByWorkerId.HasValue || i.HandEmbroideredByWorkerId.HasValue));
+
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                workerTasksQuery = workerTasksQuery.Where(i => i.BranchId == branchId.Value);
+            }
+
+            var workerTaskItems = await workerTasksQuery.ToListAsync();
+            var workerIds = workerTaskItems
+                .Select(i => i.Status == ItemStatus.QueueHandEmb || i.Status == ItemStatus.HandEmbActive
+                    ? i.HandEmbroideredByWorkerId
+                    : i.StitchedByWorkerId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+            var workers = await _context.Workers
+                .AsNoTracking()
+                .Where(w => workerIds.Contains(w.WorkerId))
+                .ToDictionaryAsync(w => w.WorkerId);
+            var workerTaskItemIds = workerTaskItems.Select(i => i.OrderItemId).ToList();
+            var taskLogs = await _context.StatusLogs
+                .AsNoTracking()
+                .Where(l => workerTaskItemIds.Contains(l.OrderItemId))
+                .OrderByDescending(l => l.TimeOfEvent)
+                .ToListAsync();
+            var today = DateTime.Today;
+
+            return new DashboardSummary
+            {
+                TotalOrders = orders.Count,
+                TotalItems = items.Count,
+                ActiveItems = items.Count(i => i.Status != ItemStatus.Delivered),
+                DeliveredItems = items.Count(i => i.Status == ItemStatus.Delivered),
+                UrgentOrders = orders.Count(o => o.IsUrgent),
+                OverdueOrders = orders.Count(o => o.EstimatedDeliveryDate.Date < today && o.Items.Any(i => i.Status != ItemStatus.Delivered)),
+                PendingFabricProcurement = items.Count(i => i.Status == ItemStatus.ReadyForFabricProcurement),
+                ExternalItemsInProgress = items.Count(i => i.Status == ItemStatus.QueueExternalVendor || i.Status == ItemStatus.OutWithExternalVendor || i.Status == ItemStatus.QueueRawFabricEmb || i.Status == ItemStatus.OutForRawFabricEmb || i.Status == ItemStatus.QueueHalfStitchEmb || i.Status == ItemStatus.OutForHalfStitchEmb),
+                TotalAmount = orders.Sum(o => o.TotalAmount),
+                DepositsReceived = orders.Sum(o => o.DepositPaid),
+                BalanceDue = orders.Sum(o => o.BalanceDue),
+                StatusCounts = items
+                    .GroupBy(i => i.Status)
+                    .Select(g => new DashboardStatusCount { Status = g.Key, Count = g.Count() })
+                    .OrderByDescending(x => x.Count)
+                    .ToList(),
+                RecentOrders = orders
+                    .OrderByDescending(o => o.OrderDate)
+                    .ThenByDescending(o => o.IsUrgent)
+                    .Take(8)
+                    .Select(o => new DashboardRecentOrder
+                    {
+                        BranchId = o.BranchId,
+                        OrderId = o.OrderId,
+                        CustomerName = o.Customer?.CustomerName ?? "Unknown customer",
+                        BranchName = o.Branch?.BranchName ?? "Unknown branch",
+                        OrderDate = o.OrderDate,
+                        EstimatedDeliveryDate = o.EstimatedDeliveryDate,
+                        TotalAmount = o.TotalAmount,
+                        IsUrgent = o.IsUrgent,
+                        ItemCount = o.Items.Count,
+                        PrimaryStatus = o.Items.FirstOrDefault()?.Status
+                    })
+                    .ToList(),
+                UndeliveredItems = undeliveredOrders
+                    .SelectMany(o => o.Items.Select(i => new DashboardUndeliveredItem
+                    {
+                        BranchId = o.BranchId,
+                        OrderItemId = i.OrderItemId,
+                        OrderId = o.OrderId,
+                        CustomerName = o.Customer?.CustomerName ?? "Unknown customer",
+                        BranchName = o.Branch?.BranchName ?? "Unknown branch",
+                        ModelDescription = i.ModelTextDescription,
+                        Status = i.Status,
+                        OrderDate = o.OrderDate,
+                        EstimatedDeliveryDate = o.EstimatedDeliveryDate,
+                        IsUrgent = o.IsUrgent
+                    }))
+                    .Where(i => i.Status != ItemStatus.Delivered)
+                    .OrderBy(i => i.EstimatedDeliveryDate)
+                    .ThenByDescending(i => i.IsUrgent)
+                    .ToList(),
+                WorkerTasks = workerTaskItems
+                    .Select(i =>
+                    {
+                        var isHandEmbroidery = i.Status == ItemStatus.QueueHandEmb || i.Status == ItemStatus.HandEmbActive;
+                        var workerId = isHandEmbroidery ? i.HandEmbroideredByWorkerId : i.StitchedByWorkerId;
+                        var worker = workerId.HasValue && workers.TryGetValue(workerId.Value, out var assignedWorker)
+                            ? assignedWorker
+                            : null;
+                        var startLog = taskLogs.FirstOrDefault(l =>
+                            l.OrderItemId == i.OrderItemId &&
+                            l.CurrentWorkerId == workerId &&
+                            l.CurrentState == i.Status)
+                            ?? taskLogs.FirstOrDefault(l => l.OrderItemId == i.OrderItemId && l.CurrentState == i.Status);
+
+                        return new DashboardWorkerTask
+                        {
+                            WorkerId = workerId ?? 0,
+                            WorkerName = worker?.Name ?? "Unassigned",
+                            WorkerRole = isHandEmbroidery ? "Hand Embroiderer" : "Tailor",
+                            OrderItemId = i.OrderItemId,
+                            OrderId = i.OrderId,
+                            CustomerName = i.Order?.Customer?.CustomerName ?? "Unknown customer",
+                            ModelDescription = i.ModelTextDescription,
+                            Status = i.Status,
+                            TaskStartedAt = startLog?.TimeOfEvent ?? i.Order?.OrderDate ?? DateTime.Today,
+                            EstimatedDeliveryDate = i.Order?.EstimatedDeliveryDate ?? DateTime.Today
+                        };
+                    })
+                    .Where(t => t.WorkerId > 0)
+                    .OrderBy(t => t.WorkerName)
+                    .ThenBy(t => t.TaskStartedAt)
+                    .ToList()
             };
         }
 
