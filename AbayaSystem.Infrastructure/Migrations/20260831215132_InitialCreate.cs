@@ -94,6 +94,26 @@ namespace AbayaSystem.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StatusLogs",
+                columns: table => new
+                {
+                    StatusLogId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OrderId = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    OrderItemId = table.Column<int>(type: "int", nullable: false),
+                    PreviousState = table.Column<int>(type: "int", nullable: true),
+                    CurrentState = table.Column<int>(type: "int", nullable: false),
+                    PreviousWorkerId = table.Column<int>(type: "int", nullable: true),
+                    CurrentWorkerId = table.Column<int>(type: "int", nullable: true),
+                    TimeOfEvent = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StatusLogs", x => x.StatusLogId);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Suppliers",
                 columns: table => new
                 {
@@ -144,7 +164,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                     ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsUrgent = table.Column<bool>(type: "bit", nullable: false),
                     Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    TypeOfOrder = table.Column<int>(type: "int", nullable: false),
                     TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     DepositPaid = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     BalanceDue = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
@@ -170,16 +189,13 @@ namespace AbayaSystem.Infrastructure.Migrations
                 name: "OrderItems",
                 columns: table => new
                 {
-                    OrderItemId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OrderItemId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
                     OrderId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ModelTextDescription = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     FabricShopId = table.Column<int>(type: "int", nullable: true),
                     FabricId = table.Column<int>(type: "int", nullable: true),
                     ColorCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IsShopProvidingFabric = table.Column<bool>(type: "bit", nullable: false),
-                    HybridProcess = table.Column<int>(type: "int", nullable: false),
                     SelectedSheilaSize = table.Column<int>(type: "int", nullable: false),
                     IsReadyMadeAlteration = table.Column<bool>(type: "bit", nullable: false),
                     AlterationNotes = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -189,16 +205,20 @@ namespace AbayaSystem.Infrastructure.Migrations
                     CutByWorkerId = table.Column<int>(type: "int", nullable: true),
                     StitchedByWorkerId = table.Column<int>(type: "int", nullable: true),
                     HandEmbroideredByWorkerId = table.Column<int>(type: "int", nullable: true),
+                    TypeOfOrder = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     IsAbayaFabricBought = table.Column<bool>(type: "bit", nullable: false),
                     IsSheilaFabricBought = table.Column<bool>(type: "bit", nullable: false),
+                    ActualDeliveryDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Category = table.Column<int>(type: "int", nullable: false),
                     ExternalWorkerId = table.Column<int>(type: "int", nullable: true),
-                    BuyFabricForExternal = table.Column<bool>(type: "bit", nullable: false)
+                    BuyFabricForExternal = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    HandEmbRequired = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    rawFabricEmb = table.Column<bool>(type: "bit", nullable: false, defaultValue: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OrderItems", x => x.OrderItemId);
+                    table.PrimaryKey("PK_OrderItems", x => new { x.BranchId, x.OrderId, x.OrderItemId });
                     table.ForeignKey(
                         name: "FK_OrderItems_ExternalWorkers_ExternalWorkerId",
                         column: x => x.ExternalWorkerId,
@@ -227,6 +247,43 @@ namespace AbayaSystem.Infrastructure.Migrations
                         principalColumn: "SupplierId");
                 });
 
+            migrationBuilder.CreateTable(
+                name: "ExternalVendorJobs",
+                columns: table => new
+                {
+                    ExternalVendorJobId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OrderItemId = table.Column<int>(type: "int", nullable: false),
+                    BranchId = table.Column<int>(type: "int", nullable: false),
+                    OrderId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ExternalWorkerId = table.Column<int>(type: "int", nullable: false),
+                    Stage = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    DispatchedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ExpectedReturnDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ReturnedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DispatchNotes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    ReturnNotes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    DispatchedByWorkerId = table.Column<int>(type: "int", nullable: true),
+                    ReceivedByWorkerId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ExternalVendorJobs", x => x.ExternalVendorJobId);
+                    table.ForeignKey(
+                        name: "FK_ExternalVendorJobs_ExternalWorkers_ExternalWorkerId",
+                        column: x => x.ExternalWorkerId,
+                        principalTable: "ExternalWorkers",
+                        principalColumn: "ExternalWorkerId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ExternalVendorJobs_OrderItems_BranchId_OrderId_OrderItemId",
+                        columns: x => new { x.BranchId, x.OrderId, x.OrderItemId },
+                        principalTable: "OrderItems",
+                        principalColumns: new[] { "BranchId", "OrderId", "OrderItemId" },
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.InsertData(
                 table: "ExternalWorkers",
                 columns: new[] { "ExternalWorkerId", "IsActive", "Name", "Phone", "SupportedType" },
@@ -240,14 +297,19 @@ namespace AbayaSystem.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ExternalVendorJobs_BranchId_OrderId_OrderItemId",
+                table: "ExternalVendorJobs",
+                columns: new[] { "BranchId", "OrderId", "OrderItemId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ExternalVendorJobs_ExternalWorkerId",
+                table: "ExternalVendorJobs",
+                column: "ExternalWorkerId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OrderItems_AssignedSupplierId",
                 table: "OrderItems",
                 column: "AssignedSupplierId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_OrderItems_BranchId_OrderId",
-                table: "OrderItems",
-                columns: new[] { "BranchId", "OrderId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_OrderItems_ExternalWorkerId",
@@ -279,10 +341,16 @@ namespace AbayaSystem.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "OrderItems");
+                name: "ExternalVendorJobs");
+
+            migrationBuilder.DropTable(
+                name: "StatusLogs");
 
             migrationBuilder.DropTable(
                 name: "Workers");
+
+            migrationBuilder.DropTable(
+                name: "OrderItems");
 
             migrationBuilder.DropTable(
                 name: "ExternalWorkers");

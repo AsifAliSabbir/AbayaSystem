@@ -18,7 +18,9 @@ namespace AbayaSystem.Infrastructure
             int orderItemId,
             DateTime? expectedReturnDate = null,
             string? notes = null,
-            int? dispatchedByWorkerId = null);
+            int? dispatchedByWorkerId = null,
+            int? branchId = null,
+            string? orderId = null);
 
         Task<bool> MarkExternalVendorReturnedAsync(
             int externalVendorJobId,
@@ -30,7 +32,9 @@ namespace AbayaSystem.Infrastructure
             ItemStatus newStatus,
             int? assignedWorkerId = null,
             string? notes = null,
-            int? assignedHandEmbroidererId = null);
+            int? assignedHandEmbroidererId = null,
+            int? branchId = null,
+            string? orderId = null);
     }
 
     public class WorkflowService : IWorkflowService
@@ -102,9 +106,13 @@ namespace AbayaSystem.Infrastructure
             int orderItemId,
             DateTime? expectedReturnDate = null,
             string? notes = null,
-            int? dispatchedByWorkerId = null)
+            int? dispatchedByWorkerId = null,
+            int? branchId = null,
+            string? orderId = null)
         {
-            var item = await _db.OrderItems.FindAsync(orderItemId);
+            var item = branchId.HasValue && !string.IsNullOrWhiteSpace(orderId)
+                ? await _db.OrderItems.FirstOrDefaultAsync(i => i.BranchId == branchId.Value && i.OrderId == orderId && i.OrderItemId == orderItemId)
+                : await _db.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == orderItemId);
             if (item == null || !item.ExternalWorkerId.HasValue)
             {
                 return false;
@@ -134,6 +142,8 @@ namespace AbayaSystem.Infrastructure
             item.Status = nextStatus;
             _db.ExternalVendorJobs.Add(new ExternalVendorJob
             {
+                BranchId = item.BranchId,
+                OrderId = item.OrderId,
                 OrderItemId = item.OrderItemId,
                 ExternalWorkerId = item.ExternalWorkerId.Value,
                 Stage = stage.Value,
@@ -193,9 +203,13 @@ namespace AbayaSystem.Infrastructure
             ItemStatus newStatus,
             int? assignedWorkerId = null,
             string? notes = null,
-            int? assignedHandEmbroidererId = null)
+            int? assignedHandEmbroidererId = null,
+            int? branchId = null,
+            string? orderId = null)
         {
-            var item = await _db.OrderItems.FindAsync(orderItemId);
+            var item = branchId.HasValue && !string.IsNullOrWhiteSpace(orderId)
+                ? await _db.OrderItems.FirstOrDefaultAsync(i => i.BranchId == branchId.Value && i.OrderId == orderId && i.OrderItemId == orderItemId)
+                : await _db.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == orderItemId);
             if (item == null) return false;
 
             // Capture prior state and worker assignment

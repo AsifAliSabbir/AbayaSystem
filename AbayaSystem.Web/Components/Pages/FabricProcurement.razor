@@ -301,7 +301,7 @@
 
     private async Task MarkAbayaFabricAsProcured(OrderItem item)
     {
-        var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
         if (targetItem == null) return;
 
         targetItem.IsAbayaFabricBought = true;
@@ -325,7 +325,7 @@
 
     private async Task MarkSheilaFabricAsProcured(OrderItem item)
     {
-        var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
         if (targetItem == null) return;
 
         // Mark Sheila fabric completed without altering main garment workflow Status

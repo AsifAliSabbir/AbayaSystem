@@ -22,6 +22,8 @@ namespace AbayaSystem.Core
         public int ExternalVendorJobId { get; set; }
 
         public int OrderItemId { get; set; }
+        public int BranchId { get; set; }
+        public string OrderId { get; set; } = string.Empty;
         public OrderItem? OrderItem { get; set; }
 
         public int ExternalWorkerId { get; set; }

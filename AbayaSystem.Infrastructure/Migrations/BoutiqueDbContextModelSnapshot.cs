@@ -141,6 +141,9 @@ namespace AbayaSystem.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExternalVendorJobId"));
 
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
                     b.Property<string>("DispatchNotes")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -157,6 +160,10 @@ namespace AbayaSystem.Infrastructure.Migrations
 
                     b.Property<int>("ExternalWorkerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("OrderItemId")
                         .HasColumnType("int");
@@ -182,7 +189,7 @@ namespace AbayaSystem.Infrastructure.Migrations
 
                     b.HasIndex("ExternalWorkerId");
 
-                    b.HasIndex("OrderItemId");
+                    b.HasIndex("BranchId", "OrderId", "OrderItemId");
 
                     b.ToTable("ExternalVendorJobs");
                 });
@@ -336,11 +343,14 @@ namespace AbayaSystem.Infrastructure.Migrations
 
             modelBuilder.Entity("AbayaSystem.Core.OrderItem", b =>
                 {
-                    b.Property<int>("OrderItemId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderItemId"));
+                    b.Property<string>("OrderId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("OrderItemId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ActualDeliveryDate")
                         .HasColumnType("datetime2");
@@ -350,9 +360,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("AssignedSupplierId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<bool>("BuyFabricForExternal")
@@ -404,10 +411,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("OrderId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int>("SelectedSheilaSize")
                         .HasColumnType("int");
 
@@ -428,7 +431,7 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.HasKey("OrderItemId");
+                    b.HasKey("BranchId", "OrderId", "OrderItemId");
 
                     b.HasIndex("AssignedSupplierId");
 
@@ -437,8 +440,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                     b.HasIndex("FabricId");
 
                     b.HasIndex("FabricShopId");
-
-                    b.HasIndex("BranchId", "OrderId");
 
                     b.ToTable("OrderItems");
                 });
@@ -515,7 +516,7 @@ namespace AbayaSystem.Infrastructure.Migrations
 
                     b.HasOne("AbayaSystem.Core.OrderItem", "OrderItem")
                         .WithMany("ExternalVendorJobs")
-                        .HasForeignKey("OrderItemId")
+                        .HasForeignKey("BranchId", "OrderId", "OrderItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -244,7 +244,7 @@
             return;
         }
 
-        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
         if (targetItem == null || targetItem.Status != ItemStatus.QueueHandEmbAssignment)
         {
             await Swal.FireAsync("Assignment unavailable", "The item has already changed status.", SweetAlertIcon.Warning);

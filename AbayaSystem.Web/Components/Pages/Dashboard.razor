@@ -114,6 +114,7 @@
                                     <th class="ps-4">Worker</th>
                                     <th>Role</th>
                                     <th>Order</th>
+                                    <th>Item ID</th>
                                     <th>Customer</th>
                                     <th>Item</th>
                                     <th>Current Task</th>
@@ -128,6 +129,7 @@
                                         <td class="ps-4 fw-bold">@task.WorkerName</td>
                                         <td><span class="badge bg-light text-dark border">@task.WorkerRole</span></td>
                                         <td><a href="@($"/orders?orderId={Uri.EscapeDataString(task.OrderId)}")" class="text-decoration-none fw-semibold">@task.OrderId</a></td>
+                                        <td class="fw-bold">@task.OrderItemId</td>
                                         <td>@task.CustomerName</td>
                                         <td>@task.ModelDescription</td>
                                         <td><span class="badge bg-primary">@FormatStatus(task.Status)</span></td>
@@ -159,6 +161,7 @@
                             <thead class="table-light small text-muted">
                                 <tr>
                                     <th class="ps-4">Order</th>
+                                    <th>Item ID</th>
                                     <th>Customer</th>
                                     <th>Branch</th>
                                     <th>Order Date</th>
@@ -231,6 +234,7 @@
                                                 <span class="badge bg-danger ms-1">Urgent</span>
                                             }
                                         </td>
+                                        <td class="fw-bold">@item.OrderItemId</td>
                                         <td>@item.CustomerName</td>
                                         <td>@item.BranchName</td>
                                         <td>@item.ModelDescription</td>

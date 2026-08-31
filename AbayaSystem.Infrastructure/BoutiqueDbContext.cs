@@ -63,6 +63,13 @@ namespace AbayaSystem.Infrastructure
 
             // 🔗 Link OrderItems to Composite Key Parent Order
             modelBuilder.Entity<OrderItem>()
+                .HasKey(i => new { i.BranchId, i.OrderId, i.OrderItemId });
+
+            modelBuilder.Entity<OrderItem>()
+                .Property(i => i.OrderItemId)
+                .ValueGeneratedNever();
+
+            modelBuilder.Entity<OrderItem>()
                 .HasOne(i => i.Order)
                 .WithMany(o => o.Items)
                 .HasForeignKey(i => new { i.BranchId, i.OrderId })
@@ -94,7 +101,7 @@ namespace AbayaSystem.Infrastructure
             modelBuilder.Entity<ExternalVendorJob>()
                 .HasOne(j => j.OrderItem)
                 .WithMany(i => i.ExternalVendorJobs)
-                .HasForeignKey(j => j.OrderItemId)
+                .HasForeignKey(j => new { j.BranchId, j.OrderId, j.OrderItemId })
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<ExternalVendorJob>()

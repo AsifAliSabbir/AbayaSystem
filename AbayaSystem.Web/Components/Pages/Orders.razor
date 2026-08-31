@@ -202,6 +202,7 @@
                                     <table class="table table-sm table-hover align-middle mb-0">
                                         <thead class="table-light extra-small">
                                             <tr>
+                                                <th>Item ID</th>
                                                 <th>Category</th>
                                                 <th>Description</th>
                                                 <th>Workflow</th>
@@ -215,6 +216,7 @@
                                             @foreach (var item in order.Items)
                                             {
                                                 <tr>
+                                                    <td class="fw-bold">@item.OrderItemId</td>
                                                     <td>
                                                         <span class="badge @(item.Category == ItemCategory.Abaya ? "bg-info text-dark" : "bg-purple text-white")">
                                                             @item.Category

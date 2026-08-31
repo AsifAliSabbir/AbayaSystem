@@ -230,7 +230,7 @@
         });
         if (!result.IsConfirmed) return;
 
-        var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+            var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
         if (target == null || target.Status != ItemStatus.QueueHandEmb || (isHandEmbroiderer && target.HandEmbroideredByWorkerId != currentUserId))
         {
             await Swal.FireAsync("Task unavailable", "The task has already changed or is assigned to another embroiderer.", SweetAlertIcon.Warning);
@@ -257,7 +257,7 @@
         });
         if (!result.IsConfirmed) return;
 
-        var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.OrderItemId == activeItem.OrderItemId);
+            var target = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == activeItem.BranchId && i.OrderId == activeItem.OrderId && i.OrderItemId == activeItem.OrderItemId);
         if (target == null || target.Status != ItemStatus.HandEmbActive)
         {
             await LoadTasksAsync();

@@ -185,6 +185,7 @@ namespace AbayaSystem.Infrastructure
                 BalanceDue = model.BalanceDue
             };
 
+            var nextOrderItemId = 1;
             foreach (var item in model.Items)
             {
                 OrderType itemOrderType = OrderType.Internal;
@@ -211,6 +212,7 @@ namespace AbayaSystem.Infrastructure
                 {
                     BranchId = model.BranchId,
                     OrderId = cleanId,
+                    OrderItemId = nextOrderItemId++,
                     Category = item.Category,
                     ModelTextDescription = item.ModelTextDescription,
                     FabricShopId = item.FabricShopId,
@@ -726,6 +728,7 @@ namespace AbayaSystem.Infrastructure
             }
 
             var formItemIds = model.Items.Where(i => i.OrderItemId > 0).Select(i => i.OrderItemId).ToList();
+            var nextOrderItemId = order.Items.Any() ? order.Items.Max(i => i.OrderItemId) + 1 : 1;
             var statusEvents = new List<(OrderItem Item, ItemStatus? PreviousState, ItemStatus CurrentState)>();
 
             var itemsToRemove = order.Items.Where(i => !formItemIds.Contains(i.OrderItemId)).ToList();
@@ -803,6 +806,7 @@ namespace AbayaSystem.Infrastructure
                     {
                         BranchId = model.BranchId,
                         OrderId = cleanId,
+                        OrderItemId = nextOrderItemId++,
                         Category = itemModel.Category,
                         ModelTextDescription = itemModel.ModelTextDescription,
                         FabricShopId = itemModel.FabricShopId,

@@ -520,7 +520,7 @@
 
         if (confirmResult.IsConfirmed)
         {
-            var targetItem = await DbContext.OrderItems.FindAsync(item.OrderItemId);
+            var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
             if (targetItem != null)
             {
                 ItemStatus? nextStatus = null;

@@ -519,7 +519,7 @@
 
         if (confirmResult.IsConfirmed)
         {
-            var targetItem = await DbContext.OrderItems.FindAsync(selectedItem.OrderItemId);
+            var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == selectedItem.BranchId && i.OrderId == selectedItem.OrderId && i.OrderItemId == selectedItem.OrderItemId);
             if (targetItem != null)
             {
                 if (targetItem.Status == ItemStatus.QueueTailorAssignment)
@@ -568,7 +568,7 @@
 
         if (!result.IsConfirmed) return;
 
-        var targetItem = await DbContext.OrderItems.FindAsync(selectedItem.OrderItemId);
+        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == selectedItem.BranchId && i.OrderId == selectedItem.OrderId && i.OrderItemId == selectedItem.OrderItemId);
         if (targetItem == null) return;
 
         await CompleteCuttingAsync(targetItem);

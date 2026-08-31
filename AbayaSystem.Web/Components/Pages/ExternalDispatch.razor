@@ -213,7 +213,7 @@
 
         var targetItem = await DbContext.OrderItems
             .Include(i => i.ExternalWorker)
-            .FirstOrDefaultAsync(i => i.OrderItemId == item.OrderItemId);
+            .FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
 
         if (targetItem == null || !DispatchStatuses.Contains(targetItem.Status) || !targetItem.ExternalWorkerId.HasValue)
         {
@@ -225,7 +225,9 @@
         var dispatched = await WorkflowService.DispatchToExternalVendorAsync(
             targetItem.OrderItemId,
             expectedReturnDate,
-            $"Dispatched to external vendor '{targetItem.ExternalWorker.Name}'.");
+            $"Dispatched to external vendor '{targetItem.ExternalWorker.Name}'.",
+            branchId: targetItem.BranchId,
+            orderId: targetItem.OrderId);
 
         if (dispatched)
         {
