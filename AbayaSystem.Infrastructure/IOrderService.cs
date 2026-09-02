@@ -19,9 +19,10 @@ namespace AbayaSystem.Infrastructure
         Task<ServiceResult> CreateOrderAsync(OrderFormModel model);
         Task<List<FabricProcurementItem>> GetPendingAbayaFabricsAsync();
         Task<List<SheilaProcurementItem>> GetPendingSheilaFabricsAsync();
-        Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId);
+        Task<ServiceResult> MarkFabricAsBoughtAsync(int branchId, string orderId, int orderItemId);
         Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
         Task<DashboardSummary> GetDashboardSummaryAsync(int? branchId = null, DateTime? orderDateFrom = null, DateTime? orderDateTo = null);
+        Task<List<OrderWorkflowEventDto>> GetOrderItemWorkflowEventsAsync(int branchId, string orderId, int orderItemId);
         Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
         Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
     }
@@ -213,6 +214,7 @@ namespace AbayaSystem.Infrastructure
                     BranchId = model.BranchId,
                     OrderId = cleanId,
                     OrderItemId = nextOrderItemId++,
+                    TypeOfOrder = itemOrderType,
                     Category = item.Category,
                     ModelTextDescription = item.ModelTextDescription,
                     FabricShopId = item.FabricShopId,
@@ -241,6 +243,7 @@ namespace AbayaSystem.Infrastructure
             {
                 _context.StatusLogs.Add(new AbayaSystem.Core.AbayaSystem.Core.StatusLog
                 {
+                    BranchId = orderItem.BranchId,
                     OrderId = orderItem.OrderId,
                     OrderItemId = orderItem.OrderItemId,
                     PreviousState = null,
@@ -299,16 +302,18 @@ namespace AbayaSystem.Infrastructure
                 .ToListAsync();
         }
 
-        public async Task<ServiceResult> MarkFabricAsBoughtAsync(int orderItemId)
+        public async Task<ServiceResult> MarkFabricAsBoughtAsync(int branchId, string orderId, int orderItemId)
         {
-            var item = await _context.OrderItems.FindAsync(orderItemId);
+            var item = await _context.OrderItems.FirstOrDefaultAsync(i => i.BranchId == branchId && i.OrderId == orderId && i.OrderItemId == orderItemId);
             if (item == null) return ServiceResult.Failure("Order item not found.");
 
             var nextStatus = _workflowService.DetermineNextStatusAfterFabricProcurement(item);
             await _workflowService.TransitionStatusAsync(
                 item.OrderItemId,
                 nextStatus,
-                notes: "Fabric procurement completed.");
+                notes: "Fabric procurement completed.",
+                branchId: item.BranchId,
+                orderId: item.OrderId);
 
             return ServiceResult.Success();
         }
@@ -545,9 +550,11 @@ namespace AbayaSystem.Infrastructure
                             : null;
                         var startLog = taskLogs.FirstOrDefault(l =>
                             l.OrderItemId == i.OrderItemId &&
+                            l.BranchId == i.BranchId &&
+                            l.OrderId == i.OrderId &&
                             l.CurrentWorkerId == workerId &&
                             l.CurrentState == i.Status)
-                            ?? taskLogs.FirstOrDefault(l => l.OrderItemId == i.OrderItemId && l.CurrentState == i.Status);
+                            ?? taskLogs.FirstOrDefault(l => l.BranchId == i.BranchId && l.OrderId == i.OrderId && l.OrderItemId == i.OrderItemId && l.CurrentState == i.Status);
 
                         return new DashboardWorkerTask
                         {
@@ -568,6 +575,109 @@ namespace AbayaSystem.Infrastructure
                     .ThenBy(t => t.TaskStartedAt)
                     .ToList()
             };
+        }
+
+        public async Task<List<OrderWorkflowEventDto>> GetOrderItemWorkflowEventsAsync(int branchId, string orderId, int orderItemId)
+        {
+            var logs = await _context.StatusLogs
+                .AsNoTracking()
+                .Where(l => l.BranchId == branchId && l.OrderId == orderId && l.OrderItemId == orderItemId)
+                .OrderByDescending(l => l.TimeOfEvent)
+                .ToListAsync();
+            var vendorJobs = await _context.ExternalVendorJobs
+                .AsNoTracking()
+                .Include(j => j.ExternalWorker)
+                .Where(j => j.BranchId == branchId && j.OrderId == orderId && j.OrderItemId == orderItemId)
+                .OrderByDescending(j => j.DispatchedAt)
+                .ToListAsync();
+
+            var workerIds = logs
+                .SelectMany(l => new[] { l.PreviousWorkerId, l.CurrentWorkerId })
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+            workerIds.AddRange(vendorJobs.Select(j => j.ExternalWorkerId).Where(id => !workerIds.Contains(id)));
+            var workers = await _context.Workers
+                .AsNoTracking()
+                .Where(w => workerIds.Contains(w.WorkerId))
+                .ToDictionaryAsync(w => w.WorkerId, w => w.Name);
+            var externalWorkers = await _context.ExternalWorkers
+                .AsNoTracking()
+                .Where(w => workerIds.Contains(w.ExternalWorkerId))
+                .ToDictionaryAsync(w => w.ExternalWorkerId, w => w.Name);
+
+            string GetWorkerName(int? workerId)
+            {
+                if (!workerId.HasValue) return "-";
+                if (workers.TryGetValue(workerId.Value, out var workerName)) return workerName;
+                if (externalWorkers.TryGetValue(workerId.Value, out var externalWorkerName)) return $"{externalWorkerName} (External)";
+                return $"Worker #{workerId.Value}";
+            }
+
+            var events = logs.Select(l => new OrderWorkflowEventDto
+            {
+                StatusLogId = l.StatusLogId,
+                PreviousState = l.PreviousState,
+                CurrentState = l.CurrentState,
+                PreviousWorkerId = l.PreviousWorkerId,
+                CurrentWorkerId = l.CurrentWorkerId,
+                PreviousWorkerName = GetWorkerName(l.PreviousWorkerId),
+                CurrentWorkerName = GetWorkerName(l.CurrentWorkerId),
+                TimeOfEvent = l.TimeOfEvent,
+                Notes = l.Notes ?? string.Empty,
+                EventType = "Workflow Status Change"
+            }).ToList();
+
+            foreach (var job in vendorJobs)
+            {
+                var dispatchedState = job.Stage switch
+                {
+                    ExternalVendorJobStage.RawFabricEmbroidery => ItemStatus.OutForRawFabricEmb,
+                    ExternalVendorJobStage.HalfStitchEmbroidery => ItemStatus.OutForHalfStitchEmb,
+                    _ => ItemStatus.OutWithExternalVendor
+                };
+                var queuedState = job.Stage switch
+                {
+                    ExternalVendorJobStage.RawFabricEmbroidery => ItemStatus.QueueRawFabricEmb,
+                    ExternalVendorJobStage.HalfStitchEmbroidery => ItemStatus.QueueHalfStitchEmb,
+                    _ => ItemStatus.QueueExternalVendor
+                };
+
+                events.Add(new OrderWorkflowEventDto
+                {
+                    PreviousState = queuedState,
+                    CurrentState = dispatchedState,
+                    CurrentWorkerId = job.ExternalWorkerId,
+                    CurrentWorkerName = GetWorkerName(job.ExternalWorkerId),
+                    TimeOfEvent = job.DispatchedAt,
+                    Notes = job.DispatchNotes,
+                    EventType = "External Vendor Dispatch"
+                });
+
+                if (job.Status == ExternalVendorJobStatus.Returned && job.ReturnedAt.HasValue)
+                {
+                    var returnedState = job.Stage switch
+                    {
+                        ExternalVendorJobStage.RawFabricEmbroidery => ItemStatus.QueueCut,
+                        ExternalVendorJobStage.HalfStitchEmbroidery => ItemStatus.QueueFullStitching,
+                        _ => ItemStatus.ReadyAtShop
+                    };
+
+                    events.Add(new OrderWorkflowEventDto
+                    {
+                        PreviousState = dispatchedState,
+                        CurrentState = returnedState,
+                        CurrentWorkerId = job.ReceivedByWorkerId,
+                        CurrentWorkerName = GetWorkerName(job.ReceivedByWorkerId),
+                        TimeOfEvent = job.ReturnedAt.Value,
+                        Notes = job.ReturnNotes,
+                        EventType = "External Vendor Return"
+                    });
+                }
+            }
+
+            return events.OrderByDescending(e => e.TimeOfEvent).ToList();
         }
 
         public async Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId)
@@ -782,6 +892,7 @@ namespace AbayaSystem.Infrastructure
                             existingItem.AlterationNotes = itemModel.AlterationNotes;
                             existingItem.Notes = itemModel.ItemNotes;
                             existingItem.ExternalWorkerId = workerId;
+                            existingItem.TypeOfOrder = itemOrderType;
                             existingItem.BuyFabricForExternal = itemModel.BuyFabricForExternal;
                             existingItem.HandEmbRequired = itemModel.HandEmbRequired;
                             existingItem.rawFabricEmb = isHybrid && itemModel.rawFabricEmb;
@@ -807,6 +918,7 @@ namespace AbayaSystem.Infrastructure
                         BranchId = model.BranchId,
                         OrderId = cleanId,
                         OrderItemId = nextOrderItemId++,
+                        TypeOfOrder = itemOrderType,
                         Category = itemModel.Category,
                         ModelTextDescription = itemModel.ModelTextDescription,
                         FabricShopId = itemModel.FabricShopId,
@@ -834,6 +946,7 @@ namespace AbayaSystem.Infrastructure
             {
                 _context.StatusLogs.Add(new AbayaSystem.Core.AbayaSystem.Core.StatusLog
                 {
+                    BranchId = statusEvent.Item.BranchId,
                     OrderId = statusEvent.Item.OrderId,
                     OrderItemId = statusEvent.Item.OrderItemId,
                     PreviousState = statusEvent.PreviousState,

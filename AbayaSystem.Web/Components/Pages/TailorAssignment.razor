@@ -106,7 +106,7 @@
                                 <td>@(item.CutByWorkerId?.ToString() ?? "N/A")</td>
                                 <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
                                 <td style="min-width: 220px;">
-                                    <select class="form-select form-select-sm" value="@GetSelectedTailor(item.OrderItemId)" @onchange="e => SetSelectedTailor(item.OrderItemId, e)">
+                                    <select class="form-select form-select-sm" value="@GetSelectedTailor(item)" @onchange="e => SetSelectedTailor(item, e)">
                                         <option value="0">-- Select tailor --</option>
                                         @foreach (var tailor in availableTailors)
                                         {
@@ -116,7 +116,7 @@
                                 </td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-primary fw-bold"
-                                            disabled="@(GetSelectedTailor(item.OrderItemId) == 0)"
+                                            disabled="@(GetSelectedTailor(item) == 0)"
                                             @onclick="() => ConfirmAssignment(item)">
                                         <i class="bi bi-person-check me-1"></i> Assign
                                     </button>
@@ -138,7 +138,7 @@
     private List<OrderItem> allItems = new();
     private List<OrderItem> filteredItems = new();
     private Dictionary<int, int> tailorWorkloads = new();
-    private Dictionary<int, int> selectedTailors = new();
+    private Dictionary<string, int> selectedTailors = new();
 
     private static readonly ItemStatus[] UnfinishedTailorStatuses =
     {
@@ -209,14 +209,17 @@
         ApplyFilter();
     }
 
-    private int GetSelectedTailor(int orderItemId) =>
-        selectedTailors.TryGetValue(orderItemId, out var workerId) ? workerId : 0;
+    private static string GetItemKey(OrderItem item) =>
+        $"{item.BranchId}:{item.OrderId}:{item.OrderItemId}";
 
-    private void SetSelectedTailor(int orderItemId, ChangeEventArgs args)
+    private int GetSelectedTailor(OrderItem item) =>
+        selectedTailors.TryGetValue(GetItemKey(item), out var workerId) ? workerId : 0;
+
+    private void SetSelectedTailor(OrderItem item, ChangeEventArgs args)
     {
         if (int.TryParse(args.Value?.ToString(), out var workerId))
         {
-            selectedTailors[orderItemId] = workerId;
+            selectedTailors[GetItemKey(item)] = workerId;
         }
     }
 
@@ -224,7 +227,7 @@
 
     private async Task ConfirmAssignment(OrderItem item)
     {
-        var tailorId = GetSelectedTailor(item.OrderItemId);
+        var tailorId = GetSelectedTailor(item);
         var tailor = availableTailors.FirstOrDefault(w => w.WorkerId == tailorId);
         if (tailor == null) return;
 
@@ -258,7 +261,9 @@
             targetItem.OrderItemId,
             nextStatus,
             assignedWorkerId: tailor.WorkerId,
-            notes: "Tailor assigned after cutting was completed.");
+            notes: "Tailor assigned after cutting was completed.",
+            branchId: targetItem.BranchId,
+            orderId: targetItem.OrderId);
 
         if (assigned)
         {

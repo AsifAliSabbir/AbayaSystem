@@ -215,7 +215,7 @@
                                         <tbody class="small">
                                             @foreach (var item in order.Items)
                                             {
-                                                <tr>
+                                                <tr @onclick="() => OpenWorkflowHistoryAsync(order, item)" style="cursor: pointer;">
                                                     <td class="fw-bold">@item.OrderItemId</td>
                                                     <td>
                                                         <span class="badge @(item.Category == ItemCategory.Abaya ? "bg-info text-dark" : "bg-purple text-white")">
@@ -305,6 +305,71 @@
     }
 </div>
 
+@if (isWorkflowModalOpen && selectedOrderItem != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-1">Workflow History</h5>
+                        <small class="text-white-50">Order @selectedOrderItem.OrderId · Item #@selectedOrderItem.OrderItemId · @selectedOrderItem.ModelTextDescription</small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseWorkflowHistory"></button>
+                </div>
+                <div class="modal-body p-4">
+                    @if (isWorkflowHistoryLoading)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="text-muted mt-2 mb-0">Loading workflow history...</p>
+                        </div>
+                    }
+                    else if (workflowEvents.Count == 0)
+                    {
+                        <p class="text-muted text-center py-4 mb-0">No workflow events were recorded for this item.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Time</th>
+                                                <th>Event</th>
+                                        <th>Transition</th>
+                                        <th>Worker</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var workflowEvent in workflowEvents)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap fw-semibold">@workflowEvent.TimeOfEvent.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</td>
+                                            <td><span class="badge @(workflowEvent.EventType.Contains("External") ? "bg-warning text-dark" : "bg-secondary")">@workflowEvent.EventType</span></td>
+                                            <td>
+                                                <span class="text-muted">@FormatStatus(workflowEvent.PreviousState)</span>
+                                                <i class="bi bi-arrow-right mx-1"></i>
+                                                <span class="badge bg-primary">@FormatStatus(workflowEvent.CurrentState)</span>
+                                            </td>
+                                            <td>@workflowEvent.CurrentWorkerName</td>
+                                            <td>@(string.IsNullOrWhiteSpace(workflowEvent.Notes) ? "-" : workflowEvent.Notes)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseWorkflowHistory">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private OrderFilterModel filter = new() { PageSize = 5 };
     private PagedResult<Order> pagedResult = new();
@@ -315,6 +380,10 @@
     private bool showNameDropdown = false;
     private bool showPhoneDropdown = false;
     private bool isLoading = true;
+    private bool isWorkflowModalOpen;
+    private bool isWorkflowHistoryLoading;
+    private OrderItem? selectedOrderItem;
+    private List<OrderWorkflowEventDto> workflowEvents = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -329,6 +398,29 @@
         }
     }
 
+    private async Task OpenWorkflowHistoryAsync(Order order, OrderItem item)
+    {
+        selectedOrderItem = item;
+        workflowEvents = new();
+        isWorkflowModalOpen = true;
+        isWorkflowHistoryLoading = true;
+
+        try
+        {
+            workflowEvents = await OrderService.GetOrderItemWorkflowEventsAsync(order.BranchId, order.OrderId, item.OrderItemId);
+        }
+        finally
+        {
+            isWorkflowHistoryLoading = false;
+        }
+    }
+
+    private void CloseWorkflowHistory()
+    {
+        isWorkflowModalOpen = false;
+        selectedOrderItem = null;
+        workflowEvents.Clear();
+    }
     private async Task LoadOrdersAsync()
     {
         isLoading = true;
@@ -486,6 +578,11 @@
         ItemStatus.OutWithExternalVendor => "bg-info text-dark",
         _ => "bg-info text-dark"
     };
+
+    private string FormatStatus(ItemStatus? status) =>
+        status?.ToString() is { } value
+            ? string.Concat(value.Select((character, index) => index > 0 && char.IsUpper(character) ? $" {character}" : character.ToString()))
+            : "Initial state";
 
     private int GetShowingStart() => (pagedResult.Page - 1) * pagedResult.PageSize + 1;
     private int GetShowingEnd() => Math.Min(pagedResult.Page * pagedResult.PageSize, pagedResult.TotalCount);

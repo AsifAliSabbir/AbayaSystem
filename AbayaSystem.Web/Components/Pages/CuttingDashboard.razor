@@ -528,7 +528,9 @@
                         targetItem.OrderItemId,
                         WorkflowService.DetermineNextStatusAfterCutting(targetItem.TypeOfOrder, targetItem.HandEmbRequired),
                         assignedWorkerId: tailor.WorkerId,
-                        notes: "Tailor assigned after cutting was completed.");
+                        notes: "Tailor assigned after cutting was completed.",
+                        branchId: targetItem.BranchId,
+                        orderId: targetItem.OrderId);
                 }
                 else
                 {
@@ -593,7 +595,9 @@
         await WorkflowService.TransitionStatusAsync(
             targetItem.OrderItemId,
             ItemStatus.QueueTailorAssignment,
-            notes: $"Cutting completed by worker {currentUserId}.");
+            notes: $"Cutting completed by worker {currentUserId}.",
+            branchId: targetItem.BranchId,
+            orderId: targetItem.OrderId);
 
         if (tailorId.HasValue)
         {
@@ -606,7 +610,9 @@
                 targetItem.OrderItemId,
                 nextStatus,
                 assignedWorkerId: tailorId.Value,
-                notes: "Tailor assigned at the time of cutting.");
+                notes: "Tailor assigned at the time of cutting.",
+                branchId: targetItem.BranchId,
+                orderId: targetItem.OrderId);
         }
     }
 }

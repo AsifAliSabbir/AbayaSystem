@@ -59,15 +59,20 @@ namespace AbayaSystem.Infrastructure
 
         public ItemStatus DetermineNextStatusAfterFabricProcurement(OrderItem item)
         {
+            var isHybrid = item.TypeOfOrder == OrderType.Hybrid ||
+                           item.ExternalWorker?.SupportedType == ExternalWorkerType.Hybrid;
+
+            if (isHybrid)
+            {
+                return item.rawFabricEmb
+                    ? ItemStatus.QueueRawFabricEmb
+                    : ItemStatus.QueueCut;
+            }
+
             if (item.TypeOfOrder == OrderType.External ||
                 (item.TypeOfOrder == OrderType.Internal && item.ExternalWorkerId.HasValue))
             {
                 return ItemStatus.QueueExternalVendor;
-            }
-
-            if (item.TypeOfOrder == OrderType.Hybrid && item.rawFabricEmb)
-            {
-                return ItemStatus.QueueRawFabricEmb;
             }
 
             return ItemStatus.QueueCut;
@@ -243,6 +248,7 @@ namespace AbayaSystem.Infrastructure
             // Create status log entry
             var log = new StatusLog
             {
+                BranchId = item.BranchId,
                 OrderId = item.OrderId,
                 OrderItemId = item.OrderItemId,
                 PreviousState = previousState,
@@ -268,6 +274,7 @@ namespace AbayaSystem.Infrastructure
         {
             _db.StatusLogs.Add(new StatusLog
             {
+                BranchId = item.BranchId,
                 OrderId = item.OrderId,
                 OrderItemId = item.OrderItemId,
                 PreviousState = previousState,

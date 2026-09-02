@@ -104,7 +104,7 @@
                                 <td>@(item.Order?.Customer?.CustomerName ?? "N/A")</td>
                                 <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
                                 <td style="min-width: 210px;">
-                                    <select class="form-select form-select-sm" value="@GetSelectedEmbroiderer(item.OrderItemId)" @onchange="e => SetSelectedEmbroiderer(item.OrderItemId, e)">
+                                    <select class="form-select form-select-sm" value="@GetSelectedEmbroiderer(item)" @onchange="e => SetSelectedEmbroiderer(item, e)">
                                         <option value="0">-- Select embroiderer --</option>
                                         @foreach (var embroiderer in embroiderers)
                                         {
@@ -114,7 +114,7 @@
                                 </td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-primary fw-bold"
-                                            disabled="@(GetSelectedEmbroiderer(item.OrderItemId) == 0)"
+                                            disabled="@(GetSelectedEmbroiderer(item) == 0)"
                                             @onclick="() => ConfirmAssignment(item)">
                                         <i class="bi bi-person-check me-1"></i> Assign
                                     </button>
@@ -136,7 +136,7 @@
     private List<OrderItem> allItems = new();
     private List<OrderItem> filteredItems = new();
     private Dictionary<int, int> workloads = new();
-    private Dictionary<int, int> selectedEmbroiderers = new();
+    private Dictionary<string, int> selectedEmbroiderers = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -205,14 +205,17 @@
         ApplyFilter();
     }
 
-    private int GetSelectedEmbroiderer(int orderItemId) =>
-        selectedEmbroiderers.TryGetValue(orderItemId, out var workerId) ? workerId : 0;
+    private static string GetItemKey(OrderItem item) =>
+        $"{item.BranchId}:{item.OrderId}:{item.OrderItemId}";
 
-    private void SetSelectedEmbroiderer(int orderItemId, ChangeEventArgs args)
+    private int GetSelectedEmbroiderer(OrderItem item) =>
+        selectedEmbroiderers.TryGetValue(GetItemKey(item), out var workerId) ? workerId : 0;
+
+    private void SetSelectedEmbroiderer(OrderItem item, ChangeEventArgs args)
     {
         if (int.TryParse(args.Value?.ToString(), out var workerId))
         {
-            selectedEmbroiderers[orderItemId] = workerId;
+            selectedEmbroiderers[GetItemKey(item)] = workerId;
         }
     }
 
@@ -220,7 +223,7 @@
 
     private async Task ConfirmAssignment(OrderItem item)
     {
-        var workerId = GetSelectedEmbroiderer(item.OrderItemId);
+        var workerId = GetSelectedEmbroiderer(item);
         var embroiderer = embroiderers.FirstOrDefault(w => w.WorkerId == workerId);
         if (embroiderer == null)
         {
@@ -256,7 +259,9 @@
             targetItem.OrderItemId,
             ItemStatus.QueueHandEmb,
             assignedHandEmbroidererId: workerId,
-            notes: $"Assigned to hand embroiderer '{embroiderer.Name}'.");
+            notes: $"Assigned to hand embroiderer '{embroiderer.Name}'.",
+            branchId: targetItem.BranchId,
+            orderId: targetItem.OrderId);
 
         if (assigned)
         {

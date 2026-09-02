@@ -301,15 +301,20 @@
 
     private async Task MarkAbayaFabricAsProcured(OrderItem item)
     {
-        var targetItem = await DbContext.OrderItems.FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
+        var targetItem = await DbContext.OrderItems
+            .Include(i => i.ExternalWorker)
+            .FirstOrDefaultAsync(i => i.BranchId == item.BranchId && i.OrderId == item.OrderId && i.OrderItemId == item.OrderItemId);
         if (targetItem == null) return;
 
         targetItem.IsAbayaFabricBought = true;
+        await DbContext.SaveChangesAsync();
         var nextStatus = WorkflowService.DetermineNextStatusAfterFabricProcurement(targetItem);
         await WorkflowService.TransitionStatusAsync(
             targetItem.OrderItemId,
             nextStatus,
-            notes: "Abaya fabric procured.");
+            notes: "Abaya fabric procured.",
+            branchId: targetItem.BranchId,
+            orderId: targetItem.OrderId);
 
         await Swal.FireAsync(new SweetAlertOptions
         {

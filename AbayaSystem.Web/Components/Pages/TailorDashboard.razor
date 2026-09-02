@@ -218,7 +218,7 @@
                             <tbody>
                                 @foreach (var item in group)
                                 {
-                                    bool isWorkingOnThis = activeItem?.OrderItemId == item.OrderItemId;
+                                    bool isWorkingOnThis = activeItem?.BranchId == item.BranchId && activeItem.OrderId == item.OrderId && activeItem.OrderItemId == item.OrderItemId;
 
                                     <tr class="@(isWorkingOnThis ? "table-primary" : "")">
                                         <!-- Item ID -->
@@ -576,7 +576,7 @@
         {
             var targetItem = await DbContext.OrderItems
                 .Include(i => i.Order)
-                .FirstOrDefaultAsync(i => i.OrderItemId == activeItem.OrderItemId);
+                .FirstOrDefaultAsync(i => i.BranchId == activeItem.BranchId && i.OrderId == activeItem.OrderId && i.OrderItemId == activeItem.OrderItemId);
 
             if (targetItem != null)
             {
@@ -599,7 +599,9 @@
                     targetItem.OrderItemId,
                     nextStatus,
                     currentUserId,
-                    "Tailor completed the stitching task.");
+                    "Tailor completed the stitching task.",
+                    branchId: targetItem.BranchId,
+                    orderId: targetItem.OrderId);
 
                 await Swal.FireAsync(new SweetAlertOptions
                 {

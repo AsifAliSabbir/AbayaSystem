@@ -238,7 +238,7 @@
             return;
         }
 
-        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.HandEmbActive, notes: "Hand embroiderer started the task.");
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.HandEmbActive, notes: "Hand embroiderer started the task.", branchId: target.BranchId, orderId: target.OrderId);
         await LoadTasksAsync();
     }
 
@@ -264,7 +264,7 @@
             return;
         }
 
-        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.QueueFullStitching, notes: "Hand embroidery completed.");
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.QueueFullStitching, notes: "Hand embroidery completed.", branchId: target.BranchId, orderId: target.OrderId);
         await Swal.FireAsync(new SweetAlertOptions { Title = "Task Completed", Text = "The item is queued for full stitching.", Icon = SweetAlertIcon.Success, Timer = 1800, ShowConfirmButton = false });
         await LoadTasksAsync();
     }

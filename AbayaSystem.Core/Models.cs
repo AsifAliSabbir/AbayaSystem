@@ -9,6 +9,7 @@ namespace AbayaSystem.Core
         {
             public int StatusLogId { get; set; }
             public string OrderId { get; set; } = string.Empty;
+            public int BranchId { get; set; }
             public int OrderItemId { get; set; }
 
             public ItemStatus? PreviousState { get; set; }

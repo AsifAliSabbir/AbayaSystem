@@ -274,7 +274,7 @@
     {
         foreach (var item in items)
         {
-            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.ReadyAtShop, notes: "Item received at showroom.");
+            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.ReadyAtShop, notes: "Item received at showroom.", branchId: item.BranchId, orderId: item.OrderId);
         }
         await LoadDataAsync();
     }
@@ -314,7 +314,7 @@
     {
         foreach (var item in items)
         {
-            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.Delivered, notes: "Item delivered to customer.");
+            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.Delivered, notes: "Item delivered to customer.", branchId: item.BranchId, orderId: item.OrderId);
         }
         await LoadDataAsync();
     }
