@@ -3,6 +3,12 @@ namespace AbayaSystem.Core;
 public class OrderWorkflowEventDto
 {
     public int StatusLogId { get; set; }
+    public int BranchId { get; set; }
+    public string BranchName { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
+    public int OrderItemId { get; set; }
+    public string CustomerName { get; set; } = string.Empty;
+    public string ModelDescription { get; set; } = string.Empty;
     public ItemStatus? PreviousState { get; set; }
     public ItemStatus CurrentState { get; set; }
     public int? PreviousWorkerId { get; set; }

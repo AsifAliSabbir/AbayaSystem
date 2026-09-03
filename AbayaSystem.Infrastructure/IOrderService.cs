@@ -22,6 +22,7 @@ namespace AbayaSystem.Infrastructure
         Task<ServiceResult> MarkFabricAsBoughtAsync(int branchId, string orderId, int orderItemId);
         Task<PagedResult<Order>> GetOrdersPagedAsync(OrderFilterModel filter);
         Task<DashboardSummary> GetDashboardSummaryAsync(int? branchId = null, DateTime? orderDateFrom = null, DateTime? orderDateTo = null);
+        Task<List<OrderWorkflowEventDto>> GetRecentWorkflowEventsAsync(int? branchId = null, int take = 15);
         Task<List<OrderWorkflowEventDto>> GetOrderItemWorkflowEventsAsync(int branchId, string orderId, int orderItemId);
         Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
         Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
@@ -575,6 +576,43 @@ namespace AbayaSystem.Infrastructure
                     .ThenBy(t => t.TaskStartedAt)
                     .ToList()
             };
+        }
+
+        public async Task<List<OrderWorkflowEventDto>> GetRecentWorkflowEventsAsync(int? branchId = null, int take = 15)
+        {
+            take = Math.Clamp(take, 1, 50);
+
+            var query =
+                from log in _context.StatusLogs.AsNoTracking()
+                join item in _context.OrderItems.AsNoTracking()
+                    on new { log.BranchId, log.OrderId, log.OrderItemId }
+                    equals new { item.BranchId, item.OrderId, item.OrderItemId }
+                join order in _context.Orders.AsNoTracking()
+                    on new { item.BranchId, item.OrderId }
+                    equals new { order.BranchId, order.OrderId }
+                join branch in _context.Branches.AsNoTracking()
+                    on item.BranchId equals branch.BranchId
+                where !branchId.HasValue || log.BranchId == branchId.Value
+                orderby log.TimeOfEvent descending
+                select new OrderWorkflowEventDto
+                {
+                    StatusLogId = log.StatusLogId,
+                    BranchId = log.BranchId,
+                    BranchName = branch.BranchName,
+                    OrderId = log.OrderId,
+                    OrderItemId = log.OrderItemId,
+                    CustomerName = order.Customer != null ? order.Customer.CustomerName : string.Empty,
+                    ModelDescription = item.ModelTextDescription,
+                    PreviousState = log.PreviousState,
+                    CurrentState = log.CurrentState,
+                    PreviousWorkerId = log.PreviousWorkerId,
+                    CurrentWorkerId = log.CurrentWorkerId,
+                    TimeOfEvent = log.TimeOfEvent,
+                    Notes = log.Notes ?? string.Empty,
+                    EventType = "Workflow Status Change"
+                };
+
+            return await query.Take(take).ToListAsync();
         }
 
         public async Task<List<OrderWorkflowEventDto>> GetOrderItemWorkflowEventsAsync(int branchId, string orderId, int orderItemId)
