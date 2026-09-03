@@ -9,6 +9,8 @@ namespace AbayaSystem.Infrastructure
     {
         public DbSet<Branch> Branches => Set<Branch>();
         public DbSet<FabricShop> FabricShops => Set<FabricShop>();
+        public DbSet<SheilaShop> SheilaShops => Set<SheilaShop>();
+        public DbSet<SheilaTran> SheilaTrans => Set<SheilaTran>();
         public DbSet<Fabric> Fabrics => Set<Fabric>();
         public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Customer> Customers => Set<Customer>();
@@ -43,6 +45,30 @@ namespace AbayaSystem.Infrastructure
                 entity.Property(c => c.WidthShoulder).HasColumnType("decimal(18,2)");
                 entity.Property(c => c.WidthBody).HasColumnType("decimal(18,2)");
                 entity.Property(c => c.WidthBottom).HasColumnType("decimal(18,2)");
+            });
+
+            modelBuilder.Entity<SheilaShop>(entity =>
+            {
+                entity.ToTable("SheilaShops");
+                entity.HasKey(s => s.SheilaShopID);
+                entity.Property(s => s.SheilaShopName).HasMaxLength(150).IsRequired();
+                entity.HasOne(s => s.Branch)
+                    .WithMany()
+                    .HasForeignKey(s => s.BranchID)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<SheilaTran>(entity =>
+            {
+                entity.ToTable("SheilaTrans");
+                entity.HasKey(t => t.SheilaTranID);
+                entity.Property(t => t.Quantity).HasColumnType("decimal(18,2)");
+                entity.Property(t => t.PurchaseAmount).HasColumnType("decimal(18,2)");
+                entity.Property(t => t.PaymentAmount).HasColumnType("decimal(18,2)");
+                entity.HasOne(t => t.SheilaShop)
+                    .WithMany(s => s.Transactions)
+                    .HasForeignKey(t => t.SheilaShopID)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // 🔑 Configure Composite Primary Key for Order & Customer FK

@@ -34,6 +34,7 @@ builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IFabricManagementService, FabricManagementService>();
 
 builder.Services.AddScoped<IExternalWorkerService, ExternalWorkerService>();
+builder.Services.AddScoped<ISheilaService, SheilaService>();
 
 
 //string con3 = @"Server=	AbayaBoutiqueDb.mssql.somee.com; Database=AbayaBoutiqueDb;User Id=asifalisabbir_SQLLogin_1;Password=o61shj57nu; Encrypt=False; MultipleActiveResultSets=True;";

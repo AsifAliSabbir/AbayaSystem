@@ -38,6 +38,28 @@ namespace AbayaSystem.Core
         public string FabricShopName { get; set; } = string.Empty;
     }
 
+    // 🧕 Independent readymade Sheila credit purchases
+    public class SheilaShop
+    {
+        public int SheilaShopID { get; set; }
+        public string SheilaShopName { get; set; } = string.Empty;
+        public int BranchID { get; set; }
+        public Branch? Branch { get; set; }
+        public List<SheilaTran> Transactions { get; set; } = new();
+    }
+
+    public class SheilaTran
+    {
+        public int SheilaTranID { get; set; }
+        public int SheilaShopID { get; set; }
+        public SheilaShop? SheilaShop { get; set; }
+        public string? OrderID { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal PurchaseAmount { get; set; }
+        public decimal PaymentAmount { get; set; }
+        public DateTime TransDateTime { get; set; } = DateTime.UtcNow;
+    }
+
     // 🧵 Fabric Names Catalog
     public class Fabric
     {

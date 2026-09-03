@@ -201,6 +201,10 @@
                                             <i class="bi bi-palette me-2"></i>
                                             Fabric Types Entry
                                         </a>
+                                        <a href="/readymade-sheila" class="@GetActiveStyle("/readymade-sheila")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-bag-heart me-2"></i>
+                                            Readymade Sheila
+                                        </a>
                                     </div>
                                 }
                             </div>
@@ -416,7 +420,7 @@
         {
             isDataEntryOpen = true;
         }
-        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types"))
+        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types") || currentUrl.StartsWith("readymade-sheila"))
         {
             isDataEntryOpen = true;
         }

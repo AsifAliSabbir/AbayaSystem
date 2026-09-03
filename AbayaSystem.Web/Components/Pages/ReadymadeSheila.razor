@@ -1,0 +1,249 @@
+@page "/readymade-sheila"
+@attribute [Authorize(Roles = "Admin,Salesman")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Components.Authorization
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject ISheilaService SheilaService
+@inject IWorkerService WorkerService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject SweetAlertService Swal
+
+<PageTitle>Readymade Sheila - Abaya System</PageTitle>
+
+<div class="container-fluid max-w-1200 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">🧕 Readymade Sheila</h3>
+            <p class="text-muted small mb-0">Record credit purchases, payments, and balances for readymade Sheila shops.</p>
+        </div>
+        @if (isAdmin)
+        {
+            <select class="form-select" style="width: 190px;" value="@selectedBranchId" @onchange="OnBranchChanged">
+                <option value="0">All Branches</option>
+                @foreach (var branch in branches.Where(b => !b.IsWorkshop))
+                {
+                    <option value="@branch.BranchId">@branch.BranchName</option>
+                }
+            </select>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-warning"></div><p class="text-muted mt-2">Loading Sheila accounts...</p></div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Total Purchased</small><h4 class="fw-bold mb-0">@balances.Sum(b => b.TotalPurchased).ToString("N2")</h4></div></div></div>
+            <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Total Paid</small><h4 class="fw-bold text-success mb-0">@balances.Sum(b => b.TotalPaid).ToString("N2")</h4></div></div></div>
+            <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><small class="text-muted">Current Balance Due</small><h4 class="fw-bold text-danger mb-0">@balances.Sum(b => b.BalanceDue).ToString("N2")</h4></div></div></div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-xl-5">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-header bg-white border-bottom py-3"><h6 class="fw-bold mb-0">Record Transaction</h6></div>
+                    <div class="card-body">
+                        <div class="mb-3"><label class="form-label small fw-semibold">Sheila Shop *</label><select class="form-select" @bind="newTransaction.SheilaShopID"><option value="0">-- Select shop --</option>@foreach (var shop in shops){<option value="@shop.SheilaShopID">@shop.SheilaShopName</option>}</select></div>
+                        <div class="row g-2">
+                            <div class="col-6"><label class="form-label small fw-semibold">Quantity</label><div class="input-group"><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="DecreaseQuantity" disabled="@(newTransaction.Quantity <= 0)">−</button><input class="form-control text-center fw-bold" value="@newTransaction.Quantity.ToString("N0")" readonly aria-label="Sheila quantity" /><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="IncreaseQuantity">+</button></div><small class="text-muted">20.00 per Sheila</small></div>
+                            <div class="col-6"><label class="form-label small fw-semibold">Order ID (optional)</label><input class="form-control" @bind="newTransaction.OrderID" /></div>
+                            <div class="col-6"><label class="form-label small fw-semibold">Purchase Amount</label><input class="form-control bg-light fw-bold" value="@CalculatedPurchaseAmount.ToString("N2")" readonly /></div>
+                        </div>
+                        <div class="mt-3"><label class="form-label small fw-semibold">Transaction Date & Time</label><input class="form-control" type="datetime-local" @bind="transactionDateTime" /></div>
+                        <button class="btn btn-primary fw-bold mt-3" @onclick="SaveTransactionAsync" disabled="@isSubmitting"><i class="bi bi-plus-lg me-1"></i> Save Transaction</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-7">
+                <div class="card border-0 shadow-sm rounded-3 h-100">
+                    <div class="card-header bg-white border-bottom py-3"><h6 class="fw-bold mb-0">Shop Balance</h6></div>
+                    <div class="card-body">
+                        <label class="form-label small fw-semibold">Select Sheila Shop</label>
+                        <select class="form-select mb-3" value="@selectedShopId" @onchange="OnShopChanged">
+                            <option value="0">-- Select shop --</option>
+                            @foreach (var shop in shops)
+                            {
+                                <option value="@shop.SheilaShopID">@shop.SheilaShopName (@shop.Branch?.BranchName)</option>
+                            }
+                        </select>
+                        @if (selectedBalance == null)
+                        {
+                            <p class="text-muted text-center py-3 mb-0">Select a shop to view its account.</p>
+                        }
+                        else
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div><small class="text-muted">Current Due</small><h3 class="fw-bold text-danger mb-0">@selectedBalance.BalanceDue.ToString("N2")</h3></div>
+                                <button class="btn btn-success fw-bold" @onclick="PaySelectedShopAsync" disabled="@(selectedBalance.BalanceDue <= 0 || isSubmitting)"><i class="bi bi-cash-coin me-1"></i> Pay Full Due</button>
+                            </div>
+                            <h6 class="fw-bold border-bottom pb-2">Pending Transactions</h6>
+                            @if (PendingSelectedTransactions.Count == 0 && LastSelectedPayment == null)
+                            {
+                                <p class="text-success small mb-0"><i class="bi bi-check-circle me-1"></i>No pending transactions.</p>
+                            }
+                            else
+                            {
+                                <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr><th>Date</th><th>Order</th><th>Qty</th><th class="text-end">Pending Amount</th></tr></thead><tbody>@foreach (var pending in PendingSelectedTransactions){<tr><td>@pending.Transaction.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td>@(pending.Transaction.OrderID ?? "-")</td><td>@pending.Transaction.Quantity.ToString("N0")</td><td class="text-end fw-semibold">@pending.RemainingAmount.ToString("N2")</td></tr>}@if (LastSelectedPayment != null){<tr class="table-success"><td>@LastSelectedPayment.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td colspan="2"><i class="bi bi-check-circle me-1"></i>Last payment</td><td class="text-end fw-semibold">-@LastSelectedPayment.PaymentAmount.ToString("N2")</td></tr>}</tbody></table></div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3 mb-4">
+            <div class="card-header bg-white border-bottom py-3"><h6 class="fw-bold mb-0">Add Sheila Shop</h6></div>
+            <div class="card-body"><div class="row g-2 align-items-end"><div class="col-md-5"><label class="form-label small fw-semibold">Shop Name *</label><input class="form-control" @bind="newShop.SheilaShopName" /></div><div class="col-md-4"><label class="form-label small fw-semibold">Branch *</label><select class="form-select" @bind="newShop.BranchID"><option value="0">-- Select branch --</option>@foreach (var branch in branches.Where(b => !b.IsWorkshop)){<option value="@branch.BranchId">@branch.BranchName</option>}</select></div><div class="col-md-3"><button class="btn btn-outline-primary fw-bold" @onclick="SaveShopAsync"><i class="bi bi-shop me-1"></i> Add Shop</button></div></div></div>
+        </div>
+
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private bool isAdmin;
+    private int selectedBranchId;
+    private int selectedShopId;
+    private const decimal SheilaUnitPrice = 20m;
+    private DateTime transactionDateTime = DateTime.Now;
+    private List<Branch> branches = new();
+    private List<SheilaShop> shops = new();
+    private List<SheilaShopBalance> balances = new();
+    private List<SheilaTran> transactions = new();
+    private SheilaShop newShop = new();
+    private SheilaTran newTransaction = new() { Quantity = 1 };
+
+    private SheilaShopBalance? selectedBalance => balances.FirstOrDefault(b => b.Shop.SheilaShopID == selectedShopId);
+
+    private List<PendingSheilaTransaction> PendingSelectedTransactions =>
+        GetPendingSelectedTransactions();
+
+    private SheilaTran? LastSelectedPayment => transactions
+        .Where(t => t.SheilaShopID == selectedShopId && t.PurchaseAmount == 0 && t.PaymentAmount > 0)
+        .OrderByDescending(t => t.TransDateTime)
+        .ThenByDescending(t => t.SheilaTranID)
+        .FirstOrDefault();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAdmin = state.User.IsInRole("Admin");
+        if (!isAdmin && int.TryParse(state.User.FindFirst("BranchId")?.Value, out var branchId)) selectedBranchId = branchId;
+        branches = await WorkerService.GetBranchesAsync();
+        newShop.BranchID = selectedBranchId;
+        await LoadAsync();
+    }
+
+    private async Task OnBranchChanged(ChangeEventArgs args)
+    {
+        selectedBranchId = int.TryParse(args.Value?.ToString(), out var branchId) ? branchId : 0;
+        newShop.BranchID = selectedBranchId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        var branchId = selectedBranchId > 0 ? selectedBranchId : (int?)null;
+        shops = await SheilaService.GetShopsAsync(branchId);
+        balances = await SheilaService.GetBalancesAsync(branchId);
+        transactions = await SheilaService.GetTransactionsAsync(branchId);
+        if (!shops.Any(s => s.SheilaShopID == selectedShopId))
+        {
+            selectedShopId = shops.FirstOrDefault()?.SheilaShopID ?? 0;
+        }
+        if (newTransaction.SheilaShopID == 0 && shops.Count > 0) newTransaction.SheilaShopID = shops[0].SheilaShopID;
+        isLoading = false;
+    }
+
+    private void OnShopChanged(ChangeEventArgs args)
+    {
+        selectedShopId = int.TryParse(args.Value?.ToString(), out var shopId) ? shopId : 0;
+    }
+
+    private List<PendingSheilaTransaction> GetPendingSelectedTransactions()
+    {
+        var accountTransactions = transactions
+            .Where(t => t.SheilaShopID == selectedShopId)
+            .OrderBy(t => t.TransDateTime)
+            .ThenBy(t => t.SheilaTranID)
+            .ToList();
+
+        var availablePayment = accountTransactions.Sum(t => t.PaymentAmount);
+        var pending = new List<PendingSheilaTransaction>();
+
+        foreach (var transaction in accountTransactions.Where(t => t.PurchaseAmount > 0))
+        {
+            var appliedPayment = Math.Min(transaction.PurchaseAmount, availablePayment);
+            availablePayment -= appliedPayment;
+            var remainingAmount = transaction.PurchaseAmount - appliedPayment;
+
+            if (remainingAmount > 0)
+            {
+                pending.Add(new PendingSheilaTransaction(transaction, remainingAmount));
+            }
+        }
+
+        return pending.OrderByDescending(p => p.Transaction.TransDateTime)
+            .ThenByDescending(p => p.Transaction.SheilaTranID)
+            .ToList();
+    }
+
+    private async Task SaveShopAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newShop.SheilaShopName) || newShop.BranchID <= 0)
+        {
+            await ShowAlertAsync("Validation Error", "Shop name and branch are required.", SweetAlertIcon.Warning); return;
+        }
+        try { await SheilaService.CreateShopAsync(newShop); newShop = new SheilaShop { BranchID = selectedBranchId }; await LoadAsync(); await ShowAlertAsync("Saved", "Sheila shop added successfully.", SweetAlertIcon.Success); }
+        catch (Exception ex) { await ShowAlertAsync("Error", ex.Message, SweetAlertIcon.Error); }
+    }
+
+    private decimal CalculatedPurchaseAmount => newTransaction.Quantity * SheilaUnitPrice;
+
+    private void IncreaseQuantity() => newTransaction.Quantity++;
+
+    private void DecreaseQuantity()
+    {
+        if (newTransaction.Quantity > 0) newTransaction.Quantity--;
+    }
+
+    private async Task SaveTransactionAsync()
+    {
+        newTransaction.PurchaseAmount = CalculatedPurchaseAmount;
+        newTransaction.TransDateTime = transactionDateTime.ToUniversalTime();
+        isSubmitting = true;
+        try { await SheilaService.CreateTransactionAsync(newTransaction); newTransaction = new SheilaTran { Quantity = 1 }; transactionDateTime = DateTime.Now; await LoadAsync(); await ShowAlertAsync("Saved", "Sheila transaction recorded successfully.", SweetAlertIcon.Success); }
+        catch (Exception ex) { await ShowAlertAsync("Error", ex.Message, SweetAlertIcon.Error); }
+        finally { isSubmitting = false; }
+    }
+
+    private async Task PaySelectedShopAsync()
+    {
+        if (selectedBalance == null || selectedBalance.BalanceDue <= 0) return;
+
+        isSubmitting = true;
+        try
+        {
+            await SheilaService.CreateTransactionAsync(new SheilaTran
+            {
+                SheilaShopID = selectedShopId,
+                PaymentAmount = selectedBalance.BalanceDue,
+                TransDateTime = DateTime.UtcNow
+            });
+            await LoadAsync();
+            await ShowAlertAsync("Payment Recorded", "The full outstanding Sheila balance has been paid.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex) { await ShowAlertAsync("Error", ex.Message, SweetAlertIcon.Error); }
+        finally { isSubmitting = false; }
+    }
+
+    private async Task ShowAlertAsync(string title, string message, SweetAlertIcon icon) => await Swal.FireAsync(new SweetAlertOptions { Title = title, Text = message, Icon = icon, ShowConfirmButton = false, Timer = 1400 });
+
+    private sealed record PendingSheilaTransaction(SheilaTran Transaction, decimal RemainingAmount);
+}
