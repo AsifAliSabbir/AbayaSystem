@@ -407,7 +407,10 @@
 
         try
         {
-            workflowEvents = await OrderService.GetOrderItemWorkflowEventsAsync(order.BranchId, order.OrderId, item.OrderItemId);
+            workflowEvents = (await OrderService.GetOrderItemWorkflowEventsAsync(order.BranchId, order.OrderId, item.OrderItemId))
+                .OrderBy(e => e.TimeOfEvent)
+                .ThenBy(e => e.StatusLogId)
+                .ToList();
         }
         finally
         {
