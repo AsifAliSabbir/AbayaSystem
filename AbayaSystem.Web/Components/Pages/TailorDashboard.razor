@@ -397,7 +397,7 @@
             {
                 currentUserId = worker.WorkerId;
                 // Check bitwise WorkerRole flags for Tailor
-                isTailorUser = (worker.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor;
+                isTailorUser = (worker.AssignedRoles & (WorkerRole.Tailor | WorkerRole.CuttingMaster)) != (WorkerRole)0;
                 isAdminUser = (worker.AssignedRoles & WorkerRole.Admin) == WorkerRole.Admin;
 
                 if (isTailorUser)
@@ -411,7 +411,9 @@
     private async Task LoadAvailableTailorsAsync()
     {
         var workers = await DbContext.Workers.AsNoTracking().ToListAsync();
-        availableTailors = workers.Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor).ToList();
+        availableTailors = workers
+            .Where(w => (w.AssignedRoles & (WorkerRole.Tailor | WorkerRole.CuttingMaster)) != (WorkerRole)0)
+            .ToList();
     }
 
     private async Task LoadTailorTaskDataAsync()

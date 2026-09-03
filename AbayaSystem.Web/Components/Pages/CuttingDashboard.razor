@@ -392,7 +392,9 @@
     {
         var workers = await DbContext.Workers.AsNoTracking().ToListAsync();
         // Filter workers who have the Tailor role assigned
-        availableTailors = workers.Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor).ToList();
+        availableTailors = workers
+            .Where(w => (w.AssignedRoles & (WorkerRole.Tailor | WorkerRole.CuttingMaster)) != (WorkerRole)0)
+            .ToList();
 
         var unfinishedStatuses = new[]
         {

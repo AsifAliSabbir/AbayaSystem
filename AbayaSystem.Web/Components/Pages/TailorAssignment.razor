@@ -160,7 +160,7 @@
 
         availableTailors = await DbContext.Workers
             .AsNoTracking()
-            .Where(w => (w.AssignedRoles & WorkerRole.Tailor) == WorkerRole.Tailor)
+            .Where(w => (w.AssignedRoles & (WorkerRole.Tailor | WorkerRole.CuttingMaster)) != (WorkerRole)0)
             .OrderBy(w => w.Name)
             .ToListAsync();
 

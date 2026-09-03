@@ -343,12 +343,16 @@
                                         · @workflowEvent.BranchName
                                     </div>
                                 </div>
-                                <small class="text-muted text-nowrap">@workflowEvent.TimeOfEvent.ToLocalTime().ToString("dd MMM, HH:mm")</small>
+                                <small class="text-muted text-nowrap">@FormatRelativeTime(workflowEvent.TimeOfEvent)</small>
                             </div>
                             <div class="small mt-2">
                                 <span class="badge bg-light text-dark border">@FormatWorkflowState(workflowEvent.PreviousState)</span>
                                 <i class="bi bi-arrow-right mx-1 text-warning"></i>
                                 <span class="badge bg-warning text-dark">@FormatWorkflowState(workflowEvent.CurrentState)</span>
+                            </div>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-person me-1"></i>
+                                Responsible: <span class="fw-semibold">@workflowEvent.CurrentWorkerName</span>
                             </div>
                             @if (!string.IsNullOrWhiteSpace(workflowEvent.Notes))
                             {
@@ -494,6 +498,44 @@
             index > 0 && char.IsUpper(character) ? " " + character : character.ToString()));
     }
 
+    private static string FormatRelativeTime(DateTime eventTime)
+    {
+        // SQL Server datetime2 does not preserve DateTime.Kind. Workflow events
+        // are written with DateTime.UtcNow, so explicitly restore UTC here.
+        var eventTimeUtc = DateTime.SpecifyKind(eventTime, DateTimeKind.Utc);
+        var elapsed = DateTime.UtcNow - eventTimeUtc;
+
+        if (elapsed.TotalMinutes < 1)
+        {
+            return "Just now";
+        }
+
+        if (elapsed.TotalMinutes < 60)
+        {
+            return FormatRelativeUnit((int)elapsed.TotalMinutes, "minute");
+        }
+
+        if (elapsed.TotalHours < 24)
+        {
+            return FormatRelativeUnit((int)elapsed.TotalHours, "hour");
+        }
+
+        if (elapsed.TotalDays < 30)
+        {
+            return FormatRelativeUnit((int)elapsed.TotalDays, "day");
+        }
+
+        if (elapsed.TotalDays < 365)
+        {
+            return FormatRelativeUnit((int)(elapsed.TotalDays / 30), "month");
+        }
+
+        return FormatRelativeUnit((int)(elapsed.TotalDays / 365), "year");
+    }
+
+    private static string FormatRelativeUnit(int value, string unit) =>
+        $"{value} {unit}{(value == 1 ? string.Empty : "s")} ago";
+
     private string GetActiveStyle(string relativePath)
     {
         var currentUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
@@ -524,16 +566,25 @@
         position: relative;
     }
 
-    @@media (min-width: 992px) {
-        .offcanvas-lg {
-            width: 260px !important;
-            min-width: 260px !important;
-            max-width: 260px !important;
-            height: 100vh !important;
-            position: sticky !important;
-            top: 0;
+        @@media (min-width: 992px) {
+            .offcanvas-lg {
+                width: 260px !important;
+                min-width: 260px !important;
+                max-width: 260px !important;
+                height: 100vh !important;
+                position: sticky !important;
+                top: 0;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            }
+
+            .offcanvas-lg .offcanvas-body {
+                min-height: 0 !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
         }
-    }
 
     @@media (max-width: 991.98px) {
         .offcanvas-lg {

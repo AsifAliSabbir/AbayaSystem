@@ -607,6 +607,16 @@ namespace AbayaSystem.Infrastructure
                     CurrentState = log.CurrentState,
                     PreviousWorkerId = log.PreviousWorkerId,
                     CurrentWorkerId = log.CurrentWorkerId,
+                    PreviousWorkerName = log.PreviousWorkerId.HasValue
+                        ? (_context.Workers.Where(w => w.WorkerId == log.PreviousWorkerId.Value).Select(w => w.Name).FirstOrDefault()
+                           ?? _context.ExternalWorkers.Where(w => w.ExternalWorkerId == log.PreviousWorkerId.Value).Select(w => w.Name + " (External)").FirstOrDefault()
+                           ?? "Worker #" + log.PreviousWorkerId.Value)
+                        : "-",
+                    CurrentWorkerName = log.CurrentWorkerId.HasValue
+                        ? (_context.Workers.Where(w => w.WorkerId == log.CurrentWorkerId.Value).Select(w => w.Name).FirstOrDefault()
+                           ?? _context.ExternalWorkers.Where(w => w.ExternalWorkerId == log.CurrentWorkerId.Value).Select(w => w.Name + " (External)").FirstOrDefault()
+                           ?? "Worker #" + log.CurrentWorkerId.Value)
+                        : "-",
                     TimeOfEvent = log.TimeOfEvent,
                     Notes = log.Notes ?? string.Empty,
                     EventType = "Workflow Status Change"
