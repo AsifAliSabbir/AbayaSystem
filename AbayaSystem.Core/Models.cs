@@ -204,7 +204,7 @@ namespace AbayaSystem.Core
 
         public string OrderId { get; set; } = string.Empty;
 
-        public int CustomerId { get; set; }
+        public int? CustomerId { get; set; }
         public Customer? Customer { get; set; }
 
         public DateTime OrderDate { get; set; } = DateTime.Today;
@@ -212,6 +212,7 @@ namespace AbayaSystem.Core
         public DateTime? ActualDeliveryDate { get; set; }
 
         public bool IsUrgent { get; set; } = false;
+        public bool IsReplenishment { get; set; } = false;
         public string Notes { get; set; } = string.Empty;
 
 
@@ -220,6 +221,17 @@ namespace AbayaSystem.Core
         public decimal BalanceDue { get; set; }
 
         public List<OrderItem> Items { get; set; } = new();
+    }
+
+    public class ReadymadeSale
+    {
+        public int ReadymadeSaleId { get; set; }
+        public int BranchId { get; set; }
+        public Branch? Branch { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1;
+        public decimal TotalAmount { get; set; }
+        public DateTime SaleDateTime { get; set; } = DateTime.UtcNow;
     }
 
     // 👗 Individual Garment Line Item

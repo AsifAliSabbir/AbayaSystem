@@ -205,6 +205,10 @@
                                             <i class="bi bi-bag-heart me-2"></i>
                                             Readymade Sheila
                                         </a>
+                                        <a href="/readymade-sales" class="@GetActiveStyle("/readymade-sales")" @onclick="CloseMobileMenu">
+                                            <i class="bi bi-cart-check me-2"></i>
+                                            Readymade Sales
+                                        </a>
                                     </div>
                                 }
                             </div>
@@ -420,7 +424,7 @@
         {
             isDataEntryOpen = true;
         }
-        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types") || currentUrl.StartsWith("readymade-sheila"))
+        else if (currentUrl.StartsWith("fabric-suppliers") || currentUrl.StartsWith("fabric-types") || currentUrl.StartsWith("readymade-sheila") || currentUrl.StartsWith("readymade-sales"))
         {
             isDataEntryOpen = true;
         }

@@ -11,6 +11,7 @@ public class DashboardSummary
     public int PendingFabricProcurement { get; set; }
     public int ExternalItemsInProgress { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal ReadymadeSalesAmount { get; set; }
     public decimal DepositsReceived { get; set; }
     public decimal BalanceDue { get; set; }
     public List<DashboardStatusCount> StatusCounts { get; set; } = new();

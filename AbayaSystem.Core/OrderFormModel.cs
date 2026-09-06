@@ -34,6 +34,7 @@ namespace AbayaSystem.Core
         public DateTime OrderDate { get; set; } = DateTime.Today;
         public DateTime EstimatedDeliveryDate { get; set; } = DateTime.Today.AddDays(7);
         public bool IsUrgent { get; set; } = false;
+        public bool IsReplenishment { get; set; } = false;
         public string OrderNotes { get; set; } = string.Empty;
 
         // 💰 Financials

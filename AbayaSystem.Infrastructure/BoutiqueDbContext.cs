@@ -11,6 +11,7 @@ namespace AbayaSystem.Infrastructure
         public DbSet<FabricShop> FabricShops => Set<FabricShop>();
         public DbSet<SheilaShop> SheilaShops => Set<SheilaShop>();
         public DbSet<SheilaTran> SheilaTrans => Set<SheilaTran>();
+        public DbSet<ReadymadeSale> ReadymadeSales => Set<ReadymadeSale>();
         public DbSet<Fabric> Fabrics => Set<Fabric>();
         public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Customer> Customers => Set<Customer>();
@@ -89,6 +90,19 @@ namespace AbayaSystem.Infrastructure
                       .WithMany()
                       .HasForeignKey(o => o.CustomerId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ReadymadeSale>(entity =>
+            {
+                entity.ToTable("ReadymadeSales");
+                entity.HasKey(s => s.ReadymadeSaleId);
+                entity.Property(s => s.Description).HasMaxLength(250).IsRequired();
+                entity.Property(s => s.Quantity).HasColumnType("decimal(18,2)");
+                entity.Property(s => s.TotalAmount).HasColumnType("decimal(18,2)");
+                entity.HasOne(s => s.Branch)
+                    .WithMany()
+                    .HasForeignKey(s => s.BranchId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // 🔗 Link OrderItems to Composite Key Parent Order

@@ -1,0 +1,95 @@
+@page "/readymade-sales"
+@attribute [Authorize(Roles = "Admin,Salesman")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+@using Microsoft.AspNetCore.Components.Authorization
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@inject IReadymadeSalesService ReadymadeSalesService
+@inject IWorkerService WorkerService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject SweetAlertService Swal
+
+<PageTitle>Readymade Sales - Abaya System</PageTitle>
+
+<div class="container-fluid max-w-1200 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div><h3 class="fw-bold mb-1">🛍️ Readymade Sales</h3><p class="text-muted small mb-0">Record sales of sample and ready-made items sold from the shop.</p></div>
+        @if (isAdmin)
+        {
+            <select class="form-select" style="width: 190px;" @bind="selectedBranchId" @bind:after="LoadSalesAsync">
+                <option value="0">All Branches</option>
+                @foreach (var branch in branches) { <option value="@branch.BranchId">@branch.BranchName</option> }
+            </select>
+        }
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-5">
+            <div class="card border-0 shadow-sm rounded-3">
+                <div class="card-header bg-white border-bottom py-3"><h6 class="fw-bold mb-0">Record Readymade Sale</h6></div>
+                <div class="card-body">
+                    @if (!isAdmin) { <div class="alert alert-light border small">Branch: <strong>@branches.FirstOrDefault(b => b.BranchId == selectedBranchId)?.BranchName</strong></div> }
+                    <label class="form-label small fw-semibold">Description *</label>
+                    <input class="form-control mb-3" @bind="description" placeholder="e.g. Black sample abaya - Model A12" />
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label small fw-semibold">Quantity *</label><div class="input-group"><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="DecreaseQuantity" disabled="@(quantity <= 1)">−</button><input class="form-control text-center fw-bold" value="@quantity" readonly /><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="IncreaseQuantity">+</button></div></div>
+                        <div class="col-md-6"><label class="form-label small fw-semibold">Total Amount (AED) *</label><input type="number" step="0.01" class="form-control" @bind="totalAmount" /></div>
+                    </div>
+                    <div class="mt-3"><label class="form-label small fw-semibold">Sale Date &amp; Time</label><input class="form-control" type="datetime-local" @bind="saleDateTime" /></div>
+                    <button class="btn btn-primary fw-bold mt-3" @onclick="SaveSaleAsync" disabled="@isSubmitting"><i class="bi bi-plus-lg me-1"></i> Save Sale</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-7">
+            <div class="card border-0 shadow-sm rounded-3 h-100">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between"><h6 class="fw-bold mb-0">Recent Readymade Sales</h6><strong class="text-primary">@sales.Sum(s => s.TotalAmount).ToString("N2") AED</strong></div>
+                <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Date</th><th>Branch</th><th>Description</th><th>Qty</th><th class="text-end">Amount</th></tr></thead><tbody>
+                    @if (sales.Count == 0) { <tr><td colspan="5" class="text-center text-muted py-4">No readymade sales recorded.</td></tr> }
+                    else { @foreach (var sale in sales) { <tr><td>@sale.SaleDateTime.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td><td>@sale.Branch?.BranchName</td><td>@sale.Description</td><td>@sale.Quantity.ToString("N0")</td><td class="text-end fw-semibold">@sale.TotalAmount.ToString("N2")</td></tr> } }
+                </tbody></table></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isAdmin;
+    private bool isSubmitting;
+    private int selectedBranchId;
+    private decimal quantity = 1;
+    private decimal totalAmount;
+    private string description = string.Empty;
+    private DateTime saleDateTime = DateTime.Now;
+    private List<Branch> branches = new();
+    private List<ReadymadeSale> sales = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        isAdmin = state.User.IsInRole("Admin");
+        if (!isAdmin) int.TryParse(state.User.FindFirst("BranchId")?.Value, out selectedBranchId);
+        branches = await ReadymadeSalesService.GetBranchesAsync();
+        await LoadSalesAsync();
+    }
+
+    private async Task LoadSalesAsync() => sales = await ReadymadeSalesService.GetSalesAsync(selectedBranchId > 0 ? selectedBranchId : null);
+    private void IncreaseQuantity() => quantity++;
+    private void DecreaseQuantity() { if (quantity > 1) quantity--; }
+
+    private async Task SaveSaleAsync()
+    {
+        if (selectedBranchId <= 0 || string.IsNullOrWhiteSpace(description) || quantity <= 0 || totalAmount < 0)
+        { await Swal.FireAsync("Validation Error", "Branch, description, quantity, and a valid total amount are required.", SweetAlertIcon.Warning); return; }
+        isSubmitting = true;
+        try
+        {
+            await ReadymadeSalesService.CreateSaleAsync(new ReadymadeSale { BranchId = selectedBranchId, Description = description, Quantity = quantity, TotalAmount = totalAmount, SaleDateTime = saleDateTime.ToUniversalTime() });
+            description = string.Empty; quantity = 1; totalAmount = 0; saleDateTime = DateTime.Now;
+            await LoadSalesAsync();
+            await Swal.FireAsync("Saved", "Readymade sale recorded successfully.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex) { await Swal.FireAsync("Error", ex.Message, SweetAlertIcon.Error); }
+        finally { isSubmitting = false; }
+    }
+}

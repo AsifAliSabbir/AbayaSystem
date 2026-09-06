@@ -91,7 +91,7 @@ namespace AbayaSystem.Infrastructure
 
             var lastOrders = await _context.Orders
                 .AsNoTracking()
-                .Where(o => customerIds.Contains(o.CustomerId))
+                .Where(o => o.CustomerId.HasValue && customerIds.Contains(o.CustomerId.Value))
                 .GroupBy(o => o.CustomerId)
                 .Select(g => new
                 {
@@ -127,7 +127,7 @@ namespace AbayaSystem.Infrastructure
             if (model.Items.Count == 0)
                 return ServiceResult.Failure("You must add at least one item to the order!");
 
-            if (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone))
+            if (!model.IsReplenishment && (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone)))
                 return ServiceResult.Failure("Customer name and phone number are required!");
 
             var cleanId = model.ManualOrderId.Trim().ToUpper();
@@ -138,8 +138,8 @@ namespace AbayaSystem.Infrastructure
             if (exist)
                 return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
 
-            Customer customer;
-            if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
+            Customer? customer = null;
+            if (!model.IsReplenishment && model.CustomerId.HasValue && model.CustomerId.Value > 0)
             {
                 customer = await _context.Customers.FindAsync(model.CustomerId.Value);
                 if (customer == null)
@@ -147,7 +147,7 @@ namespace AbayaSystem.Infrastructure
                     return ServiceResult.Failure("Selected customer profile was not found.");
                 }
             }
-            else
+            else if (!model.IsReplenishment)
             {
                 var cleanPhone = model.CustomerPhone.Trim();
                 customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerPhone == cleanPhone);
@@ -158,33 +158,36 @@ namespace AbayaSystem.Infrastructure
                 }
             }
 
-            customer.CustomerName = model.CustomerName.Trim();
-            customer.CustomerPhone = model.CustomerPhone.Trim();
-            customer.LengthAbayaFront = model.LengthAbayaFront;
-            customer.LengthAbayaBack = model.LengthAbayaBack;
-            customer.LengthSleeve = model.LengthSleeve;
-            customer.WidthArmHole = model.WidthArmHole;
-            customer.WidthSleeveOpening = model.WidthSleeveOpening;
-            customer.WidthShoulder = model.WidthShoulder;
-            customer.WidthBody = model.WidthBody;
-            customer.WidthBottom = model.WidthBottom;
-            customer.ButtonType = model.ButtonType;
-            customer.NumberOfButtons = model.NumberOfButtons;
-
-            await _context.SaveChangesAsync();
+            if (customer != null)
+            {
+                customer.CustomerName = model.CustomerName.Trim();
+                customer.CustomerPhone = model.CustomerPhone.Trim();
+                customer.LengthAbayaFront = model.LengthAbayaFront;
+                customer.LengthAbayaBack = model.LengthAbayaBack;
+                customer.LengthSleeve = model.LengthSleeve;
+                customer.WidthArmHole = model.WidthArmHole;
+                customer.WidthSleeveOpening = model.WidthSleeveOpening;
+                customer.WidthShoulder = model.WidthShoulder;
+                customer.WidthBody = model.WidthBody;
+                customer.WidthBottom = model.WidthBottom;
+                customer.ButtonType = model.ButtonType;
+                customer.NumberOfButtons = model.NumberOfButtons;
+                await _context.SaveChangesAsync();
+            }
 
             var order = new Order
             {
                 BranchId = model.BranchId,
                 OrderId = cleanId,
-                CustomerId = customer.CustomerId,
+                CustomerId = customer?.CustomerId,
                 OrderDate = model.OrderDate,
                 EstimatedDeliveryDate = model.EstimatedDeliveryDate,
                 IsUrgent = model.IsUrgent,
+                IsReplenishment = model.IsReplenishment,
                 Notes = model.OrderNotes,
-                TotalAmount = model.TotalAmount,
-                DepositPaid = model.DepositPaid,
-                BalanceDue = model.BalanceDue
+                TotalAmount = model.IsReplenishment ? 0 : model.TotalAmount,
+                DepositPaid = model.IsReplenishment ? 0 : model.DepositPaid,
+                BalanceDue = model.IsReplenishment ? 0 : model.BalanceDue
             };
 
             var nextOrderItemId = 1;
@@ -430,6 +433,15 @@ namespace AbayaSystem.Infrastructure
             var orders = await ordersQuery.ToListAsync();
             var items = orders.SelectMany(o => o.Items).ToList();
 
+            var salesQuery = _context.ReadymadeSales.AsNoTracking().AsQueryable();
+            if (branchId.HasValue && branchId.Value > 0)
+                salesQuery = salesQuery.Where(s => s.BranchId == branchId.Value);
+            if (orderDateFrom.HasValue)
+                salesQuery = salesQuery.Where(s => s.SaleDateTime >= orderDateFrom.Value.Date.ToUniversalTime());
+            if (orderDateTo.HasValue)
+                salesQuery = salesQuery.Where(s => s.SaleDateTime < orderDateTo.Value.Date.AddDays(1).ToUniversalTime());
+            var readymadeSalesAmount = await salesQuery.SumAsync(s => (decimal?)s.TotalAmount) ?? 0;
+
             var undeliveredOrdersQuery = _context.Orders
                 .AsNoTracking()
                 .Include(o => o.Branch)
@@ -497,7 +509,8 @@ namespace AbayaSystem.Infrastructure
                 OverdueOrders = orders.Count(o => o.EstimatedDeliveryDate.Date < today && o.Items.Any(i => i.Status != ItemStatus.Delivered)),
                 PendingFabricProcurement = items.Count(i => i.Status == ItemStatus.ReadyForFabricProcurement),
                 ExternalItemsInProgress = items.Count(i => i.Status == ItemStatus.QueueExternalVendor || i.Status == ItemStatus.OutWithExternalVendor || i.Status == ItemStatus.QueueRawFabricEmb || i.Status == ItemStatus.OutForRawFabricEmb || i.Status == ItemStatus.QueueHalfStitchEmb || i.Status == ItemStatus.OutForHalfStitchEmb),
-                TotalAmount = orders.Sum(o => o.TotalAmount),
+                TotalAmount = orders.Sum(o => o.TotalAmount) + readymadeSalesAmount,
+                ReadymadeSalesAmount = readymadeSalesAmount,
                 DepositsReceived = orders.Sum(o => o.DepositPaid),
                 BalanceDue = orders.Sum(o => o.BalanceDue),
                 StatusCounts = items
@@ -769,6 +782,7 @@ namespace AbayaSystem.Infrastructure
                 OrderDate = order.OrderDate,
                 EstimatedDeliveryDate = order.EstimatedDeliveryDate,
                 IsUrgent = order.IsUrgent,
+                IsReplenishment = order.IsReplenishment,
                 OrderNotes = order.Notes,
                 TotalAmount = order.TotalAmount,
                 DepositPaid = order.DepositPaid
@@ -819,7 +833,7 @@ namespace AbayaSystem.Infrastructure
             if (model.Items.Count == 0)
                 return ServiceResult.Failure("You must have at least one item in the order!");
 
-            if (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone))
+            if (!model.IsReplenishment && (string.IsNullOrWhiteSpace(model.CustomerName) || string.IsNullOrWhiteSpace(model.CustomerPhone)))
                 return ServiceResult.Failure("Customer name and phone number are required!");
 
             var cleanId = model.ManualOrderId.Trim().ToUpper();
@@ -840,13 +854,13 @@ namespace AbayaSystem.Infrastructure
                     return ServiceResult.Failure($"Order ticket '{cleanId}' already exists for this branch.");
             }
 
-            Customer customer;
-            if (model.CustomerId.HasValue && model.CustomerId.Value > 0)
+            Customer? customer = null;
+            if (!model.IsReplenishment && model.CustomerId.HasValue && model.CustomerId.Value > 0)
             {
                 customer = await _context.Customers.FindAsync(model.CustomerId.Value);
                 if (customer == null) return ServiceResult.Failure("Selected customer profile was not found.");
             }
-            else
+            else if (!model.IsReplenishment)
             {
                 var cleanPhone = model.CustomerPhone.Trim();
                 customer = await _context.Customers.FirstOrDefaultAsync(c => c.CustomerPhone == cleanPhone);
@@ -857,29 +871,32 @@ namespace AbayaSystem.Infrastructure
                 }
             }
 
-            customer.CustomerName = model.CustomerName.Trim();
-            customer.CustomerPhone = model.CustomerPhone.Trim();
-            customer.LengthAbayaFront = model.LengthAbayaFront;
-            customer.LengthAbayaBack = model.LengthAbayaBack;
-            customer.LengthSleeve = model.LengthSleeve;
-            customer.WidthArmHole = model.WidthArmHole;
-            customer.WidthSleeveOpening = model.WidthSleeveOpening;
-            customer.WidthShoulder = model.WidthShoulder;
-            customer.WidthBody = model.WidthBody;
-            customer.WidthBottom = model.WidthBottom;
-            customer.ButtonType = model.ButtonType;
-            customer.NumberOfButtons = model.NumberOfButtons;
+            if (customer != null)
+            {
+                customer.CustomerName = model.CustomerName.Trim();
+                customer.CustomerPhone = model.CustomerPhone.Trim();
+                customer.LengthAbayaFront = model.LengthAbayaFront;
+                customer.LengthAbayaBack = model.LengthAbayaBack;
+                customer.LengthSleeve = model.LengthSleeve;
+                customer.WidthArmHole = model.WidthArmHole;
+                customer.WidthSleeveOpening = model.WidthSleeveOpening;
+                customer.WidthShoulder = model.WidthShoulder;
+                customer.WidthBody = model.WidthBody;
+                customer.WidthBottom = model.WidthBottom;
+                customer.ButtonType = model.ButtonType;
+                customer.NumberOfButtons = model.NumberOfButtons;
+                await _context.SaveChangesAsync();
+            }
 
-            await _context.SaveChangesAsync();
-
-            order.CustomerId = customer.CustomerId;
+            order.CustomerId = customer?.CustomerId;
             order.OrderDate = model.OrderDate;
             order.EstimatedDeliveryDate = model.EstimatedDeliveryDate;
             order.IsUrgent = model.IsUrgent;
+            order.IsReplenishment = model.IsReplenishment;
             order.Notes = model.OrderNotes;
-            order.TotalAmount = model.TotalAmount;
-            order.DepositPaid = model.DepositPaid;
-            order.BalanceDue = model.BalanceDue;
+            order.TotalAmount = model.IsReplenishment ? 0 : model.TotalAmount;
+            order.DepositPaid = model.IsReplenishment ? 0 : model.DepositPaid;
+            order.BalanceDue = model.IsReplenishment ? 0 : model.BalanceDue;
 
             if (isKeyChanged)
             {
