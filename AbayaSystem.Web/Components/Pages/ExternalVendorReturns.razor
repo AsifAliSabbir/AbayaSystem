@@ -6,10 +6,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject BoutiqueDbContext DbContext
 @inject IWorkflowService WorkflowService
 @inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>External Vendor Returns - Abaya System</PageTitle>
 
@@ -155,7 +157,8 @@
 
         var returned = await WorkflowService.MarkExternalVendorReturnedAsync(
             job.ExternalVendorJobId,
-            "Item returned from external vendor.");
+            "Item returned from external vendor.",
+            performedByWorkerId: await GetCurrentUserIdAsync());
 
         if (returned)
         {
@@ -170,6 +173,12 @@
         }
 
         await LoadDataAsync();
+    }
+
+    private async Task<int?> GetCurrentUserIdAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        return int.TryParse(state.User.FindFirst("UserID")?.Value, out var userId) ? userId : null;
     }
 
     private static string GetStageLabel(ExternalVendorJobStage stage) => stage switch

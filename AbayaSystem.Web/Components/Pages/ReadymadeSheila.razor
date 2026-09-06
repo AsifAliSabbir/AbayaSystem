@@ -87,7 +87,7 @@
                             }
                             else
                             {
-                                <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr><th>Date</th><th>Order</th><th>Qty</th><th class="text-end">Pending Amount</th></tr></thead><tbody>@foreach (var pending in PendingSelectedTransactions){<tr><td>@pending.Transaction.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td>@(pending.Transaction.OrderID ?? "-")</td><td>@pending.Transaction.Quantity.ToString("N0")</td><td class="text-end fw-semibold">@pending.RemainingAmount.ToString("N2")</td></tr>}@if (LastSelectedPayment != null){<tr class="table-success"><td>@LastSelectedPayment.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td colspan="2"><i class="bi bi-check-circle me-1"></i>Last payment</td><td class="text-end fw-semibold">-@LastSelectedPayment.PaymentAmount.ToString("N2")</td></tr>}</tbody></table></div>
+                                <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead class="table-light"><tr><th>Date</th><th>Order</th><th>Qty</th><th class="text-end">Pending Amount</th><th></th></tr></thead><tbody>@foreach (var pending in PendingSelectedTransactions){<tr><td>@pending.Transaction.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td>@(pending.Transaction.OrderID ?? "-")</td><td>@pending.AvailableQuantity.ToString("N0")</td><td class="text-end fw-semibold">@pending.RemainingAmount.ToString("N2")</td><td class="text-end">@if (pending.AvailableQuantity > 0){<button class="btn btn-sm btn-outline-danger" @onclick="() => OpenReturnModal(pending)"><i class="bi bi-arrow-return-left me-1"></i>Return</button>}</td></tr>@foreach (var returned in pending.Transaction.Returns.OrderBy(r => r.TransDateTime).ThenBy(r => r.SheilaTranID)){<tr class="table-warning"><td>@returned.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td colspan="2" class="ps-4"><i class="bi bi-arrow-return-left me-1"></i>Returned</td><td class="text-end">@returned.PurchaseAmount.ToString("N2")</td><td></td></tr> } }@if (LastSelectedPayment != null){<tr class="table-success"><td>@LastSelectedPayment.TransDateTime.ToLocalTime().ToString("dd MMM yyyy")</td><td colspan="3"><i class="bi bi-check-circle me-1"></i>Last payment</td><td class="text-end fw-semibold">-@LastSelectedPayment.PaymentAmount.ToString("N2")</td></tr>}</tbody></table></div>
                             }
                         }
                     </div>
@@ -103,6 +103,28 @@
     }
 </div>
 
+@if (showReturnModal && returnTarget != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-arrow-return-left me-2"></i>Return Sheila</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseReturnModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="mb-3">How many Sheila should be returned from this purchase?</p>
+                    <div class="d-flex justify-content-between align-items-center mb-3"><span class="text-muted">Purchased</span><strong>@returnTarget.Transaction.Quantity.ToString("N0")</strong></div>
+                    <div class="d-flex justify-content-between align-items-center mb-3"><span class="text-muted">Available to return</span><strong>@returnTarget.AvailableQuantity.ToString("N0")</strong></div>
+                    <div class="input-group"><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="DecreaseReturnQuantity" disabled="@(returnQuantity <= 1)">−</button><input class="form-control text-center fw-bold" value="@returnQuantity" readonly aria-label="Return quantity" /><button type="button" class="btn btn-outline-secondary fw-bold" @onclick="IncreaseReturnQuantity" disabled="@(returnQuantity >= returnTarget.AvailableQuantity)">+</button></div>
+                    <small class="text-muted">Return value: @((returnQuantity * SheilaUnitPrice).ToString("N2"))</small>
+                </div>
+                <div class="modal-footer bg-light"><button class="btn btn-secondary" @onclick="CloseReturnModal">Cancel</button><button class="btn btn-danger fw-bold" @onclick="SaveReturnAsync" disabled="@isSubmitting"><i class="bi bi-check-lg me-1"></i>Record Return</button></div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool isLoading = true;
     private bool isSubmitting;
@@ -117,6 +139,9 @@
     private List<SheilaTran> transactions = new();
     private SheilaShop newShop = new();
     private SheilaTran newTransaction = new() { Quantity = 1 };
+    private bool showReturnModal;
+    private PendingSheilaTransaction? returnTarget;
+    private decimal returnQuantity = 1;
 
     private SheilaShopBalance? selectedBalance => balances.FirstOrDefault(b => b.Shop.SheilaShopID == selectedShopId);
 
@@ -179,19 +204,60 @@
 
         foreach (var transaction in accountTransactions.Where(t => t.PurchaseAmount > 0))
         {
-            var appliedPayment = Math.Min(transaction.PurchaseAmount, availablePayment);
+            var returnedQuantity = transaction.Returns.Sum(t => Math.Abs(t.Quantity));
+            var availableQuantity = Math.Max(0, transaction.Quantity - returnedQuantity);
+            var netPurchaseAmount = availableQuantity * SheilaUnitPrice;
+            var appliedPayment = Math.Min(netPurchaseAmount, availablePayment);
             availablePayment -= appliedPayment;
-            var remainingAmount = transaction.PurchaseAmount - appliedPayment;
+            var remainingAmount = netPurchaseAmount - appliedPayment;
 
-            if (remainingAmount > 0)
+            if (remainingAmount > 0 || returnedQuantity > 0)
             {
-                pending.Add(new PendingSheilaTransaction(transaction, remainingAmount));
+                pending.Add(new PendingSheilaTransaction(transaction, remainingAmount, availableQuantity));
             }
         }
 
         return pending.OrderByDescending(p => p.Transaction.TransDateTime)
             .ThenByDescending(p => p.Transaction.SheilaTranID)
             .ToList();
+    }
+
+    private void OpenReturnModal(PendingSheilaTransaction pending)
+    {
+        returnTarget = pending;
+        returnQuantity = 1;
+        showReturnModal = true;
+    }
+
+    private void CloseReturnModal()
+    {
+        showReturnModal = false;
+        returnTarget = null;
+    }
+
+    private void IncreaseReturnQuantity()
+    {
+        if (returnTarget != null && returnQuantity < returnTarget.AvailableQuantity) returnQuantity++;
+    }
+
+    private void DecreaseReturnQuantity()
+    {
+        if (returnQuantity > 1) returnQuantity--;
+    }
+
+    private async Task SaveReturnAsync()
+    {
+        if (returnTarget == null || returnQuantity <= 0) return;
+        isSubmitting = true;
+        try
+        {
+            await SheilaService.CreateReturnAsync(returnTarget.Transaction.SheilaTranID, returnQuantity);
+            CloseReturnModal();
+            await LoadAsync();
+            await ShowAlertAsync("Return Recorded", $"{returnQuantity:N0} Sheila returned successfully.", SweetAlertIcon.Success);
+        }
+        catch (Exception ex) { await ShowAlertAsync("Error", ex.Message, SweetAlertIcon.Error); }
+        finally { isSubmitting = false; }
     }
 
     private async Task SaveShopAsync()
@@ -245,5 +311,5 @@
 
     private async Task ShowAlertAsync(string title, string message, SweetAlertIcon icon) => await Swal.FireAsync(new SweetAlertOptions { Title = title, Text = message, Icon = icon, ShowConfirmButton = false, Timer = 1400 });
 
-    private sealed record PendingSheilaTransaction(SheilaTran Transaction, decimal RemainingAmount);
+    private sealed record PendingSheilaTransaction(SheilaTran Transaction, decimal RemainingAmount, decimal AvailableQuantity);
 }

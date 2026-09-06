@@ -17,6 +17,7 @@ namespace AbayaSystem.Core
 
             public int? PreviousWorkerId { get; set; }
             public int? CurrentWorkerId { get; set; }
+            public int? PerformedByWorkerId { get; set; }
 
             public DateTime TimeOfEvent { get; set; } = DateTime.UtcNow;
             public string? Notes { get; set; }
@@ -57,6 +58,9 @@ namespace AbayaSystem.Core
         public decimal Quantity { get; set; }
         public decimal PurchaseAmount { get; set; }
         public decimal PaymentAmount { get; set; }
+        public int? ReturnOfSheilaTranID { get; set; }
+        public SheilaTran? ReturnOfSheilaTran { get; set; }
+        public List<SheilaTran> Returns { get; set; } = new();
         public DateTime TransDateTime { get; set; } = DateTime.UtcNow;
     }
 

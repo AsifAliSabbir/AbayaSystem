@@ -6,10 +6,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject BoutiqueDbContext DbContext
 @inject IWorkflowService WorkflowService
 @inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Ready Items - Abaya System</PageTitle>
 
@@ -274,7 +276,7 @@
     {
         foreach (var item in items)
         {
-            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.ReadyAtShop, notes: "Item received at showroom.", branchId: item.BranchId, orderId: item.OrderId);
+            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.ReadyAtShop, notes: "Item received at showroom.", branchId: item.BranchId, orderId: item.OrderId, performedByWorkerId: await GetCurrentUserIdAsync());
         }
         await LoadDataAsync();
     }
@@ -314,8 +316,14 @@
     {
         foreach (var item in items)
         {
-            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.Delivered, notes: "Item delivered to customer.", branchId: item.BranchId, orderId: item.OrderId);
+            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.Delivered, notes: "Item delivered to customer.", branchId: item.BranchId, orderId: item.OrderId, performedByWorkerId: await GetCurrentUserIdAsync());
         }
         await LoadDataAsync();
+    }
+
+    private async Task<int?> GetCurrentUserIdAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        return int.TryParse(state.User.FindFirst("UserID")?.Value, out var userId) ? userId : null;
     }
 }

@@ -11,6 +11,7 @@ public interface ISheilaService
     Task<List<SheilaTran>> GetTransactionsAsync(int? branchId = null);
     Task<List<SheilaShopBalance>> GetBalancesAsync(int? branchId = null);
     Task<SheilaTran> CreateTransactionAsync(SheilaTran transaction);
+    Task<SheilaTran> CreateReturnAsync(int originalTransactionId, decimal quantity);
 }
 
 public class SheilaService : ISheilaService
@@ -58,6 +59,7 @@ public class SheilaService : ISheilaService
             .AsNoTracking()
             .Include(t => t.SheilaShop)
                 .ThenInclude(s => s!.Branch)
+            .Include(t => t.Returns)
             .Where(t => !branchId.HasValue || t.SheilaShop!.BranchID == branchId.Value)
             .OrderByDescending(t => t.TransDateTime)
             .ThenByDescending(t => t.SheilaTranID)
@@ -107,5 +109,38 @@ public class SheilaService : ISheilaService
         _context.SheilaTrans.Add(transaction);
         await _context.SaveChangesAsync();
         return transaction;
+    }
+
+    public async Task<SheilaTran> CreateReturnAsync(int originalTransactionId, decimal quantity)
+    {
+        if (quantity <= 0 || quantity != decimal.Truncate(quantity))
+            throw new ArgumentException("Return quantity must be a positive whole number.");
+
+        var original = await _context.SheilaTrans
+            .Include(t => t.Returns)
+            .SingleOrDefaultAsync(t => t.SheilaTranID == originalTransactionId)
+            ?? throw new KeyNotFoundException("Original Sheila purchase not found.");
+
+        if (original.PurchaseAmount <= 0 || original.Quantity <= 0)
+            throw new ArgumentException("Only purchase transactions can be returned.");
+
+        var returnedQuantity = original.Returns.Sum(t => Math.Abs(t.Quantity));
+        var remainingQuantity = original.Quantity - returnedQuantity;
+        if (quantity > remainingQuantity)
+            throw new ArgumentException($"Only {remainingQuantity:N0} Sheila can be returned from this purchase.");
+
+        var returned = new SheilaTran
+        {
+            SheilaShopID = original.SheilaShopID,
+            OrderID = original.OrderID,
+            Quantity = -quantity,
+            PurchaseAmount = -(quantity * SheilaUnitPrice),
+            ReturnOfSheilaTranID = originalTransactionId,
+            TransDateTime = DateTime.UtcNow
+        };
+
+        _context.SheilaTrans.Add(returned);
+        await _context.SaveChangesAsync();
+        return returned;
     }
 }

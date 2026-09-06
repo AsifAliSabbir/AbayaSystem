@@ -4,6 +4,7 @@ using AbayaSystem.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AbayaSystem.Infrastructure.Migrations
 {
     [DbContext(typeof(BoutiqueDbContext))]
-    partial class BoutiqueDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906200202_AddSheilaReturns")]
+    partial class AddSheilaReturns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -47,9 +50,6 @@ namespace AbayaSystem.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("OrderItemId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("PerformedByWorkerId")
                         .HasColumnType("int");
 
                     b.Property<int?>("PreviousState")

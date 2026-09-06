@@ -617,6 +617,11 @@ namespace AbayaSystem.Infrastructure
                            ?? _context.ExternalWorkers.Where(w => w.ExternalWorkerId == log.CurrentWorkerId.Value).Select(w => w.Name + " (External)").FirstOrDefault()
                            ?? "Worker #" + log.CurrentWorkerId.Value)
                         : "-",
+                    PerformedByWorkerId = log.PerformedByWorkerId,
+                    PerformedByWorkerName = log.PerformedByWorkerId.HasValue
+                        ? (_context.Workers.Where(w => w.WorkerId == log.PerformedByWorkerId.Value).Select(w => w.Name).FirstOrDefault()
+                           ?? "Worker #" + log.PerformedByWorkerId.Value)
+                        : string.Empty,
                     TimeOfEvent = log.TimeOfEvent,
                     Notes = log.Notes ?? string.Empty,
                     EventType = "Workflow Status Change"
@@ -672,6 +677,8 @@ namespace AbayaSystem.Infrastructure
                 CurrentWorkerId = l.CurrentWorkerId,
                 PreviousWorkerName = GetWorkerName(l.PreviousWorkerId),
                 CurrentWorkerName = GetWorkerName(l.CurrentWorkerId),
+                PerformedByWorkerId = l.PerformedByWorkerId,
+                PerformedByWorkerName = GetWorkerName(l.PerformedByWorkerId),
                 TimeOfEvent = l.TimeOfEvent,
                 Notes = l.Notes ?? string.Empty,
                 EventType = "Workflow Status Change"

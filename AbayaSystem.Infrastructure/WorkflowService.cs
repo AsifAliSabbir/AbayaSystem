@@ -25,7 +25,8 @@ namespace AbayaSystem.Infrastructure
         Task<bool> MarkExternalVendorReturnedAsync(
             int externalVendorJobId,
             string? notes = null,
-            int? receivedByWorkerId = null);
+            int? receivedByWorkerId = null,
+            int? performedByWorkerId = null);
 
         Task<bool> TransitionStatusAsync(
             int orderItemId,
@@ -34,7 +35,8 @@ namespace AbayaSystem.Infrastructure
             string? notes = null,
             int? assignedHandEmbroidererId = null,
             int? branchId = null,
-            string? orderId = null);
+            string? orderId = null,
+            int? performedByWorkerId = null);
     }
 
     public class WorkflowService : IWorkflowService
@@ -159,7 +161,7 @@ namespace AbayaSystem.Infrastructure
                 DispatchedByWorkerId = dispatchedByWorkerId
             });
 
-            AddStatusLog(item, previousStatus, nextStatus, item.ExternalWorkerId, notes);
+            AddStatusLog(item, previousStatus, nextStatus, item.ExternalWorkerId, notes, dispatchedByWorkerId);
             await _db.SaveChangesAsync();
             return true;
         }
@@ -167,7 +169,8 @@ namespace AbayaSystem.Infrastructure
         public async Task<bool> MarkExternalVendorReturnedAsync(
             int externalVendorJobId,
             string? notes = null,
-            int? receivedByWorkerId = null)
+            int? receivedByWorkerId = null,
+            int? performedByWorkerId = null)
         {
             var job = await _db.ExternalVendorJobs
                 .Include(j => j.OrderItem)
@@ -196,7 +199,7 @@ namespace AbayaSystem.Infrastructure
             job.ReturnNotes = notes ?? string.Empty;
             job.ReceivedByWorkerId = receivedByWorkerId;
 
-            AddStatusLog(item, previousStatus, nextStatus, null, notes);
+            AddStatusLog(item, previousStatus, nextStatus, null, notes, performedByWorkerId ?? receivedByWorkerId);
             await _db.SaveChangesAsync();
             return true;
         }
@@ -210,7 +213,8 @@ namespace AbayaSystem.Infrastructure
             string? notes = null,
             int? assignedHandEmbroidererId = null,
             int? branchId = null,
-            string? orderId = null)
+            string? orderId = null,
+            int? performedByWorkerId = null)
         {
             var item = branchId.HasValue && !string.IsNullOrWhiteSpace(orderId)
                 ? await _db.OrderItems.FirstOrDefaultAsync(i => i.BranchId == branchId.Value && i.OrderId == orderId && i.OrderItemId == orderItemId)
@@ -255,6 +259,7 @@ namespace AbayaSystem.Infrastructure
                 CurrentState = newStatus,
                 PreviousWorkerId = previousWorkerId,
                 CurrentWorkerId = assignedHandEmbroidererId ?? assignedWorkerId ?? previousWorkerId,
+                PerformedByWorkerId = performedByWorkerId,
                 TimeOfEvent = DateTime.UtcNow,
                 Notes = notes
             };
@@ -270,7 +275,8 @@ namespace AbayaSystem.Infrastructure
             ItemStatus previousState,
             ItemStatus currentState,
             int? currentWorkerId,
-            string? notes)
+            string? notes,
+            int? performedByWorkerId = null)
         {
             _db.StatusLogs.Add(new StatusLog
             {
@@ -281,6 +287,7 @@ namespace AbayaSystem.Infrastructure
                 CurrentState = currentState,
                 PreviousWorkerId = item.ExternalWorkerId,
                 CurrentWorkerId = currentWorkerId,
+                PerformedByWorkerId = performedByWorkerId,
                 TimeOfEvent = DateTime.UtcNow,
                 Notes = notes
             });

@@ -13,8 +13,10 @@ public class OrderWorkflowEventDto
     public ItemStatus CurrentState { get; set; }
     public int? PreviousWorkerId { get; set; }
     public int? CurrentWorkerId { get; set; }
+    public int? PerformedByWorkerId { get; set; }
     public string PreviousWorkerName { get; set; } = string.Empty;
     public string CurrentWorkerName { get; set; } = string.Empty;
+    public string PerformedByWorkerName { get; set; } = string.Empty;
     public DateTime TimeOfEvent { get; set; }
     public string Notes { get; set; } = string.Empty;
     public string EventType { get; set; } = "Workflow Status Change";

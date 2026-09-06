@@ -69,6 +69,10 @@ namespace AbayaSystem.Infrastructure
                     .WithMany(s => s.Transactions)
                     .HasForeignKey(t => t.SheilaShopID)
                     .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(t => t.ReturnOfSheilaTran)
+                    .WithMany(t => t.Returns)
+                    .HasForeignKey(t => t.ReturnOfSheilaTranID)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // 🔑 Configure Composite Primary Key for Order & Customer FK

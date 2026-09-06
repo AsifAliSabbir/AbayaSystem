@@ -6,10 +6,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject BoutiqueDbContext DbContext
 @inject IWorkflowService WorkflowService
 @inject SweetAlertService Swal
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Tailor Assignment - Abaya System</PageTitle>
 
@@ -263,7 +265,8 @@
             assignedWorkerId: tailor.WorkerId,
             notes: "Tailor assigned after cutting was completed.",
             branchId: targetItem.BranchId,
-            orderId: targetItem.OrderId);
+            orderId: targetItem.OrderId,
+            performedByWorkerId: await GetCurrentUserIdAsync());
 
         if (assigned)
         {
@@ -278,5 +281,11 @@
         }
 
         await LoadDataAsync();
+    }
+
+    private async Task<int?> GetCurrentUserIdAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        return int.TryParse(state.User.FindFirst("UserID")?.Value, out var userId) ? userId : null;
     }
 }

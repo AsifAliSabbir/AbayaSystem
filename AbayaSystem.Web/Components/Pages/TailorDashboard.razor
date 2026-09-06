@@ -542,7 +542,10 @@
                         targetItem.OrderItemId,
                         nextStatus.Value,
                         workerId,
-                        "Tailor started the stitching task.");
+                        "Tailor started the stitching task.",
+                        performedByWorkerId: currentUserId,
+                        branchId: targetItem.BranchId,
+                        orderId: targetItem.OrderId);
                 }
 
                 await Swal.FireAsync(new SweetAlertOptions
@@ -602,6 +605,7 @@
                     nextStatus,
                     currentUserId,
                     "Tailor completed the stitching task.",
+                    performedByWorkerId: currentUserId,
                     branchId: targetItem.BranchId,
                     orderId: targetItem.OrderId);
 
