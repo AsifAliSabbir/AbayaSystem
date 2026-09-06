@@ -388,11 +388,10 @@
     private async Task IdentifyUserAndRoleAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var username = authState.User.Identity?.Name;
-
-        if (!string.IsNullOrEmpty(username))
+        var userId = await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext);
+        if (userId.HasValue)
         {
-            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
+            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.WorkerId == userId.Value);
             if (worker != null)
             {
                 currentUserId = worker.WorkerId;

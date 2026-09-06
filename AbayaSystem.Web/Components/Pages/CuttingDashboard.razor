@@ -377,15 +377,7 @@
 
     private async Task GetLoggedInUserIdAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        var username = user.Identity?.Name;
-
-        if (!string.IsNullOrEmpty(username))
-        {
-            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
-            if (worker != null) currentUserId = worker.WorkerId;
-        }
+        currentUserId = await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext) ?? 0;
     }
 
     private async Task LoadTailorsAsync()

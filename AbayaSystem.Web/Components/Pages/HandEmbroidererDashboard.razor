@@ -174,13 +174,7 @@
         var user = authState.User;
         isHandEmbroiderer = user.IsInRole("HandEmbroiderer");
         isAdmin = user.IsInRole("Admin");
-
-        var username = user.Identity?.Name;
-        if (!string.IsNullOrWhiteSpace(username))
-        {
-            var worker = await DbContext.Workers.FirstOrDefaultAsync(w => w.Username == username);
-            if (worker != null) currentUserId = worker.WorkerId;
-        }
+        currentUserId = await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext) ?? 0;
     }
 
     private async Task LoadTasksAsync()

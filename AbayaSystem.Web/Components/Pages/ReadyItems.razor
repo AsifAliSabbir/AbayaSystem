@@ -322,8 +322,5 @@
     }
 
     private async Task<int?> GetCurrentUserIdAsync()
-    {
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        return int.TryParse(state.User.FindFirst("UserID")?.Value, out var userId) ? userId : null;
-    }
+        => await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext);
 }

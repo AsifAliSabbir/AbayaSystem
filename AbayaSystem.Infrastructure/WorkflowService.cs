@@ -197,9 +197,10 @@ namespace AbayaSystem.Infrastructure
             job.Status = ExternalVendorJobStatus.Returned;
             job.ReturnedAt = DateTime.UtcNow;
             job.ReturnNotes = notes ?? string.Empty;
-            job.ReceivedByWorkerId = receivedByWorkerId;
+            var operatorWorkerId = performedByWorkerId ?? receivedByWorkerId;
+            job.ReceivedByWorkerId = operatorWorkerId;
 
-            AddStatusLog(item, previousStatus, nextStatus, null, notes, performedByWorkerId ?? receivedByWorkerId);
+            AddStatusLog(item, previousStatus, nextStatus, null, notes, operatorWorkerId);
             await _db.SaveChangesAsync();
             return true;
         }

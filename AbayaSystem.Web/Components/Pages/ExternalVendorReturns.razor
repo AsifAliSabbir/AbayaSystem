@@ -155,10 +155,12 @@
 
         if (!result.IsConfirmed) return;
 
+        var operatorWorkerId = await GetCurrentUserIdAsync();
         var returned = await WorkflowService.MarkExternalVendorReturnedAsync(
             job.ExternalVendorJobId,
             "Item returned from external vendor.",
-            performedByWorkerId: await GetCurrentUserIdAsync());
+            receivedByWorkerId: operatorWorkerId,
+            performedByWorkerId: operatorWorkerId);
 
         if (returned)
         {
@@ -176,10 +178,7 @@
     }
 
     private async Task<int?> GetCurrentUserIdAsync()
-    {
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        return int.TryParse(state.User.FindFirst("UserID")?.Value, out var userId) ? userId : null;
-    }
+        => await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext);
 
     private static string GetStageLabel(ExternalVendorJobStage stage) => stage switch
     {
