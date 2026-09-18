@@ -254,7 +254,7 @@ namespace AbayaSystem.Infrastructure
                     CurrentState = orderItem.Status,
                     CurrentWorkerId = orderItem.StitchedByWorkerId,
                     TimeOfEvent = DateTime.UtcNow,
-                    Notes = "Initial workflow status assigned when the order was created."
+                    Notes = "WorkflowCreated"
                 });
             }
 
@@ -315,7 +315,7 @@ namespace AbayaSystem.Infrastructure
             await _workflowService.TransitionStatusAsync(
                 item.OrderItemId,
                 nextStatus,
-                notes: "Fabric procurement completed.",
+                notes: "FabricProcurementCompleted",
                 branchId: item.BranchId,
                 orderId: item.OrderId);
 
@@ -1026,7 +1026,7 @@ namespace AbayaSystem.Infrastructure
                     PreviousWorkerId = statusEvent.Item.StitchedByWorkerId,
                     CurrentWorkerId = statusEvent.Item.StitchedByWorkerId,
                     TimeOfEvent = DateTime.UtcNow,
-                    Notes = "Workflow status assigned while the order was updated."
+                    Notes = "WorkflowUpdated"
                 });
             }
 

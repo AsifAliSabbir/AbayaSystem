@@ -17,11 +17,11 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h3 class="fw-bold mb-1" style="color: #1a1a1a;">
-                @(orderModel.IsEditMode ? $"✏️ Edit Order #{orderModel.OriginalOrderId}" : "Order Intake")
+                @(orderModel.IsEditMode ? $"✏️ {Ui["EditOrder"]} #{orderModel.OriginalOrderId}" : Ui["OrderIntake"])
             </h3>
         </div>
         <a href="/orders" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i> All Orders
+            <i class="bi bi-arrow-left me-1"></i> @Ui["AllOrders"]
         </a>
     </div>
 
@@ -29,7 +29,7 @@
     {
         <div class="text-center py-5">
             <div class="spinner-border text-warning" role="status"></div>
-            <p class="text-muted mt-2">Loading order information...</p>
+            <p class="text-muted mt-2">@Ui["LoadingOrderInformation"]</p>
         </div>
     }
     else
@@ -48,7 +48,7 @@
                             1
                         </div>
                         <span class="small fw-semibold mt-1 d-none d-md-block @(currentStep == 1 ? "text-dark fw-bold" : "text-muted")">
-                            Order Info
+                            @Ui["OrderInfo"]
                         </span>
                     </div>
 
@@ -58,7 +58,7 @@
                             2
                         </div>
                         <span class="small fw-semibold mt-1 d-none d-md-block @(currentStep == 2 ? "text-dark fw-bold" : "text-muted")">
-                            Line Items (@orderModel.Items.Count)
+                            @Ui["LineItems"] (@orderModel.Items.Count)
                         </span>
                     </div>
 
@@ -68,7 +68,7 @@
                             3
                         </div>
                         <span class="small fw-semibold mt-1 d-none d-md-block @(currentStep == 3 ? "text-dark fw-bold" : "text-muted")">
-                            Measurements
+                            @Ui["Measurements"]
                         </span>
                     </div>
 
@@ -78,7 +78,7 @@
                             4
                         </div>
                         <span class="small fw-semibold mt-1 d-none d-md-block @(currentStep == 4 ? "text-dark fw-bold" : "text-muted")">
-                            Payment & Review
+                            @Ui["PaymentReview"]
                         </span>
                     </div>
                 </div>
@@ -91,19 +91,19 @@
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                     <h6 class="fw-bold m-0 text-dark">
-                            <i class="bi bi-receipt me-2 text-warning"></i>Step 1: Master Order Information
+                            <i class="bi bi-receipt me-2 text-warning"></i>Step 1: @Ui["MasterOrderInformation"]
                         </h6>
                     <div class="d-flex gap-3 align-items-center">
-                        <div class="form-check form-switch m-0"><input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch" @bind="orderModel.IsUrgent"><label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">🚨 Urgent Order</label></div>
-                        <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="replenishmentSwitch" @bind="orderModel.IsReplenishment" @bind:after="OnReplenishmentChanged"><label class="form-check-label fw-bold text-primary ms-1" for="replenishmentSwitch">📦 Replenishment</label></div>
+                        <div class="form-check form-switch m-0"><input class="form-check-input bg-danger border-danger" type="checkbox" id="urgentSwitch" @bind="orderModel.IsUrgent"><label class="form-check-label fw-bold text-danger ms-1" for="urgentSwitch">🚨 @Ui["UrgentOrder"]</label></div>
+                        <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="replenishmentSwitch" @bind="orderModel.IsReplenishment" @bind:after="OnReplenishmentChanged"><label class="form-check-label fw-bold text-primary ms-1" for="replenishmentSwitch">📦 @Ui["Replenishment"]</label></div>
                     </div>
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small text-muted">Showroom Branch *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["ShowroomBranch"] *</label>
                             <select @ref="branchSelectRef" class="form-select shadow-sm" value="@orderModel.BranchId" @onchange="OnBranchChanged" disabled="@isSalesman">
-                                <option value="0">-- Select Branch --</option>
+                                <option value="0">@Ui["SelectBranch"]</option>
                                 @foreach (var branch in branches.Where(b => !b.IsWorkshop))
                                 {
                                     <option value="@branch.BranchId">@branch.BranchName</option>
@@ -112,20 +112,20 @@
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small text-muted">Order No *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["OrderNo"] *</label>
                             <input @ref="manualOrderIdRef" type="text" class="form-control fw-bold text-uppercase shadow-sm"
                                    @bind="orderModel.ManualOrderId" placeholder="e.g. 1001" />
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold small text-muted">Order Date *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["OrderDate"] *</label>
                             <input @ref="orderDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.OrderDate" />
                         </div>
 
                         @if (!orderModel.IsReplenishment)
                         {
                         <div class="col-md-6 position-relative">
-                            <label class="form-label fw-semibold small text-muted">Customer Name *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["CustomerName"] *</label>
                              <input @ref="customerNameRef" type="text" class="form-control shadow-sm" placeholder="Search or type full name..."
                                     @bind="orderModel.CustomerName" @bind:event="oninput" @bind:after="OnCustomerNameChanged" />
 
@@ -143,7 +143,7 @@
                         </div>
 
                         <div class="col-md-6 position-relative">
-                            <label class="form-label fw-semibold small text-muted">Customer Phone *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["CustomerPhone"] *</label>
                              <input @ref="customerPhoneRef" type="text" class="form-control shadow-sm" placeholder="Mobile / WhatsApp number..."
                                     @bind="orderModel.CustomerPhone" @bind:event="oninput" @bind:after="OnCustomerPhoneChanged" />
 
@@ -162,7 +162,7 @@
                         }
                         else
                         {
-                            <div class="col-12"><div class="alert alert-info mb-0"><i class="bi bi-info-circle me-2"></i>Customer details are not required for replenishment orders.</div></div>
+                            <div class="col-12"><div class="alert alert-info mb-0"><i class="bi bi-info-circle me-2"></i>@Ui["CustomerDetailsNotRequired"]</div></div>
                         }
                     </div>
                 </div>
@@ -176,47 +176,47 @@
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                     <h6 class="fw-bold m-0 text-dark">
                         <i class="bi @(editingIndex >= 0 ? "bi-pencil-square text-warning" : "bi-plus-circle text-primary") me-2"></i>
-                        @(editingIndex >= 0 ? $"Edit Item #{editingIndex + 1}" : "Add New Item to Order")
+                        @(editingIndex >= 0 ? $"{Ui["EditItem"]} #{editingIndex + 1}" : Ui["AddNewItem"])
                     </h6>
                     @if (editingIndex >= 0)
                     {
-                        <span class="badge bg-warning text-dark"><i class="bi bi-info-circle me-1"></i> Editing Mode Active</span>
+                        <span class="badge bg-warning text-dark"><i class="bi bi-info-circle me-1"></i> @Ui["EditingMode"]</span>
                     }
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Item Category *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["ItemCategory"] *</label>
                             <select @ref="categorySelectRef" class="form-select shadow-sm fw-bold text-primary"
                                     @onchange="OnCategoryChanged" value="@currentItem.Category" disabled="@currentItem.IsLocked">
-                                <option value="@ItemCategory.Abaya">👗 Abaya</option>
-                                <option value="@ItemCategory.InnerDress">🥻 Inner Dress (Internal Only)</option>
+                                <option value="@ItemCategory.Abaya">👗 @Ui["Abaya"]</option>
+                                <option value="@ItemCategory.InnerDress">🥻 @Ui["InnerDress"]</option>
                             </select>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold small text-muted">Model / Style Description *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["ModelDescription"] *</label>
                             <input @ref="modelDescRef" type="text" class="form-control shadow-sm"
                                    placeholder="Enter model details or design notes..." @bind="currentItem.ModelTextDescription" />
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Workflow / Assigned Tailor *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["WorkflowTailor"] *</label>
                             <select @ref="workflowSelectRef" class="form-select shadow-sm fw-bold"
-                                    @bind="currentItem.SelectedWorkflowKey" disabled="@(currentItem.Category == ItemCategory.InnerDress || currentItem.IsLocked)">
-                                <option value="">-- Select Tailor --</option>
-                                <option value="Internal">🏠 Internal Workshop</option>
+                                    @bind="currentItem.SelectedWorkflowKey" disabled="@currentItem.IsLocked">
+                                <option value="">@Ui["SelectWorkflow"]</option>
+                                <option value="Internal">🏠 @Ui["InternalWorkshop"]</option>
                                 @if (currentItem.Category == ItemCategory.Abaya)
                                 {
                                     @foreach (var w in externalWorkers)
                                     {
                                         if (w.SupportedType == ExternalWorkerType.Hybrid || w.SupportedType == ExternalWorkerType.Both)
                                         {
-                                            <option value="Hybrid_@w.ExternalWorkerId">🧵 Hybrid - @w.Name</option>
+                                            <option value="Hybrid_@w.ExternalWorkerId">🧵 @Ui["Hybrid"] - @w.Name</option>
                                         }
                                         if (w.SupportedType == ExternalWorkerType.FullExternal || w.SupportedType == ExternalWorkerType.Both)
                                         {
-                                            <option value="External_@w.ExternalWorkerId">🏬 Full External - @w.Name</option>
+                                            <option value="External_@w.ExternalWorkerId">🏬 @Ui["FullExternal"] - @w.Name</option>
                                         }
                                     }
                                 }
@@ -230,17 +230,17 @@
                                     <input class="form-check-input" type="checkbox" id="extFabricCheck"
                                            @bind="currentItem.BuyFabricForExternal" disabled="@currentItem.IsLocked">
                                     <label class="form-check-label fw-bold text-dark small" for="extFabricCheck">
-                                        🛒 Buy fabric for this External Worker model?
+                                        🛒 @Ui["BuyExternalFabric"]
                                     </label>
                                 </div>
                             </div>
                         }
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Fabric Supplier Shop *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["FabricSupplierShop"] *</label>
                             <select @ref="fabricShopSelectRef" class="form-select shadow-sm"
                                     @bind="currentItem.FabricShopId" disabled="@currentItem.IsLocked">
-                                <option value="">-- Select Shop --</option>
+                                <option value="">@Ui["SelectShop"]</option>
                                 @foreach (var shop in fabricShops)
                                 {
                                     <option value="@shop.FabricShopId">@shop.FabricShopName</option>
@@ -249,10 +249,10 @@
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Fabric Type *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["FabricType"] *</label>
                             <select @ref="fabricSelectRef" class="form-select shadow-sm"
                                     @bind="currentItem.FabricId" disabled="@currentItem.IsLocked">
-                                <option value="">-- Select Fabric --</option>
+                                <option value="">@Ui["SelectFabric"]</option>
                                 @foreach (var f in fabrics)
                                 {
                                     <option value="@f.FabricId">@f.FabricName</option>
@@ -261,7 +261,7 @@
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Catalog Color Code *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["CatalogColorCode"] *</label>
                             <input @ref="colorCodeRef" type="text" class="form-control shadow-sm"
                                    @bind="currentItem.ColorCode" placeholder="e.g. Black / #001" disabled="@currentItem.IsLocked" />
                         </div>
@@ -269,12 +269,12 @@
                         @if (currentItem.Category == ItemCategory.Abaya)
                         {
                             <div class="col-md-3">
-                                <label class="form-label fw-semibold small text-muted">Sheila Size</label>
+                                <label class="form-label fw-semibold small text-muted">@Ui["SheilaSize"]</label>
                                 <select @ref="sheilaSizeSelectRef" class="form-select shadow-sm"
                                         @bind="currentItem.SelectedSheilaSize" disabled="@currentItem.IsLocked">
-                                    <option value="@SheilaSize.Size_28x81">Standard (28 x 81 in)</option>
-                                    <option value="@SheilaSize.Size_22x81">Small (22 x 81 in)</option>
-                                    <option value="@SheilaSize.Size_28x90">Custom XL (28 x 90 in - Needs Fabric)</option>
+                                    <option value="@SheilaSize.Size_28x81">@Ui["StandardSize"]</option>
+                                    <option value="@SheilaSize.Size_22x81">@Ui["SmallSize"]</option>
+                                    <option value="@SheilaSize.Size_28x90">@Ui["CustomXL"]</option>
                                 </select>
                             </div>
                         }
@@ -285,7 +285,7 @@
                                 <input class="form-check-input" type="checkbox" id="handEmbCheck"
                                        @bind="currentItem.HandEmbRequired" disabled="@currentItem.IsLocked">
                                 <label class="form-check-label fw-bold text-dark small" for="handEmbCheck">
-                                    🖐️ Hand Embroidery Required?
+                                    🖐️ @Ui["HandEmbRequired"]
                                 </label>
                             </div>
                         </div>
@@ -297,7 +297,7 @@
                                     <input class="form-check-input" type="checkbox" id="rawFabricEmbCheck"
                                            @bind="currentItem.rawFabricEmb" disabled="@currentItem.IsLocked">
                                     <label class="form-check-label fw-bold text-dark small" for="rawFabricEmbCheck">
-                                        🧵 Send Raw Uncut Fabric to External Embroiderer?
+                                        🧵 @Ui["RawFabricExternal"]
                                     </label>
                                 </div>
                             </div>
@@ -307,16 +307,16 @@
                             @if (editingIndex >= 0)
                             {
                                 <button type="button" class="btn btn-outline-secondary fw-bold me-2 shadow-sm" @onclick="CancelItemEdit">
-                                    <i class="bi bi-x-lg me-1"></i> Cancel
+                                    <i class="bi bi-x-lg me-1"></i> @Ui["Cancel"]
                                 </button>
                                 <button type="button" class="btn btn-warning fw-bold shadow-sm" @onclick="AddOrUpdateItem">
-                                    <i class="bi bi-check-lg me-1"></i> Update Line Item
+                                    <i class="bi bi-check-lg me-1"></i> @Ui["UpdateLineItem"]
                                 </button>
                             }
                             else
                             {
                                 <button type="button" class="btn btn-primary fw-bold shadow-sm" @onclick="AddOrUpdateItem">
-                                    <i class="bi bi-plus-lg me-1"></i> Add Item to Order List
+                                    <i class="bi bi-plus-lg me-1"></i> @Ui["AddItem"]
                                 </button>
                             }
                         </div>
@@ -336,13 +336,13 @@
                             <thead class="table-light small">
                                 <tr>
                                     <th>#</th>
-                                    <th>Category</th>
-                                    <th>Description</th>
-                                    <th>Workflow / Tailor</th>
-                                    <th>Color</th>
-                                    <th>Embroidery Options</th>
-                                    <th>Status</th>
-                                    <th class="text-end">Actions</th>
+                                    <th>@Ui["Category"]</th>
+                                    <th>@Ui["Description"]</th>
+                                    <th>@Ui["WorkflowTailor"]</th>
+                                    <th>@Ui["Color"]</th>
+                                    <th>@Ui["EmbroideryOptions"]</th>
+                                    <th>@Ui["Status"]</th>
+                                    <th class="text-end">@Ui["Actions"]</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -371,17 +371,17 @@
                                             }
                                             @if (!item.HandEmbRequired && !item.rawFabricEmb)
                                             {
-                                                <span class="text-muted small">None</span>
+                                                <span class="text-muted small">@Ui["None"]</span>
                                             }
                                         </td>
                                         <td>
                                             @if (item.IsLocked)
                                             {
-                                                <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Locked (@item.Status)</span>
+                                                <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>@Ui["Locked"] (@Ui.ForStatus(item.Status))</span>
                                             }
                                             else
                                             {
-                                                <span class="badge bg-success">@item.Status</span>
+                                                <span class="badge bg-success">@Ui.ForStatus(item.Status)</span>
                                             }
                                         </td>
                                         <td class="text-end">
@@ -425,56 +425,56 @@
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                     <h6 class="fw-bold m-0 text-dark">
-                        <i class="bi bi-ruler me-2 text-primary"></i>Step 3: Customer Measurements Profile
+                        <i class="bi bi-ruler me-2 text-primary"></i>Step 3: @Ui["CustomerMeasurements"]
                     </h6>
-                    <span class="badge bg-secondary">Optional / Skippable</span>
+                    <span class="badge bg-secondary">@Ui["OptionalSkippable"]</span>
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Abaya Length (Front)</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["AbayaFrontLength"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaFront" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Abaya Length (Back)</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["AbayaBackLength"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthAbayaBack" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Sleeve Length</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["SleeveLength"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.LengthSleeve" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Arm Hole Width</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["ArmHoleWidth"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthArmHole" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Sleeve Opening Width</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["SleeveOpeningWidth"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthSleeveOpening" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Shoulder Width</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["ShoulderWidth"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthShoulder" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Body / Chest Width</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["BodyChestWidth"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBody" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Bottom / Flare Width</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["BottomFlareWidth"]</label>
                             <input type="number" step="0.1" class="form-control" @bind="orderModel.WidthBottom" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-semibold text-muted">Button Configuration</label>
+                            <label class="form-label small fw-semibold text-muted">@Ui["ButtonConfiguration"]</label>
                             <select class="form-select" @bind="orderModel.ButtonType">
-                                <option value="@ButtonType.NoButtons">No Buttons</option>
-                                <option value="@ButtonType.ButtonsWithBand">Buttons With Band</option>
-                                <option value="@ButtonType.ButtonsWithoutBand">Buttons Without Band</option>
+                                <option value="@ButtonType.NoButtons">@Ui["NoButtons"]</option>
+                                <option value="@ButtonType.ButtonsWithBand">@Ui["ButtonsWithBand"]</option>
+                                <option value="@ButtonType.ButtonsWithoutBand">@Ui["ButtonsWithoutBand"]</option>
                             </select>
                         </div>
                         @if (orderModel.ButtonType != ButtonType.NoButtons)
                         {
                             <div class="col-md-4">
-                                <label class="form-label small fw-semibold text-muted">Number of Buttons</label>
+                                <label class="form-label small fw-semibold text-muted">@Ui["NumberOfButtons"]</label>
                                 <input type="number" class="form-control" @bind="orderModel.NumberOfButtons" />
                             </div>
                         }
@@ -490,41 +490,41 @@
             <div class="card border-0 shadow-sm rounded-3 mb-4">
                 <div class="card-header bg-white border-bottom py-3">
                     <h6 class="fw-bold m-0 text-dark">
-                        <i class="bi bi-cash-stack me-2 text-success"></i>Step 4: Financial Calculation & Delivery Summary
+                        <i class="bi bi-cash-stack me-2 text-success"></i>Step 4: @Ui["FinancialSummary"]
                     </h6>
                 </div>
                 <div class="card-body p-4">
                     <div class="alert alert-light border rounded-3 p-3 mb-4">
                         <div class="row g-2 small">
-                            <div class="col-md-3"><strong>@(orderModel.IsReplenishment ? "Order Type:" : "Customer:")</strong> @(orderModel.IsReplenishment ? "Replenishment" : $"{orderModel.CustomerName} ({orderModel.CustomerPhone})")</div>
-                            <div class="col-md-3"><strong>Order Ticket No:</strong> <span class="badge bg-dark">@orderModel.ManualOrderId</span></div>
-                            <div class="col-md-3"><strong>Order Date:</strong> @orderModel.OrderDate.ToString("yyyy-MM-dd")</div>
-                            <div class="col-md-3"><strong>Total Line Items:</strong> <span class="badge bg-primary">@orderModel.Items.Count Items</span></div>
+                            <div class="col-md-3"><strong>@(orderModel.IsReplenishment ? Ui["OrderType"] : Ui["Customer"]):</strong> @(orderModel.IsReplenishment ? Ui["Replenishment"] : $"{orderModel.CustomerName} ({orderModel.CustomerPhone})")</div>
+                            <div class="col-md-3"><strong>@Ui["OrderTicketNo"]:</strong> <span class="badge bg-dark">@orderModel.ManualOrderId</span></div>
+                            <div class="col-md-3"><strong>@Ui["OrderDate"]:</strong> @orderModel.OrderDate.ToString("yyyy-MM-dd")</div>
+                            <div class="col-md-3"><strong>@Ui["TotalLineItems"]:</strong> <span class="badge bg-primary">@orderModel.Items.Count @Ui["Items"]</span></div>
                         </div>
                     </div>
 
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Estimated Delivery Date *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["EstimatedDelivery"] *</label>
                             <input @ref="deliveryDateRef" type="date" class="form-control shadow-sm" @bind="orderModel.EstimatedDeliveryDate" />
                         </div>
                         @if (!orderModel.IsReplenishment)
                         {
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Total Amount (AED) *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["TotalAmount"] (AED) *</label>
                             <input @ref="totalAmountRef" type="number" step="0.01" class="form-control fw-bold fs-6" @bind="orderModel.TotalAmount" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Deposit Paid (AED) *</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["DepositPaid"] (AED) *</label>
                             <input @ref="depositPaidRef" type="number" step="0.01" class="form-control text-success fw-bold fs-6" @bind="orderModel.DepositPaid" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold small text-muted">Balance Due (AED)</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["BalanceDue"] (AED)</label>
                             <input type="number" step="0.01" class="form-control text-danger fw-bold fs-6 bg-light" value="@orderModel.BalanceDue" readonly />
                         </div>
                         }
                         <div class="col-12">
-                            <label class="form-label fw-semibold small text-muted">Order Notes / Instructions</label>
+                            <label class="form-label fw-semibold small text-muted">@Ui["OrderNotes"]</label>
                             <textarea class="form-control shadow-sm" rows="3" placeholder="Enter special delivery instructions or order notes..." @bind="orderModel.OrderNotes"></textarea>
                         </div>
                     </div>
@@ -538,7 +538,7 @@
                 @if (currentStep > 1)
                 {
                     <button type="button" class="btn btn-outline-secondary fw-bold px-4" @onclick="PreviousStep">
-                        <i class="bi bi-arrow-left me-1"></i> Previous Step
+                        <i class="bi bi-arrow-left me-1"></i> @Ui["PreviousStep"]
                     </button>
                 }
             </div>
@@ -547,7 +547,7 @@
                 @if (currentStep < 4)
                 {
                     <button type="button" class="btn btn-primary fw-bold px-4" @onclick="NextStep">
-                        Next Step <i class="bi bi-arrow-right ms-1"></i>
+                        @Ui["NextStep"] <i class="bi bi-arrow-right ms-1"></i>
                     </button>
                 }
                 else
@@ -557,11 +557,11 @@
                         @if (isSubmitting)
                         {
                             <span class="spinner-border spinner-border-sm me-2"></span>
-                            <span>Saving Order...</span>
+                            <span>@Ui["SavingOrder"]</span>
                         }
                         else
                         {
-                            <span><i class="bi bi-check-circle-fill me-2"></i> @(orderModel.IsEditMode ? "Update Order" : "Save Entire Order")</span>
+                            <span><i class="bi bi-check-circle-fill me-2"></i> @(orderModel.IsEditMode ? Ui["UpdateOrder"] : Ui["SaveEntireOrder"])</span>
                         }
                     </button>
                 }
@@ -790,7 +790,7 @@
             currentItem.Category = category;
             if (category == ItemCategory.InnerDress)
             {
-                currentItem.SelectedWorkflowKey = "Internal";
+                currentItem.SelectedWorkflowKey = string.Empty;
                 currentItem.BuyFabricForExternal = false;
             }
             else
@@ -890,7 +890,7 @@
 
         return await ValidateFieldsAsync(
             (string.IsNullOrWhiteSpace(currentItem.ModelTextDescription), "Validation Error", "Please provide a model description.", modelDescRef),
-            (string.IsNullOrWhiteSpace(currentItem.SelectedWorkflowKey), "Validation Error", "Please select a workflow / tailor dropdown option.", workflowSelectRef),
+            (string.IsNullOrWhiteSpace(currentItem.SelectedWorkflowKey), Ui["ValidationError"], Ui["SelectWorkflowRequired"], workflowSelectRef),
             (isFabricRequired && (currentItem.FabricShopId == null || currentItem.FabricShopId <= 0), "Validation Error", "Please select a fabric supplier shop.", fabricShopSelectRef),
             (isFabricRequired && (currentItem.FabricId == null || currentItem.FabricId <= 0), "Validation Error", "Please select a fabric type.", fabricSelectRef),
             (isFabricRequired && string.IsNullOrWhiteSpace(currentItem.ColorCode), "Validation Error", "Please enter a catalog color code.", colorCodeRef)
@@ -1028,23 +1028,23 @@
 
     private string GetWorkflowLabel(OrderItemFormModel item)
     {
-        if (item.SelectedWorkflowKey == "Internal") return "🏠 Internal Workshop";
+        if (item.SelectedWorkflowKey == "Internal") return $"🏠 {Ui["InternalWorkshop"]}";
 
         if (item.SelectedWorkflowKey.StartsWith("Hybrid_"))
         {
             var id = int.Parse(item.SelectedWorkflowKey.Replace("Hybrid_", ""));
             var worker = externalWorkers.FirstOrDefault(w => w.ExternalWorkerId == id);
-            return $"🧵 Hybrid ({worker?.Name ?? "External"})";
+            return $"🧵 {Ui["Hybrid"]} ({worker?.Name ?? Ui["External"]})";
         }
 
         if (item.SelectedWorkflowKey.StartsWith("External_"))
         {
             var id = int.Parse(item.SelectedWorkflowKey.Replace("External_", ""));
             var worker = externalWorkers.FirstOrDefault(w => w.ExternalWorkerId == id);
-            return $"🏬 External ({worker?.Name ?? "External"})";
+            return $"🏬 {Ui["FullExternal"]} ({worker?.Name ?? Ui["External"]})";
         }
 
-        return "Unknown";
+        return Ui["Unknown"];
     }
 
     private async Task HandleSubmit()

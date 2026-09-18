@@ -18,7 +18,7 @@
 <div class="container-fluid p-0">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h3 class="fw-bold text-dark m-0">🧵 Tailor Assignment</h3>
+            <h3 class="fw-bold text-dark m-0">🧵 @Ui["TailorAssignmentTitle"]</h3>
             <p class="text-muted small m-0">Assign cut items that are waiting for a tailor.</p>
         </div>
         <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
@@ -48,11 +48,11 @@
         <div class="card-body p-3">
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["OrderNo"]</label>
                     <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Delivery Date</label>
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["DeliveryDate"]</label>
                     <input type="date" class="form-control" @bind="deliveryDate" @bind:after="ApplyFilter" />
                 </div>
                 <div class="col-md-4">
@@ -92,7 +92,7 @@
                             <th>Cut By</th>
                             <th>Delivery Date</th>
                             <th>Assign Tailor</th>
-                            <th class="text-end">Action</th>
+                            <th class="text-end">@Ui["Action"]</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,7 +109,7 @@
                                 <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
                                 <td style="min-width: 220px;">
                                     <select class="form-select form-select-sm" value="@GetSelectedTailor(item)" @onchange="e => SetSelectedTailor(item, e)">
-                                        <option value="0">-- Select tailor --</option>
+                                        <option value="0">@Ui["SelectTailor"]</option>
                                         @foreach (var tailor in availableTailors)
                                         {
                                             <option value="@tailor.WorkerId">@tailor.Name (@GetTailorWorkload(tailor.WorkerId) assigned)</option>
@@ -263,7 +263,7 @@
             targetItem.OrderItemId,
             nextStatus,
             assignedWorkerId: tailor.WorkerId,
-            notes: "Tailor assigned after cutting was completed.",
+            notes: "TailorAssignedAfterCutting",
             branchId: targetItem.BranchId,
             orderId: targetItem.OrderId,
             performedByWorkerId: await GetCurrentUserIdAsync());

@@ -59,7 +59,7 @@ namespace AbayaSystem.Core
         public int? FabricId { get; set; }
         public string ColorCode { get; set; } = "Black";
 
-        public string SelectedWorkflowKey { get; set; } = "Internal";
+        public string SelectedWorkflowKey { get; set; } = string.Empty;
         public bool BuyFabricForExternal { get; set; } = false;
 
         public SheilaSize SelectedSheilaSize { get; set; } = SheilaSize.Size_28x81;

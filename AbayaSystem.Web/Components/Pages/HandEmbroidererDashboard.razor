@@ -18,7 +18,7 @@
 <div class="container-fluid p-0">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h3 class="fw-bold text-dark m-0">🪡 Hand Embroiderer Dashboard</h3>
+            <h3 class="fw-bold text-dark m-0">🪡 @Ui["HandEmbDashboardTitle"]</h3>
             <p class="text-muted small m-0">Manage assigned hand-embroidery tasks and advance completed work.</p>
         </div>
         <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
@@ -232,7 +232,7 @@
             return;
         }
 
-        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.HandEmbActive, notes: "Hand embroiderer started the task.", branchId: target.BranchId, orderId: target.OrderId, performedByWorkerId: currentUserId);
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.HandEmbActive, notes: "HandEmbStarted", branchId: target.BranchId, orderId: target.OrderId, performedByWorkerId: currentUserId);
         await LoadTasksAsync();
     }
 
@@ -258,7 +258,7 @@
             return;
         }
 
-        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.QueueFullStitching, notes: "Hand embroidery completed.", branchId: target.BranchId, orderId: target.OrderId, performedByWorkerId: currentUserId);
+        await WorkflowService.TransitionStatusAsync(target.OrderItemId, ItemStatus.QueueFullStitching, notes: "HandEmbCompleted", branchId: target.BranchId, orderId: target.OrderId, performedByWorkerId: currentUserId);
         await Swal.FireAsync(new SweetAlertOptions { Title = "Task Completed", Text = "The item is queued for full stitching.", Icon = SweetAlertIcon.Success, Timer = 1800, ShowConfirmButton = false });
         await LoadTasksAsync();
     }

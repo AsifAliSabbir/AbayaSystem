@@ -18,7 +18,7 @@
 <div class="container-fluid p-0">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h3 class="fw-bold text-dark m-0">↩️ External Vendor Returns</h3>
+            <h3 class="fw-bold text-dark m-0">↩️ @Ui["ExternalReturnsTitle"]</h3>
             <p class="text-muted small m-0">Record items returned from external vendors and move them to the next workflow stage.</p>
         </div>
         <span class="badge bg-primary fs-6 px-3 py-2">Awaiting Return: <strong>@filteredJobs.Count</strong></span>
@@ -180,11 +180,11 @@
     private async Task<int?> GetCurrentUserIdAsync()
         => await CurrentUserResolver.GetWorkerIdAsync(AuthStateProvider, DbContext);
 
-    private static string GetStageLabel(ExternalVendorJobStage stage) => stage switch
+    private string GetStageLabel(ExternalVendorJobStage stage) => stage switch
     {
-        ExternalVendorJobStage.RawFabricEmbroidery => "Raw fabric embroidery",
-        ExternalVendorJobStage.HalfStitchEmbroidery => "Half-stitch embroidery",
-        ExternalVendorJobStage.FullExternalProduction => "Full external production",
+        ExternalVendorJobStage.RawFabricEmbroidery => Ui["RawFabricEmbroidery"],
+        ExternalVendorJobStage.HalfStitchEmbroidery => Ui["HalfStitchEmbroidery"],
+        ExternalVendorJobStage.FullExternalProduction => Ui["FullExternalProduction"],
         _ => stage.ToString()
     };
 }
