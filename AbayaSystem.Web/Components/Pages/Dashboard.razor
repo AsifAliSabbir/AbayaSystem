@@ -134,8 +134,8 @@
                                         <td>@task.CustomerName</td>
                                         <td>@task.ModelDescription</td>
                                         <td><span class="badge bg-primary">@FormatStatus(task.Status)</span></td>
-                                        <td class="fw-semibold">@task.TaskStartedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
-                                        <td>@task.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                        <td class="fw-semibold">@task.TaskStartedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@task.EstimatedDeliveryDate.ToString("dd/MM/yyyy")</td>
                                     </tr>
                                 }
                             </tbody>
@@ -185,8 +185,8 @@
                                         </td>
                                         <td>@order.CustomerName</td>
                                         <td>@order.BranchName</td>
-                                        <td>@order.OrderDate.ToString("dd MMM yyyy")</td>
-                                        <td>@order.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                        <td>@order.OrderDate.ToString("dd/MM/yyyy")</td>
+                                        <td>@order.EstimatedDeliveryDate.ToString("dd/MM/yyyy")</td>
                                         <td>@order.ItemCount</td>
                                         <td><span class="badge bg-light text-dark border">@FormatStatus(order.PrimaryStatus)</span></td>
                                         <td class="text-end pe-4 fw-semibold">@order.TotalAmount.ToString("N2")</td>
@@ -240,8 +240,8 @@
                                         <td>@item.BranchName</td>
                                         <td>@item.ModelDescription</td>
                                         <td><span class="badge bg-light text-dark border">@FormatStatus(item.Status)</span></td>
-                                        <td>@item.OrderDate.ToString("dd MMM yyyy")</td>
-                                        <td class="fw-bold">@item.EstimatedDeliveryDate.ToString("dd MMM yyyy")</td>
+                                        <td>@item.OrderDate.ToString("dd/MM/yyyy")</td>
+                                        <td class="fw-bold">@item.EstimatedDeliveryDate.ToString("dd/MM/yyyy")</td>
                                     </tr>
                                 }
                             </tbody>

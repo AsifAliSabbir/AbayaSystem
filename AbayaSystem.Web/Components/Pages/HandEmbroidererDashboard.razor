@@ -43,7 +43,7 @@
                         <h4 class="fw-bold mb-1">@activeItem.ModelTextDescription</h4>
                         <div class="small opacity-90">
                             Customer: <strong>@(activeItem.Order?.Customer?.CustomerName ?? "N/A")</strong>
-                            <span class="ms-3">Delivery: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</strong></span>
+                            <span class="ms-3">Delivery: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")</strong></span>
                         </div>
                     </div>
                     @if (canControlTasks && (!isHandEmbroiderer || activeItem.HandEmbroideredByWorkerId == currentUserId))
@@ -122,7 +122,7 @@
                                 <td>@(item.Fabric?.FabricName ?? "N/A")<br /><small>@item.ColorCode</small></td>
                                 <td>@(item.HandEmbroideredByWorkerId?.ToString() ?? "Unassigned")</td>
                                 <td><span class="badge @(isActive ? "bg-warning text-dark" : "bg-secondary")">@item.Status</span></td>
-                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
                                 @if (canControlTasks)
                                 {
                                     <td class="text-end">
@@ -199,7 +199,7 @@
         if (!string.IsNullOrWhiteSpace(orderSearch)) query = query.Where(i => i.OrderId.Contains(orderSearch.Trim(), StringComparison.OrdinalIgnoreCase));
         if (orderDate.HasValue) query = query.Where(i => i.Order?.OrderDate.Date == orderDate.Value.Date);
         if (deliveryDate.HasValue) query = query.Where(i => i.Order?.EstimatedDeliveryDate.Date == deliveryDate.Value.Date);
-        filteredItems = query.OrderByDescending(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MinValue).ThenBy(i => i.OrderId).ThenBy(i => i.OrderItemId).ToList();
+        filteredItems = query.OrderByDescending(i => i.Order?.IsUrgent ?? false).ThenBy(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MaxValue).ThenBy(i => i.OrderId).ThenBy(i => i.OrderItemId).ToList();
     }
 
     private void ResetFilter()

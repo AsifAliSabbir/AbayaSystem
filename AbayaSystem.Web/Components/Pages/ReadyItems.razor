@@ -19,39 +19,39 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h3 class="fw-bold text-dark m-0">📦 @Ui["ReadyItemsTitle"]</h3>
-            <p class="text-muted small m-0">Receive completed items from the workshop and deliver showroom-ready items.</p>
+            <p class="text-muted small m-0">@Ui["ReadyItemsDescription"]</p>
         </div>
-        <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">Ready Items: <strong>@filteredItems.Count</strong></span>
+        <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">@Ui["ReadyItemsCount"]: <strong>@filteredItems.Count</strong></span>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Order No</label>
-                    <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="Search order number" />
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["OrderNoLabel"]</label>
+                    <input class="form-control" @bind="orderSearch" @bind:event="oninput" @bind:after="ApplyFilter" placeholder="@Ui["SearchOrderNumber"]" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Order Date</label>
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["OrderDate"]</label>
                     <input type="date" class="form-control" @bind="orderDate" @bind:after="ApplyFilter" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Delivery Date</label>
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["DeliveryDate"]</label>
                     <input type="date" class="form-control" @bind="deliveryDate" @bind:after="ApplyFilter" />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label fw-bold small text-muted text-uppercase">Location</label>
+                    <label class="form-label fw-bold small text-muted text-uppercase">@Ui["Location"]</label>
                     <select class="form-select" @bind="selectedLocation" @bind:after="ApplyFilter">
-                        <option value="0">Workshop and Showroom</option>
-                        <option value="1">Ready at Workshop</option>
-                        <option value="2">Ready at Showroom</option>
-                        <option value="3">Delivered</option>
+                        <option value="0">@Ui["WorkshopAndShowroom"]</option>
+                        <option value="1">@Ui["ReadyAtWorkshop"]</option>
+                        <option value="2">@Ui["ReadyAtShowroom"]</option>
+                        <option value="3">@Ui["Delivered"]</option>
                     </select>
                 </div>
             </div>
             <div class="mt-3">
                 <button class="btn btn-outline-secondary fw-bold" @onclick="ResetFilter">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> @Ui["ResetFilters"]
                 </button>
             </div>
         </div>
@@ -61,15 +61,15 @@
     {
         <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted fw-bold">Loading ready items...</p>
+            <p class="mt-2 text-muted fw-bold">@Ui["Loading"]</p>
         </div>
     }
     else if (!filteredGroups.Any())
     {
         <div class="card border-0 shadow-sm p-5 text-center">
             <i class="bi bi-check-circle-fill display-4 text-success"></i>
-            <h5 class="mt-3 fw-bold">No Ready Items Found</h5>
-            <p class="text-muted mb-0">No items match the selected filters.</p>
+            <h5 class="mt-3 fw-bold">@Ui["NoReadyItems"]</h5>
+            <p class="text-muted mb-0">@Ui["NoItemsMatchFilters"]</p>
         </div>
     }
     else
@@ -79,35 +79,28 @@
             var remaining = GetRemainingCount(group.Key);
             var allReady = remaining == 0;
             var orderReadyItems = allItems.Where(i => i.OrderId == group.Key).ToList();
-            var allAtShop = allReady && orderReadyItems.Count > 0 && orderReadyItems.All(i => i.Status == ItemStatus.ReadyAtShop);
             var hasWorkshopItems = orderReadyItems.Any(i => i.Status == ItemStatus.ReadyAtWorkShop);
             var parentOrder = group.First().Order;
 
             <div class="card border-0 shadow-sm mb-4 @(allReady ? "border-start border-4 border-success" : "")">
                 <div class="card-header @(allReady ? "bg-success text-white" : "bg-dark text-white") d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div>
-                        <span class="fw-bold me-3">ORDER #@group.Key</span>
-                        <span class="small">@(parentOrder?.Customer?.CustomerName ?? "N/A")</span>
+                        <span class="fw-bold me-3">@Ui["Order"] #@group.Key</span>
+                        <span class="small">@(parentOrder?.Customer?.CustomerName ?? Ui["NA"])</span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         @if (allReady)
                         {
-                            <span class="badge bg-light text-success">All items ready</span>
+                            <span class="badge bg-light text-success">@Ui["AllItemsReady"]</span>
                         }
                         else
                         {
-                            <span class="badge bg-warning text-dark">@remaining item(s) remaining</span>
+                            <span class="badge bg-warning text-dark">@remaining @Ui["ItemsRemaining"]</span>
                         }
-                        @if (allAtShop)
-                        {
-                            <button class="btn btn-sm btn-light text-success fw-bold" @onclick="() => ConfirmDeliverOrder(group.Key)">
-                                <i class="bi bi-box-seam me-1"></i> Deliver Whole Order
-                            </button>
-                        }
-                        else if (hasWorkshopItems)
+                        @if (hasWorkshopItems)
                         {
                             <button class="btn btn-sm btn-light text-dark fw-bold" @onclick="() => ConfirmReceiveOrder(group.Key)">
-                                <i class="bi bi-shop me-1"></i> Receive Workshop Items
+                                <i class="bi bi-shop me-1"></i> @Ui["ReceiveWorkshopItems"]
                             </button>
                         }
                     </div>
@@ -116,43 +109,50 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>Item</th>
-                                <th>Description</th>
-                                <th>Location</th>
-                            <th>Estimated Delivery</th>
-                            <th>Actual Delivery</th>
-                                <th class="text-end">Action</th>
+                                <th>@Ui["ItemLabel"]</th>
+                                <th>@Ui["DescriptionLabel"]</th>
+                                <th>@Ui["Workflow"]</th>
+                                <th>@Ui["FabricDetails"]</th>
+                                <th>@Ui["Location"]</th>
+                                <th>@Ui["EstimatedDelivery"]</th>
+                                <th>@Ui["ActualDelivery"]</th>
+                                <th class="text-end">@Ui["Deliver"]</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var item in group)
                             {
                                 <tr>
-                                    <td class="fw-bold">#@item.OrderItemId</td>
+                                    <td class="fw-bold">
+                                        #@item.OrderItemId
+                                    </td>
                                     <td>@item.ModelTextDescription</td>
+                                    <td class="small fw-semibold">@GetWorkflowDisplay(item)</td>
+                                    <td class="small">@GetFabricDetailsDisplay(item)</td>
                                     <td>
                                         <span class="badge @(item.Status == ItemStatus.ReadyAtWorkShop ? "bg-info text-dark" : item.Status == ItemStatus.ReadyAtShop ? "bg-success" : "bg-secondary")">
-                                            @(item.Status == ItemStatus.ReadyAtWorkShop ? "Workshop" : item.Status == ItemStatus.ReadyAtShop ? "Showroom" : "Delivered")
+                                            @(item.Status == ItemStatus.ReadyAtWorkShop ? Ui["Workshop"] : item.Status == ItemStatus.ReadyAtShop ? Ui["ReadyAtShowroom"] : Ui["Delivered"])
                                         </span>
                                     </td>
-                                    <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
-                                    <td>@(item.ActualDeliveryDate?.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "—")</td>
+                                    <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                                    <td>@(item.ActualDeliveryDate?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
                                     <td class="text-end">
                                         @if (item.Status == ItemStatus.ReadyAtWorkShop)
                                         {
                                             <button class="btn btn-sm btn-outline-primary fw-bold" @onclick="() => ConfirmReceiveItem(item)">
-                                                <i class="bi bi-shop me-1"></i> Receive at Shop
+                                                <i class="bi bi-shop me-1"></i> @Ui["ReceiveAtShop"]
                                             </button>
                                         }
                                         else if (item.Status == ItemStatus.ReadyAtShop)
                                         {
-                                            <button class="btn btn-sm btn-success fw-bold" @onclick="() => ConfirmDeliverItem(item)">
-                                                <i class="bi bi-check2-circle me-1"></i> Deliver Item
-                                            </button>
+                                            <input class="form-check-input" type="checkbox"
+                                                   checked="@IsDeliverySelected(item)"
+                                                   @onchange="(args) => OnDeliverySelectionChanged(item, args)"
+                                                   aria-label="@Ui["Deliver"]" />
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary"><i class="bi bi-check2 me-1"></i> Delivered</span>
+                                            <span class="badge bg-secondary"><i class="bi bi-check2 me-1"></i> @Ui["Delivered"]</span>
                                         }
                                     </td>
                                 </tr>
@@ -160,10 +160,88 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="card-footer bg-white text-end">
+                    @if (GetSelectedCount(group.Key) > 0)
+                    {
+                        <button class="btn btn-success fw-bold" @onclick="() => OpenDeliveryPaymentModal(group.Key)">
+                            <i class="bi bi-cash-coin me-1"></i> @Ui["DeliverSelected"] (@GetSelectedCount(group.Key))
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="text-muted small">@Ui["SelectReadyItems"]</span>
+                    }
+                </div>
             </div>
         }
     }
 </div>
+
+@if (isDeliveryPaymentModalOpen && deliveryOrder != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg rounded-3">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin text-warning me-2"></i>@Ui["ConfirmDeliveryPayment"]</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDeliveryPaymentModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <div class="fw-bold">@Ui["Order"] #@deliveryOrder.OrderId</div>
+                        <div class="text-muted small">@(deliveryOrder.Customer?.CustomerName ?? Ui["NA"])</div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">@Ui["OrderTotal"]</small><strong>AED @deliveryOrder.TotalAmount.ToString("N2")</strong></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">@Ui["PaidToDate"]</small><strong class="text-success">AED @deliveryOrder.DepositPaid.ToString("N2")</strong></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">@Ui["CurrentPayment"]</small><strong class="text-primary">AED @currentDeliveryPayment.ToString("N2")</strong></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">@Ui["BalanceAfterPayment"]</small><strong class="text-danger">AED @Math.Max(0, deliveryOrder.BalanceDue - currentDeliveryPayment).ToString("N2")</strong></div></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">@Ui["CurrentPayment"]</label>
+                        <div class="input-group">
+                            <span class="input-group-text">AED</span>
+                            <input type="number" min="0" max="@deliveryOrder.BalanceDue" step="0.01" class="form-control" @bind="currentDeliveryPayment" @bind:event="oninput" />
+                        </div>
+                        <small class="text-muted">@selectedDeliveryItems.Count @Ui["ItemLabel"] · @Ui["BalanceDue"]: AED @deliveryOrder.BalanceDue.ToString("N2")</small>
+                    </div>
+
+                    <h6 class="fw-bold border-bottom pb-2">@Ui["PaymentHistory"]</h6>
+                    @if (deliveryPaymentHistory.Count == 0 && deliveryOrder.DepositPaid <= 0)
+                    {
+                        <p class="text-muted small">@Ui["NoPaymentHistory"]</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light"><tr><th>@Ui["PaymentDate"]</th><th>@Ui["Notes"]</th><th class="text-end">@Ui["PaymentAmount"]</th></tr></thead>
+                                <tbody>
+                                    @if (deliveryOrder.DepositPaid - deliveryPaymentHistory.Sum(p => p.Amount) > 0)
+                                    {
+                                        <tr><td>@deliveryOrder.OrderDate.ToLocalTime().ToString("dd/MM/yyyy")</td><td>@Ui["InitialDeposit"]</td><td class="text-end">AED @((deliveryOrder.DepositPaid - deliveryPaymentHistory.Sum(p => p.Amount)).ToString("N2"))</td></tr>
+                                    }
+                                    @foreach (var payment in deliveryPaymentHistory)
+                                    {
+                                        <tr><td>@payment.PaymentDate.ToLocalTime().ToString("dd/MM/yyyy")</td><td>@(string.IsNullOrWhiteSpace(payment.Notes) ? Ui["Delivery"] : Ui.TranslateWorkflowNote(payment.Notes))</td><td class="text-end">AED @payment.Amount.ToString("N2")</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDeliveryPaymentModal">@Ui["CancelDelivery"]</button>
+                    <button type="button" class="btn btn-success fw-bold" @onclick="CompleteSelectedDeliveryAsync" disabled="@isSubmittingDelivery">
+                        <i class="bi bi-check2-circle me-1"></i> @Ui["DeliverSelected"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private bool isLoading = true;
@@ -175,6 +253,13 @@
     private List<OrderItem> filteredItems = new();
     private IEnumerable<IGrouping<string, OrderItem>> filteredGroups = Enumerable.Empty<IGrouping<string, OrderItem>>();
     private Dictionary<string, int> remainingCounts = new();
+    private readonly HashSet<string> selectedDeliveryKeys = new(StringComparer.OrdinalIgnoreCase);
+    private bool isDeliveryPaymentModalOpen;
+    private bool isSubmittingDelivery;
+    private Order? deliveryOrder;
+    private List<OrderPayment> deliveryPaymentHistory = new();
+    private List<OrderItem> selectedDeliveryItems = new();
+    private decimal currentDeliveryPayment;
 
     private static readonly ItemStatus[] DisplayStatuses =
     {
@@ -194,8 +279,13 @@
         allItems = await DbContext.OrderItems
             .Include(i => i.Order)
                 .ThenInclude(o => o.Customer)
+            .Include(i => i.Fabric)
+            .Include(i => i.FabricShop)
+            .Include(i => i.ExternalWorker)
             .Where(i => DisplayStatuses.Contains(i.Status))
-            .OrderBy(i => i.OrderId)
+            .OrderByDescending(i => i.Order!.IsUrgent)
+            .ThenBy(i => i.Order!.EstimatedDeliveryDate)
+            .ThenBy(i => i.OrderId)
             .ThenBy(i => i.OrderItemId)
             .ToListAsync();
 
@@ -227,12 +317,95 @@
         filteredItems = query.ToList();
         filteredGroups = filteredItems
             .GroupBy(i => i.OrderId)
-            .OrderByDescending(g => GetRemainingCount(g.Key) == 0)
-            .ThenByDescending(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MinValue)
+            .OrderByDescending(g => g.First().Order?.IsUrgent ?? false)
+            .ThenBy(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MaxValue)
             .ThenBy(g => g.Key);
     }
 
     private int GetRemainingCount(string orderId) => remainingCounts.GetValueOrDefault(orderId);
+
+    private string GetWorkflowDisplay(OrderItem item)
+    {
+        if (item.ExternalWorker != null)
+        {
+            var workflow = item.ExternalWorker.SupportedType == ExternalWorkerType.Hybrid
+                ? Ui["Hybrid"]
+                : Ui["FullExternal"];
+            return $"{workflow} ({item.ExternalWorker.Name})";
+        }
+
+        return item.TypeOfOrder switch
+        {
+            OrderType.Hybrid => Ui["Hybrid"],
+            OrderType.External => Ui["FullExternal"],
+            _ => Ui["InternalWorkshop"]
+        };
+    }
+
+    private string GetFabricDetailsDisplay(OrderItem item)
+    {
+        var shop = item.FabricShop?.FabricShopName ?? Ui["NA"];
+        var fabric = item.Fabric?.FabricName ?? Ui["NA"];
+        var color = string.IsNullOrWhiteSpace(item.ColorCode) ? Ui["NA"] : item.ColorCode;
+        return $"{shop} - {fabric} ({Ui["Color"]}: {color})";
+    }
+
+    private static string DeliveryKey(OrderItem item) => $"{item.BranchId}:{item.OrderId}:{item.OrderItemId}";
+
+    private bool IsDeliverySelected(OrderItem item) => selectedDeliveryKeys.Contains(DeliveryKey(item));
+
+    private int GetSelectedCount(string orderId) => allItems.Count(item => item.OrderId == orderId && IsDeliverySelected(item));
+
+    private void OnDeliverySelectionChanged(OrderItem item, ChangeEventArgs args)
+    {
+        var isSelected = args.Value is bool value && value;
+        if (isSelected)
+        {
+            selectedDeliveryKeys.Add(DeliveryKey(item));
+        }
+        else
+        {
+            selectedDeliveryKeys.Remove(DeliveryKey(item));
+        }
+    }
+
+    private async Task OpenDeliveryPaymentModal(string orderId)
+    {
+        selectedDeliveryItems = allItems
+            .Where(item => item.OrderId == orderId && item.Status == ItemStatus.ReadyAtShop && IsDeliverySelected(item))
+            .ToList();
+
+        if (selectedDeliveryItems.Count == 0)
+        {
+            return;
+        }
+
+        var firstItem = selectedDeliveryItems[0];
+        deliveryOrder = await DbContext.Orders
+            .Include(order => order.Customer)
+            .FirstOrDefaultAsync(order => order.BranchId == firstItem.BranchId && order.OrderId == orderId);
+
+        if (deliveryOrder == null)
+        {
+            return;
+        }
+
+        deliveryPaymentHistory = await DbContext.OrderPayments
+            .Where(payment => payment.BranchId == deliveryOrder.BranchId && payment.OrderId == deliveryOrder.OrderId)
+            .OrderBy(payment => payment.PaymentDate)
+            .ToListAsync();
+        currentDeliveryPayment = deliveryOrder.BalanceDue;
+        isDeliveryPaymentModalOpen = true;
+    }
+
+    private void CloseDeliveryPaymentModal()
+    {
+        isDeliveryPaymentModalOpen = false;
+        deliveryOrder = null;
+        deliveryPaymentHistory.Clear();
+        selectedDeliveryItems.Clear();
+        currentDeliveryPayment = 0;
+    }
 
     private void ResetFilter()
     {
@@ -281,44 +454,79 @@
         await LoadDataAsync();
     }
 
-    private async Task ConfirmDeliverItem(OrderItem item)
+    private async Task CompleteSelectedDeliveryAsync()
     {
-        var result = await Swal.FireAsync(new SweetAlertOptions
+        if (deliveryOrder == null || selectedDeliveryItems.Count == 0 || isSubmittingDelivery)
         {
-            Title = "Deliver Item?",
-            Text = $"Mark Order #{item.OrderId}, Item #{item.OrderItemId} as delivered to the customer?",
-            Icon = SweetAlertIcon.Question,
-            ShowCancelButton = true,
-            ConfirmButtonText = "Yes, Deliver",
-            CancelButtonText = "Cancel",
-            ConfirmButtonColor = "#198754"
-        });
-        if (result.IsConfirmed) await DeliverItemsAsync(new[] { item });
-    }
-
-    private async Task ConfirmDeliverOrder(string orderId)
-    {
-        var items = allItems.Where(i => i.OrderId == orderId && i.Status == ItemStatus.ReadyAtShop).ToList();
-        var result = await Swal.FireAsync(new SweetAlertOptions
-        {
-            Title = "Deliver Whole Order?",
-            Text = $"Mark all {items.Count} ready item(s) in Order #{orderId} as delivered?",
-            Icon = SweetAlertIcon.Question,
-            ShowCancelButton = true,
-            ConfirmButtonText = "Yes, Deliver Order",
-            CancelButtonText = "Cancel",
-            ConfirmButtonColor = "#198754"
-        });
-        if (result.IsConfirmed) await DeliverItemsAsync(items);
-    }
-
-    private async Task DeliverItemsAsync(IEnumerable<OrderItem> items)
-    {
-        foreach (var item in items)
-        {
-            await WorkflowService.TransitionStatusAsync(item.OrderItemId, ItemStatus.Delivered, notes: "ItemDelivered", branchId: item.BranchId, orderId: item.OrderId, performedByWorkerId: await GetCurrentUserIdAsync());
+            return;
         }
-        await LoadDataAsync();
+
+        var balanceDue = Math.Max(0, deliveryOrder.BalanceDue);
+        if (balanceDue > 0 && currentDeliveryPayment <= 0)
+        {
+            await Swal.FireAsync(Ui["PaymentRequired"], Ui["PaymentRequired"], SweetAlertIcon.Warning);
+            return;
+        }
+
+        if (currentDeliveryPayment < 0 || currentDeliveryPayment > balanceDue)
+        {
+            await Swal.FireAsync(Ui["PaymentCannotExceedBalance"], Ui["PaymentCannotExceedBalance"], SweetAlertIcon.Warning);
+            return;
+        }
+
+        isSubmittingDelivery = true;
+        try
+        {
+            var selectedKeys = selectedDeliveryItems.Select(DeliveryKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var freshItems = await DbContext.OrderItems
+                .Where(item => item.BranchId == deliveryOrder.BranchId && item.OrderId == deliveryOrder.OrderId && item.Status == ItemStatus.ReadyAtShop)
+                .ToListAsync();
+            var itemsToDeliver = freshItems.Where(item => selectedKeys.Contains(DeliveryKey(item))).ToList();
+
+            if (itemsToDeliver.Count == 0)
+            {
+                CloseDeliveryPaymentModal();
+                return;
+            }
+
+            var trackedOrder = await DbContext.Orders
+                .FirstAsync(order => order.BranchId == deliveryOrder.BranchId && order.OrderId == deliveryOrder.OrderId);
+
+            if (currentDeliveryPayment > 0)
+            {
+                DbContext.OrderPayments.Add(new OrderPayment
+                {
+                    BranchId = trackedOrder.BranchId,
+                    OrderId = trackedOrder.OrderId,
+                    Amount = currentDeliveryPayment,
+                    PaymentDate = DateTime.UtcNow,
+                    Notes = "DeliveryPayment"
+                });
+                trackedOrder.DepositPaid += currentDeliveryPayment;
+                trackedOrder.BalanceDue = Math.Max(0, trackedOrder.TotalAmount - trackedOrder.DepositPaid);
+                await DbContext.SaveChangesAsync();
+            }
+
+            var currentUserId = await GetCurrentUserIdAsync();
+            foreach (var item in itemsToDeliver)
+            {
+                await WorkflowService.TransitionStatusAsync(
+                    item.OrderItemId,
+                    ItemStatus.Delivered,
+                    notes: "ItemDelivered",
+                    branchId: item.BranchId,
+                    orderId: item.OrderId,
+                    performedByWorkerId: currentUserId);
+            }
+
+            selectedDeliveryKeys.RemoveWhere(key => selectedKeys.Contains(key));
+            CloseDeliveryPaymentModal();
+            await LoadDataAsync();
+        }
+        finally
+        {
+            isSubmittingDelivery = false;
+        }
     }
 
     private async Task<int?> GetCurrentUserIdAsync()

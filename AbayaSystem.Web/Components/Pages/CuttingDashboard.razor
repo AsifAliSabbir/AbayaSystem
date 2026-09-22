@@ -1,4 +1,4 @@
-﻿@page "/cutting-dashboard"
+@page "/cutting-dashboard"
 @attribute [Authorize(Roles = "Admin, Salesman, CuttingMaster")]
 
 @using AbayaSystem.Core
@@ -126,10 +126,10 @@
 
                     <div class="d-flex align-items-center gap-3">
                         <span class="extra-small opacity-85">
-                            <i class="bi bi-calendar-event me-1"></i> @Ui["Order"]: @(parentOrder?.OrderDate.ToString("dd MMM yyyy") ?? "N/A")
+                            <i class="bi bi-calendar-event me-1"></i> @Ui["Order"]: @(parentOrder?.OrderDate.ToString("dd/MM/yyyy") ?? "N/A")
                         </span>
                         <span class="badge bg-light text-dark fw-bold px-3 py-2">
-                            <i class="bi bi-truck me-1 text-primary"></i> @Ui["Due"]: @(parentOrder?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")
+                            <i class="bi bi-truck me-1 text-primary"></i> @Ui["Due"]: @(parentOrder?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")
                         </span>
                         <span class="badge bg-secondary fw-bold px-2 py-1">
                             @group.Count() @Ui["Garments"]
@@ -461,7 +461,7 @@
         groupedOrders = query
             .GroupBy(i => i.OrderId)
             .OrderByDescending(g => g.First().Order?.IsUrgent ?? false)
-            .ThenByDescending(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MinValue);
+            .ThenBy(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MaxValue);
     }
 
     private void ResetFilters()

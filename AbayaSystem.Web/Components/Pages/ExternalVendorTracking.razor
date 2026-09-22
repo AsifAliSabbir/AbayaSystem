@@ -80,9 +80,9 @@
                                 <td>@(job.OrderItem?.Order?.Customer?.CustomerName ?? "N/A")</td>
                                 <td>@job.ExternalWorker?.Name</td>
                                 <td>@GetStageLabel(job.Stage)</td>
-                                <td>@job.DispatchedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
-                                <td>@(job.ExpectedReturnDate?.ToString("dd MMM yyyy") ?? "Not set")</td>
-                                <td>@(job.OrderItem?.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td>@job.DispatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@(job.ExpectedReturnDate?.ToString("dd/MM/yyyy") ?? "Not set")</td>
+                                <td>@(job.OrderItem?.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
                                 <td>@(string.IsNullOrWhiteSpace(job.DispatchNotes) ? "—" : job.DispatchNotes)</td>
                             </tr>
                         }
@@ -111,8 +111,9 @@
                 .ThenInclude(i => i.Order)
                     .ThenInclude(o => o.Customer)
             .Where(j => j.Status == ExternalVendorJobStatus.Dispatched)
-            .OrderBy(j => j.ExpectedReturnDate)
-            .ThenBy(j => j.DispatchedAt)
+            .OrderByDescending(j => j.OrderItem!.Order!.IsUrgent)
+            .ThenBy(j => j.OrderItem!.Order!.EstimatedDeliveryDate)
+            .ThenBy(j => j.ExpectedReturnDate)
             .ToListAsync();
         ApplyFilter();
     }

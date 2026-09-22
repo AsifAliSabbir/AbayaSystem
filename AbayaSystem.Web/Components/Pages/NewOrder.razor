@@ -1,4 +1,4 @@
-﻿@page "/orders/new"
+@page "/orders/new"
 @attribute [Authorize(Roles = "Admin,Salesman")]
 @implements IDisposable
 @using AbayaSystem.Core
@@ -498,7 +498,7 @@
                         <div class="row g-2 small">
                             <div class="col-md-3"><strong>@(orderModel.IsReplenishment ? Ui["OrderType"] : Ui["Customer"]):</strong> @(orderModel.IsReplenishment ? Ui["Replenishment"] : $"{orderModel.CustomerName} ({orderModel.CustomerPhone})")</div>
                             <div class="col-md-3"><strong>@Ui["OrderTicketNo"]:</strong> <span class="badge bg-dark">@orderModel.ManualOrderId</span></div>
-                            <div class="col-md-3"><strong>@Ui["OrderDate"]:</strong> @orderModel.OrderDate.ToString("yyyy-MM-dd")</div>
+                            <div class="col-md-3"><strong>@Ui["OrderDate"]:</strong> @orderModel.OrderDate.ToString("dd/MM/yyyy")</div>
                             <div class="col-md-3"><strong>@Ui["TotalLineItems"]:</strong> <span class="badge bg-primary">@orderModel.Items.Count @Ui["Items"]</span></div>
                         </div>
                     </div>

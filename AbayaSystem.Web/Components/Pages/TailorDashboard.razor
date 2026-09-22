@@ -1,4 +1,4 @@
-﻿@page "/tailor-dashboard"
+@page "/tailor-dashboard"
 @attribute [Authorize(Roles = "Admin, Salesman, Tailor, CuttingMaster")]
 
 @using AbayaSystem.Core
@@ -61,7 +61,7 @@
                             <span><i class="bi bi-layers me-1"></i> @Ui["Fabric"]: <strong>@(activeItem.Fabric?.FabricName ?? Ui["NA"])</strong></span>
                             <span><i class="bi bi-shop me-1"></i> @Ui["Shop"]: <strong>@(activeItem.FabricShop?.FabricShopName ?? Ui["NA"])</strong></span>
                             <span><i class="bi bi-person me-1"></i> @Ui["Customer"]: <strong>@(activeItem.Order?.Customer?.CustomerName ?? Ui["NA"])</strong></span>
-                            <span><i class="bi bi-calendar-event me-1"></i> @Ui["DeliveryDate"]: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? Ui["NA"])</strong></span>
+                            <span><i class="bi bi-calendar-event me-1"></i> @Ui["DeliveryDate"]: <strong>@(activeItem.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? Ui["NA"])</strong></span>
                         </div>
                     </div>
                     <div class="col-lg-4 text-lg-end d-flex flex-column flex-sm-row gap-2 justify-content-lg-end">
@@ -188,10 +188,10 @@
 
                     <div class="d-flex align-items-center gap-3">
                         <span class="small opacity-85">
-                            <i class="bi bi-calendar-event me-1"></i> @Ui["OrderDate"]: @(parentOrder?.OrderDate.ToString("dd MMM yyyy") ?? Ui["NA"])
+                            <i class="bi bi-calendar-event me-1"></i> @Ui["OrderDate"]: @(parentOrder?.OrderDate.ToString("dd/MM/yyyy") ?? Ui["NA"])
                         </span>
                         <span class="badge bg-light text-dark fw-bold px-3 py-2">
-                            <i class="bi bi-truck me-1 text-primary"></i> @Ui["Due"]: @(parentOrder?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? Ui["NA"])
+                            <i class="bi bi-truck me-1 text-primary"></i> @Ui["Due"]: @(parentOrder?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? Ui["NA"])
                         </span>
                     </div>
                 </div>
@@ -485,7 +485,7 @@
         groupedOrders = filteredList
             .GroupBy(i => i.OrderId)
             .OrderByDescending(g => g.First().Order?.IsUrgent ?? false)
-            .ThenByDescending(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MinValue);
+            .ThenBy(g => g.First().Order?.EstimatedDeliveryDate ?? DateTime.MaxValue);
     }
 
     private void ResetFilters()

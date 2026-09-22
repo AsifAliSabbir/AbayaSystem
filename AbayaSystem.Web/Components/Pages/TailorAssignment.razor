@@ -106,7 +106,7 @@
                                 </td>
                                 <td>@(item.Order?.Customer?.CustomerName ?? "N/A")</td>
                                 <td>@(item.CutByWorkerId?.ToString() ?? "N/A")</td>
-                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td>@(item.Order?.EstimatedDeliveryDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
                                 <td style="min-width: 220px;">
                                     <select class="form-select form-select-sm" value="@GetSelectedTailor(item)" @onchange="e => SetSelectedTailor(item, e)">
                                         <option value="0">@Ui["SelectTailor"]</option>
@@ -198,7 +198,8 @@
         }
 
         filteredItems = query
-            .OrderByDescending(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MinValue)
+            .OrderByDescending(i => i.Order?.IsUrgent ?? false)
+            .ThenBy(i => i.Order?.EstimatedDeliveryDate ?? DateTime.MaxValue)
             .ThenBy(i => i.OrderId)
             .ThenBy(i => i.OrderItemId)
             .ToList();

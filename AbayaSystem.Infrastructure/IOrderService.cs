@@ -375,20 +375,13 @@ namespace AbayaSystem.Infrastructure
                 query = query.Where(o => o.Items.Any(i => i.Status == filter.ItemStatus.Value));
             }
 
-            IOrderedQueryable<Order> orderedQuery;
-
-            if (filter.SortBy == "DeliveryDate")
-            {
-                orderedQuery = filter.SortDescending
-                    ? query.OrderByDescending(o => o.IsUrgent).ThenByDescending(o => o.EstimatedDeliveryDate)
-                    : query.OrderByDescending(o => o.IsUrgent).ThenBy(o => o.EstimatedDeliveryDate);
-            }
-            else
-            {
-                orderedQuery = filter.SortDescending
-                    ? query.OrderByDescending(o => o.IsUrgent).ThenByDescending(o => o.OrderDate)
-                    : query.OrderByDescending(o => o.IsUrgent).ThenBy(o => o.OrderDate);
-            }
+            // The all-orders page prioritizes urgent orders, then shows the newest
+            // orders first by order date.
+            IOrderedQueryable<Order> orderedQuery = query
+                .OrderByDescending(o => o.IsUrgent)
+                .ThenByDescending(o => o.OrderDate)
+                .ThenByDescending(o => o.EstimatedDeliveryDate)
+                .ThenBy(o => o.OrderId);
 
             var totalCount = await orderedQuery.CountAsync();
 
@@ -519,8 +512,8 @@ namespace AbayaSystem.Infrastructure
                     .OrderByDescending(x => x.Count)
                     .ToList(),
                 RecentOrders = orders
-                    .OrderByDescending(o => o.OrderDate)
-                    .ThenByDescending(o => o.IsUrgent)
+                    .OrderByDescending(o => o.IsUrgent)
+                    .ThenBy(o => o.EstimatedDeliveryDate)
                     .Take(8)
                     .Select(o => new DashboardRecentOrder
                     {
@@ -551,8 +544,8 @@ namespace AbayaSystem.Infrastructure
                         IsUrgent = o.IsUrgent
                     }))
                     .Where(i => i.Status != ItemStatus.Delivered)
-                    .OrderBy(i => i.EstimatedDeliveryDate)
-                    .ThenByDescending(i => i.IsUrgent)
+                    .OrderByDescending(i => i.IsUrgent)
+                    .ThenBy(i => i.EstimatedDeliveryDate)
                     .ToList(),
                 WorkerTasks = workerTaskItems
                     .Select(i =>
@@ -585,8 +578,9 @@ namespace AbayaSystem.Infrastructure
                         };
                     })
                     .Where(t => t.WorkerId > 0)
-                    .OrderBy(t => t.WorkerName)
-                    .ThenBy(t => t.TaskStartedAt)
+                    .OrderByDescending(t => items.FirstOrDefault(i => i.OrderItemId == t.OrderItemId && i.OrderId == t.OrderId)?.Order?.IsUrgent ?? false)
+                    .ThenBy(t => t.EstimatedDeliveryDate)
+                    .ThenBy(t => t.WorkerName)
                     .ToList()
             };
         }

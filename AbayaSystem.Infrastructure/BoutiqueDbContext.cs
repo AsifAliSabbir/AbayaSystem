@@ -16,6 +16,7 @@ namespace AbayaSystem.Infrastructure
         public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Order> Orders => Set<Order>();
+        public DbSet<OrderPayment> OrderPayments => Set<OrderPayment>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<Worker> Workers => Set<Worker>();
         public DbSet<ExternalWorker> ExternalWorkers { get; set; }
@@ -90,6 +91,17 @@ namespace AbayaSystem.Infrastructure
                       .WithMany()
                       .HasForeignKey(o => o.CustomerId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<OrderPayment>(entity =>
+            {
+                entity.HasKey(p => p.OrderPaymentId);
+                entity.Property(p => p.Amount).HasColumnType("decimal(18,2)");
+                entity.Property(p => p.Notes).HasMaxLength(500);
+                entity.HasOne(p => p.Order)
+                    .WithMany(o => o.Payments)
+                    .HasForeignKey(p => new { p.BranchId, p.OrderId })
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<ReadymadeSale>(entity =>

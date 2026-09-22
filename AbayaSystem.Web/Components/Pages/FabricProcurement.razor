@@ -246,19 +246,25 @@
 
         // Abaya items needing fabric procurement
         abayaPendingItems = await DbContext.OrderItems
+            .Include(i => i.Order)
             .Include(i => i.Fabric)
             .Include(i => i.FabricShop)
             .Where(i => i.Status == ItemStatus.ReadyForFabricProcurement && !i.IsAbayaFabricBought)
-            .OrderBy(i => i.OrderId)
+            .OrderByDescending(i => i.Order!.IsUrgent)
+            .ThenBy(i => i.Order!.EstimatedDeliveryDate)
+            .ThenBy(i => i.OrderId)
             .ThenBy(i => i.OrderItemId)
             .ToListAsync();
 
         // Sheila items requiring separate fabric purchase (custom/large size: Size_28x90)
         sheilaPendingItems = await DbContext.OrderItems
+            .Include(i => i.Order)
             .Include(i => i.Fabric)
             .Include(i => i.FabricShop)
             .Where(i => i.SelectedSheilaSize == SheilaSize.Size_28x90 && !i.IsSheilaFabricBought)
-            .OrderBy(i => i.OrderId)
+            .OrderByDescending(i => i.Order!.IsUrgent)
+            .ThenBy(i => i.Order!.EstimatedDeliveryDate)
+            .ThenBy(i => i.OrderId)
             .ThenBy(i => i.OrderItemId)
             .ToListAsync();
 

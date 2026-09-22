@@ -1,4 +1,4 @@
-﻿@page "/orders"
+@page "/orders"
 @attribute [Authorize(Roles = "Admin,Salesman")]
 @using AbayaSystem.Core
 @using AbayaSystem.Infrastructure
@@ -101,10 +101,7 @@
 
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold text-muted mb-1">@Ui["SortByUrgentFirst"]</label>
-                    <select class="form-select form-select-sm shadow-sm" @bind="filter.SortBy" @bind:after="ApplySearch">
-                        <option value="OrderDate">@Ui["OrderDate"]</option>
-                        <option value="DeliveryDate">@Ui["DeliveryDate"]</option>
-                    </select>
+                    <div class="form-control form-control-sm shadow-sm bg-light">@Ui["UrgentThenRecentOrder"]</div>
                 </div>
 
                 <div class="col-md-2.5">
@@ -164,10 +161,10 @@
 
                         <div class="d-flex align-items-center gap-3">
                             <div class="text-muted small">
-                                <i class="bi bi-calendar-event me-1"></i>@Ui["Order"]: <strong>@order.OrderDate.ToString("yyyy-MM-dd")</strong>
+                                <i class="bi bi-calendar-event me-1"></i>@Ui["Order"]: <strong>@order.OrderDate.ToString("dd/MM/yyyy")</strong>
                             </div>
                             <div class="text-muted small">
-                                <i class="bi bi-truck me-1"></i>@Ui["DeliveryDate"]: <strong class="text-primary">@order.EstimatedDeliveryDate.ToString("yyyy-MM-dd")</strong>
+                                <i class="bi bi-truck me-1"></i>@Ui["DeliveryDate"]: <strong class="text-primary">@order.EstimatedDeliveryDate.ToString("dd/MM/yyyy")</strong>
                             </div>
                             <button type="button" class="btn btn-outline-primary btn-sm fw-bold shadow-sm" @onclick="() => EditOrder(order)">
                                 <i class="bi bi-pencil-square me-1"></i> @Ui["EditOrder"]
@@ -348,7 +345,7 @@
                                     @foreach (var workflowEvent in workflowEvents)
                                     {
                                         <tr>
-                                            <td class="text-nowrap fw-semibold">@workflowEvent.TimeOfEvent.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</td>
+                                            <td class="text-nowrap fw-semibold">@workflowEvent.TimeOfEvent.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                                             <td><span class="badge @(workflowEvent.EventType.Contains("External") ? "bg-warning text-dark" : "bg-secondary")">@Ui.TranslateEventType(workflowEvent.EventType)</span></td>
                                             <td>
                                                 <span class="text-muted">@FormatStatus(workflowEvent.PreviousState)</span>

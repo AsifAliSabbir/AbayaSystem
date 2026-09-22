@@ -221,6 +221,18 @@ namespace AbayaSystem.Core
         public decimal BalanceDue { get; set; }
 
         public List<OrderItem> Items { get; set; } = new();
+        public List<OrderPayment> Payments { get; set; } = new();
+    }
+
+    public class OrderPayment
+    {
+        public int OrderPaymentId { get; set; }
+        public int BranchId { get; set; }
+        public string OrderId { get; set; } = string.Empty;
+        public Order? Order { get; set; }
+        public decimal Amount { get; set; }
+        public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
+        public string? Notes { get; set; }
     }
 
     public class ReadymadeSale
