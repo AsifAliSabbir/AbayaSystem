@@ -5,6 +5,7 @@
 
 @inject IWorkerService WorkerService
 @inject IOrderService OrderService
+@inject NavigationManager Navigation
 
 <PageTitle>@Ui["WorkerPerformance"]</PageTitle>
 
@@ -69,30 +70,46 @@
                 </div>
                 <div class="text-end small text-muted">
                     <div>@Ui["LastActivity"]</div>
-                    <div class="fw-semibold">@(report.LastActivity.HasValue ? report.LastActivity.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")</div>
+                    <div class="fw-semibold">@(report.LastActivity.HasValue ? report.LastActivity.Value.ToLocalTime().ToString("dd/MM/yyyy hh:mm tt") : "-")</div>
                 </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>@Ui["Time"]</th><th>@Ui["OrderNoLabel"]</th><th>@Ui["Customer"]</th><th>@Ui["Item"]</th><th>@Ui["Transition"]</th><th>@Ui["Responsible"]</th><th>@Ui["Notes"]</th>
+                            <th>@Ui["Time"]</th>
+                            <th>@Ui["OrderNoLabel"]</th>
+                            <th>@Ui["ItemID"]</th>
+                            <th>@Ui["ItemLabel"]</th>
+                            <th>@Ui["FabricDetails"]</th>
+                            <th>@Ui["Workflow"]</th>
+                            <th>@Ui["Transition"]</th>
+                            <th>@Ui["Notes"]</th>
                         </tr>
                     </thead>
                     <tbody>
                         @if (report.WorkflowHistory.Count == 0)
                         {
-                            <tr><td colspan="7" class="text-center text-muted py-4">@Ui["NoWorkerHistory"]</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted py-4">@Ui["NoWorkerHistory"]</td></tr>
                         }
                         else
                         {
                             @foreach (var entry in report.WorkflowHistory)
                             {
                                 <tr>
-                                    <td class="small">@entry.TimeOfEvent.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td class="fw-semibold">@entry.OrderId</td><td>@entry.CustomerName</td><td>@entry.ModelDescription</td>
+                                    <td class="small">@entry.TimeOfEvent.ToLocalTime().ToString("dd/MM/yyyy hh:mm tt")</td>
+                                    <td class="fw-semibold">@entry.OrderId</td>
+                                    <td class="fw-semibold">@entry.OrderItemId</td>
+                                    <td>
+                                        <button type="button"
+                                                class="btn btn-link p-0 text-decoration-none fw-semibold text-start"
+                                                @onclick="() => OpenOrderDetails(entry)">
+                                            @(string.IsNullOrWhiteSpace(entry.ModelDescription) ? Ui["ItemLabel"] : entry.ModelDescription)
+                                        </button>
+                                    </td>
+                                    <td class="small">@GetFabricDetailsDisplay(entry)</td>
+                                    <td class="small">@GetWorkflowDisplay(entry)</td>
                                     <td>@Ui.ForStatus(entry.PreviousState) → @Ui.ForStatus(entry.CurrentState)</td>
-                                    <td>@(string.IsNullOrWhiteSpace(entry.PerformedByWorkerName) ? entry.CurrentWorkerName : entry.PerformedByWorkerName)</td>
                                     <td class="small">@(string.IsNullOrWhiteSpace(entry.Notes) ? "-" : Ui.TranslateWorkflowNote(entry.Notes))</td>
                                 </tr>
                             }
@@ -117,6 +134,38 @@
         workers = (await WorkerService.GetWorkersAsync())
             .Where(w => !w.AssignedRoles.HasFlag(WorkerRole.Admin))
             .ToList();
+    }
+
+    private void OpenOrderDetails(OrderWorkflowEventDto entry)
+    {
+        var url = $"/orders?orderId={Uri.EscapeDataString(entry.OrderId)}&branchId={entry.BranchId}";
+        Navigation.NavigateTo(url);
+    }
+
+    private string GetWorkflowDisplay(OrderWorkflowEventDto entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.ExternalWorkerName))
+        {
+            var workflow = entry.ExternalWorkerType == ExternalWorkerType.Hybrid
+                ? Ui["Hybrid"]
+                : Ui["FullExternal"];
+            return $"{workflow} ({entry.ExternalWorkerName})";
+        }
+
+        return entry.TypeOfOrder switch
+        {
+            OrderType.Hybrid => Ui["Hybrid"],
+            OrderType.External => Ui["FullExternal"],
+            _ => Ui["InternalWorkshop"]
+        };
+    }
+
+    private string GetFabricDetailsDisplay(OrderWorkflowEventDto entry)
+    {
+        var shop = string.IsNullOrWhiteSpace(entry.FabricShopName) ? Ui["NA"] : entry.FabricShopName;
+        var fabric = string.IsNullOrWhiteSpace(entry.FabricName) ? Ui["NA"] : entry.FabricName;
+        var color = string.IsNullOrWhiteSpace(entry.ColorCode) ? Ui["NA"] : entry.ColorCode;
+        return $"{shop} - {fabric} ({color})";
     }
 
     private async Task LoadReportAsync()

@@ -370,6 +370,12 @@
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "orderId")]
+    public string? OrderIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "branchId")]
+    public int? BranchIdQuery { get; set; }
+
     private OrderFilterModel filter = new() { PageSize = 5 };
     private PagedResult<Order> pagedResult = new();
     private List<Branch> branches = new();
@@ -389,6 +395,7 @@
         try
         {
             branches = await OrderService.GetBranchesAsync();
+            ApplyQueryFilters();
             await LoadOrdersAsync();
         }
         catch (Exception ex)
@@ -423,6 +430,19 @@
         selectedOrderItem = null;
         workflowEvents.Clear();
     }
+    private void ApplyQueryFilters()
+    {
+        if (!string.IsNullOrWhiteSpace(OrderIdQuery))
+        {
+            filter.OrderId = OrderIdQuery;
+        }
+
+        if (BranchIdQuery.HasValue && BranchIdQuery.Value > 0)
+        {
+            filter.BranchId = BranchIdQuery;
+        }
+    }
+
     private async Task LoadOrdersAsync()
     {
         isLoading = true;

@@ -9,6 +9,12 @@ public class OrderWorkflowEventDto
     public int OrderItemId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string ModelDescription { get; set; } = string.Empty;
+    public OrderType TypeOfOrder { get; set; } = OrderType.Internal;
+    public string ExternalWorkerName { get; set; } = string.Empty;
+    public ExternalWorkerType? ExternalWorkerType { get; set; }
+    public string FabricShopName { get; set; } = string.Empty;
+    public string FabricName { get; set; } = string.Empty;
+    public string ColorCode { get; set; } = string.Empty;
     public ItemStatus? PreviousState { get; set; }
     public ItemStatus CurrentState { get; set; }
     public int? PreviousWorkerId { get; set; }

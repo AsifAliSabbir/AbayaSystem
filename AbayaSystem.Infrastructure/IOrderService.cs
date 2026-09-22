@@ -768,12 +768,19 @@ namespace AbayaSystem.Infrastructure
                 .Distinct()
                 .ToList();
 
+            var branchIds = keys.Select(key => key.BranchId).Distinct().ToList();
             var orderIds = keys.Select(key => key.OrderId).Distinct().ToList();
+            var itemIds = keys.Select(key => key.OrderItemId).Distinct().ToList();
             var items = await _context.OrderItems
                 .AsNoTracking()
                 .Include(item => item.Order)
                     .ThenInclude(order => order!.Customer)
-                .Where(item => orderIds.Contains(item.OrderId))
+                .Include(item => item.FabricShop)
+                .Include(item => item.Fabric)
+                .Include(item => item.ExternalWorker)
+                .Where(item => branchIds.Contains(item.BranchId) &&
+                               orderIds.Contains(item.OrderId) &&
+                               itemIds.Contains(item.OrderItemId))
                 .ToListAsync();
             var branches = await _context.Branches.AsNoTracking().ToDictionaryAsync(b => b.BranchId, b => b.BranchName);
 
@@ -813,6 +820,12 @@ namespace AbayaSystem.Infrastructure
                     OrderItemId = log.OrderItemId,
                     CustomerName = item?.Order?.Customer?.CustomerName ?? string.Empty,
                     ModelDescription = item?.ModelTextDescription ?? string.Empty,
+                    TypeOfOrder = item?.TypeOfOrder ?? OrderType.Internal,
+                    ExternalWorkerName = item?.ExternalWorker?.Name ?? string.Empty,
+                    ExternalWorkerType = item?.ExternalWorker?.SupportedType,
+                    FabricShopName = item?.FabricShop?.FabricShopName ?? string.Empty,
+                    FabricName = item?.Fabric?.FabricName ?? string.Empty,
+                    ColorCode = item?.ColorCode ?? string.Empty,
                     PreviousState = log.PreviousState,
                     CurrentState = log.CurrentState,
                     PreviousWorkerId = log.PreviousWorkerId,
