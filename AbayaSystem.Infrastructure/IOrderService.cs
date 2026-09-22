@@ -24,6 +24,7 @@ namespace AbayaSystem.Infrastructure
         Task<DashboardSummary> GetDashboardSummaryAsync(int? branchId = null, DateTime? orderDateFrom = null, DateTime? orderDateTo = null);
         Task<List<OrderWorkflowEventDto>> GetRecentWorkflowEventsAsync(int? branchId = null, int take = 15);
         Task<List<OrderWorkflowEventDto>> GetOrderItemWorkflowEventsAsync(int branchId, string orderId, int orderItemId);
+        Task<WorkerPerformanceReport?> GetWorkerPerformanceAsync(int workerId, DateTime? from = null, DateTime? to = null);
         Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId);
         Task<ServiceResult> UpdateOrderAsync(OrderFormModel model);
     }
@@ -740,6 +741,109 @@ namespace AbayaSystem.Infrastructure
             }
 
             return events.OrderByDescending(e => e.TimeOfEvent).ToList();
+        }
+
+        public async Task<WorkerPerformanceReport?> GetWorkerPerformanceAsync(int workerId, DateTime? from = null, DateTime? to = null)
+        {
+            var worker = await _context.Workers
+                .AsNoTracking()
+                .Include(w => w.Branch)
+                .FirstOrDefaultAsync(w => w.WorkerId == workerId);
+
+            if (worker == null) return null;
+
+            var start = from?.Date;
+            var endExclusive = to?.Date.AddDays(1);
+            var logs = await _context.StatusLogs
+                .AsNoTracking()
+                .Where(log =>
+                    (log.CurrentWorkerId == workerId || log.PreviousWorkerId == workerId || log.PerformedByWorkerId == workerId) &&
+                    (!start.HasValue || log.TimeOfEvent >= start.Value) &&
+                    (!endExclusive.HasValue || log.TimeOfEvent < endExclusive.Value))
+                .OrderByDescending(log => log.TimeOfEvent)
+                .ToListAsync();
+
+            var keys = logs
+                .Select(log => new { log.BranchId, log.OrderId, log.OrderItemId })
+                .Distinct()
+                .ToList();
+
+            var orderIds = keys.Select(key => key.OrderId).Distinct().ToList();
+            var items = await _context.OrderItems
+                .AsNoTracking()
+                .Include(item => item.Order)
+                    .ThenInclude(order => order!.Customer)
+                .Where(item => orderIds.Contains(item.OrderId))
+                .ToListAsync();
+            var branches = await _context.Branches.AsNoTracking().ToDictionaryAsync(b => b.BranchId, b => b.BranchName);
+
+            var referencedWorkerIds = logs
+                .SelectMany(log => new[] { log.PreviousWorkerId, log.CurrentWorkerId, log.PerformedByWorkerId })
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+            var workerNames = await _context.Workers
+                .AsNoTracking()
+                .Where(w => referencedWorkerIds.Contains(w.WorkerId))
+                .ToDictionaryAsync(w => w.WorkerId, w => w.Name);
+            var externalWorkerNames = await _context.ExternalWorkers
+                .AsNoTracking()
+                .Where(w => referencedWorkerIds.Contains(w.ExternalWorkerId))
+                .ToDictionaryAsync(w => w.ExternalWorkerId, w => w.Name + " (External)");
+
+            string WorkerName(int? id)
+            {
+                if (!id.HasValue) return "-";
+                if (workerNames.TryGetValue(id.Value, out var workerName)) return workerName;
+                if (externalWorkerNames.TryGetValue(id.Value, out var externalWorkerName)) return externalWorkerName;
+                return "Worker #" + id.Value;
+            }
+
+            var itemLookup = items.ToDictionary(i => (i.BranchId, i.OrderId, i.OrderItemId));
+            var history = logs.Select(log =>
+            {
+                itemLookup.TryGetValue((log.BranchId, log.OrderId, log.OrderItemId), out var item);
+                return new OrderWorkflowEventDto
+                {
+                    StatusLogId = log.StatusLogId,
+                    BranchId = log.BranchId,
+                    BranchName = branches.TryGetValue(log.BranchId, out var branchName) ? branchName : string.Empty,
+                    OrderId = log.OrderId,
+                    OrderItemId = log.OrderItemId,
+                    CustomerName = item?.Order?.Customer?.CustomerName ?? string.Empty,
+                    ModelDescription = item?.ModelTextDescription ?? string.Empty,
+                    PreviousState = log.PreviousState,
+                    CurrentState = log.CurrentState,
+                    PreviousWorkerId = log.PreviousWorkerId,
+                    CurrentWorkerId = log.CurrentWorkerId,
+                    PerformedByWorkerId = log.PerformedByWorkerId,
+                    PreviousWorkerName = WorkerName(log.PreviousWorkerId),
+                    CurrentWorkerName = WorkerName(log.CurrentWorkerId),
+                    PerformedByWorkerName = WorkerName(log.PerformedByWorkerId),
+                    TimeOfEvent = log.TimeOfEvent,
+                    Notes = log.Notes ?? string.Empty,
+                    EventType = "Workflow Status Change"
+                };
+            }).ToList();
+
+            var latestByItem = history
+                .GroupBy(e => (e.BranchId, e.OrderId, e.OrderItemId))
+                .Select(group => group.OrderByDescending(e => e.TimeOfEvent).First())
+                .ToList();
+
+            return new WorkerPerformanceReport
+            {
+                Worker = worker,
+                TotalWorkflowEvents = history.Count,
+                AssignedItems = history.Count(e => e.CurrentWorkerId == workerId),
+                CompletedItems = history.Count(e => e.CurrentWorkerId == workerId &&
+                    e.CurrentState is ItemStatus.ReadyAtWorkShop or ItemStatus.ReadyAtShop or ItemStatus.Delivered),
+                ActiveItems = latestByItem.Count(e => e.CurrentWorkerId == workerId &&
+                    e.CurrentState is not (ItemStatus.ReadyAtWorkShop or ItemStatus.ReadyAtShop or ItemStatus.Delivered)),
+                LastActivity = history.FirstOrDefault()?.TimeOfEvent,
+                WorkflowHistory = history
+            };
         }
 
         public async Task<OrderFormModel?> GetOrderForEditAsync(int branchId, string orderId)

@@ -1,0 +1,137 @@
+@page "/worker-performance"
+@attribute [Authorize(Roles = "Admin")]
+@using AbayaSystem.Core
+@using AbayaSystem.Infrastructure
+
+@inject IWorkerService WorkerService
+@inject IOrderService OrderService
+
+<PageTitle>@Ui["WorkerPerformance"]</PageTitle>
+
+<div class="container-fluid max-w-1200 py-3">
+    <div class="mb-4">
+        <h3 class="fw-bold mb-1">📊 @Ui["WorkerPerformance"]</h3>
+        <p class="text-muted small mb-0">@Ui["WorkerPerformanceDescription"]</p>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-4">
+                    <label class="form-label small fw-semibold">@Ui["SelectWorker"]</label>
+                    <select class="form-select" @bind="selectedWorkerId">
+                        <option value="0">@Ui["AllWorkers"]</option>
+                        @foreach (var worker in workers)
+                        {
+                            <option value="@worker.WorkerId">@worker.Name (@worker.AssignedRoles)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label small fw-semibold">@Ui["FromDate"]</label>
+                    <input class="form-control" type="date" @bind="fromDate" />
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label small fw-semibold">@Ui["ToDate"]</label>
+                    <input class="form-control" type="date" @bind="toDate" />
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <button type="button" class="btn btn-primary fw-semibold" @onclick="LoadReportAsync" disabled="@(selectedWorkerId == 0 || isLoading)">
+                        <i class="bi bi-bar-chart-line me-1"></i>@Ui["LoadReport"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (report == null)
+    {
+        <div class="alert alert-info">@Ui["NoWorkerSelected"]</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">@Ui["TotalWorkflowEvents"]</div><div class="fs-3 fw-bold">@report.TotalWorkflowEvents</div></div></div></div>
+            <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">@Ui["AssignedItems"]</div><div class="fs-3 fw-bold">@report.AssignedItems</div></div></div></div>
+            <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">@Ui["CompletedItems"]</div><div class="fs-3 fw-bold text-success">@report.CompletedItems</div></div></div></div>
+            <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">@Ui["ActiveItems"]</div><div class="fs-3 fw-bold text-warning">@report.ActiveItems</div></div></div></div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-3">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-1">@report.Worker.Name</h5>
+                    <div class="text-muted small">@report.Worker.AssignedRoles · @(report.Worker.Branch?.BranchName ?? "-")</div>
+                </div>
+                <div class="text-end small text-muted">
+                    <div>@Ui["LastActivity"]</div>
+                    <div class="fw-semibold">@(report.LastActivity.HasValue ? report.LastActivity.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "-")</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>@Ui["Time"]</th><th>@Ui["OrderNoLabel"]</th><th>@Ui["Customer"]</th><th>@Ui["Item"]</th><th>@Ui["Transition"]</th><th>@Ui["Responsible"]</th><th>@Ui["Notes"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (report.WorkflowHistory.Count == 0)
+                        {
+                            <tr><td colspan="7" class="text-center text-muted py-4">@Ui["NoWorkerHistory"]</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var entry in report.WorkflowHistory)
+                            {
+                                <tr>
+                                    <td class="small">@entry.TimeOfEvent.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="fw-semibold">@entry.OrderId</td><td>@entry.CustomerName</td><td>@entry.ModelDescription</td>
+                                    <td>@Ui.ForStatus(entry.PreviousState) → @Ui.ForStatus(entry.CurrentState)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(entry.PerformedByWorkerName) ? entry.CurrentWorkerName : entry.PerformedByWorkerName)</td>
+                                    <td class="small">@(string.IsNullOrWhiteSpace(entry.Notes) ? "-" : Ui.TranslateWorkflowNote(entry.Notes))</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Worker> workers = new();
+    private WorkerPerformanceReport? report;
+    private int selectedWorkerId;
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        workers = (await WorkerService.GetWorkersAsync())
+            .Where(w => !w.AssignedRoles.HasFlag(WorkerRole.Admin))
+            .ToList();
+    }
+
+    private async Task LoadReportAsync()
+    {
+        if (selectedWorkerId == 0) return;
+
+        isLoading = true;
+        report = null;
+        try
+        {
+            report = await OrderService.GetWorkerPerformanceAsync(selectedWorkerId, fromDate, toDate);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
