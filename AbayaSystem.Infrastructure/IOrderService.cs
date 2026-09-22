@@ -757,7 +757,7 @@ namespace AbayaSystem.Infrastructure
             var logs = await _context.StatusLogs
                 .AsNoTracking()
                 .Where(log =>
-                    (log.CurrentWorkerId == workerId || log.PreviousWorkerId == workerId || log.PerformedByWorkerId == workerId) &&
+                    log.PerformedByWorkerId == workerId &&
                     (!start.HasValue || log.TimeOfEvent >= start.Value) &&
                     (!endExclusive.HasValue || log.TimeOfEvent < endExclusive.Value))
                 .OrderByDescending(log => log.TimeOfEvent)
